@@ -39,6 +39,26 @@ SRC_FILES += \
 	$(LIB_DIR)/loramac-node/src/peripherals/soft-se/aes.c \
 	$(LIB_DIR)/loramac-node/src/peripherals/soft-se/cmac.c \
 	$(LIB_DIR)/loramac-node/src/peripherals/soft-se/soft-se.c \
+	$(LIB_DIR)/loramac-node/src/mac/region/Region.c \
+	$(LIB_DIR)/loramac-node/src/mac/region/RegionAS923.c \
+	$(LIB_DIR)/loramac-node/src/mac/region/RegionAU915.c \
+	$(LIB_DIR)/loramac-node/src/mac/region/RegionCN470.c \
+	$(LIB_DIR)/loramac-node/src/mac/region/RegionCN779.c \
+	$(LIB_DIR)/loramac-node/src/mac/region/RegionCommon.c \
+	$(LIB_DIR)/loramac-node/src/mac/region/RegionEU433.c \
+	$(LIB_DIR)/loramac-node/src/mac/region/RegionEU868.c \
+	$(LIB_DIR)/loramac-node/src/mac/region/RegionIN865.c \
+	$(LIB_DIR)/loramac-node/src/mac/region/RegionKR920.c \
+	$(LIB_DIR)/loramac-node/src/mac/region/RegionRU864.c \
+	$(LIB_DIR)/loramac-node/src/mac/region/RegionUS915.c \
+	$(LIB_DIR)/loramac-node/src/mac/LoRaMac.c \
+	$(LIB_DIR)/loramac-node/src/mac/LoRaMacAdr.c \
+	$(LIB_DIR)/loramac-node/src/mac/LoRaMacClassB.c \
+	$(LIB_DIR)/loramac-node/src/mac/LoRaMacCommands.c \
+	$(LIB_DIR)/loramac-node/src/mac/LoRaMacConfirmQueue.c \
+	$(LIB_DIR)/loramac-node/src/mac/LoRaMacCrypto.c \
+	$(LIB_DIR)/loramac-node/src/mac/LoRaMacParser.c \
+	$(LIB_DIR)/loramac-node/src/mac/LoRaMacSerializer.c \
 	$(LIB_DIR)/LoRaWAN/Utilities/low_power_manager.c \
 	$(LIB_DIR)/LoRaWAN/Utilities/queue.c \
 	$(LIB_DIR)/LoRaWAN/Utilities/systime.c \
@@ -79,6 +99,8 @@ INC_DIR += \
 	$(LIB_DIR)/B-L072Z-LRWAN1 \
 	$(LIB_DIR)/CMWX1ZZABZ-0xx \
 	$(LIB_DIR)/loramac-node/src/peripherals/soft-se \
+	$(LIB_DIR)/loramac-node/src/mac/region \
+	$(LIB_DIR)/loramac-node/src/mac \
 	$(LIB_DIR)/LoRaWAN/Phy \
 	$(LIB_DIR)/LoRaWAN/Utilities \
 	$(LIB_DIR)/LoRaWAN/Patterns/Basic \
@@ -266,6 +288,14 @@ jlink: $(ALLDEP)
 ozone: debug $(ALLDEP)
 	$(Q)$(ECHO) "Launching Ozone debugger..."
 	$(Q)Ozone tools/ozone/ozone.jdebug
+
+
+################################################################################
+# git submodule                                                                #
+################################################################################
+
+$(LIB_DIR)/loramac-node/LICENSE:
+	@git submodule update --init lib/loramac-node
 
 ################################################################################
 # Link object files                                                            #
