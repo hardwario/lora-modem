@@ -36,29 +36,9 @@ SRC_FILES += \
 	$(LIB_DIR)/B-L072Z-LRWAN1/b-l072z-lrwan1.c \
 	$(LIB_DIR)/CMWX1ZZABZ-0xx/mlm32l07x01.c \
 	\
-	$(LIB_DIR)/LoRaWAN/Crypto/aes.c \
-	$(LIB_DIR)/LoRaWAN/Crypto/cmac.c \
-	$(LIB_DIR)/LoRaWAN/Crypto/soft-se.c \
-	$(LIB_DIR)/LoRaWAN/Mac/region/Region.c \
-	$(LIB_DIR)/LoRaWAN/Mac/region/RegionAS923.c \
-	$(LIB_DIR)/LoRaWAN/Mac/region/RegionAU915.c \
-	$(LIB_DIR)/LoRaWAN/Mac/region/RegionCN470.c \
-	$(LIB_DIR)/LoRaWAN/Mac/region/RegionCN779.c \
-	$(LIB_DIR)/LoRaWAN/Mac/region/RegionCommon.c \
-	$(LIB_DIR)/LoRaWAN/Mac/region/RegionEU433.c \
-	$(LIB_DIR)/LoRaWAN/Mac/region/RegionEU868.c \
-	$(LIB_DIR)/LoRaWAN/Mac/region/RegionIN865.c \
-	$(LIB_DIR)/LoRaWAN/Mac/region/RegionKR920.c \
-	$(LIB_DIR)/LoRaWAN/Mac/region/RegionRU864.c \
-	$(LIB_DIR)/LoRaWAN/Mac/region/RegionUS915.c \
-	$(LIB_DIR)/LoRaWAN/Mac/LoRaMac.c \
-	$(LIB_DIR)/LoRaWAN/Mac/LoRaMacAdr.c \
-	$(LIB_DIR)/LoRaWAN/Mac/LoRaMacClassB.c \
-	$(LIB_DIR)/LoRaWAN/Mac/LoRaMacCommands.c \
-	$(LIB_DIR)/LoRaWAN/Mac/LoRaMacConfirmQueue.c \
-	$(LIB_DIR)/LoRaWAN/Mac/LoRaMacCrypto.c \
-	$(LIB_DIR)/LoRaWAN/Mac/LoRaMacParser.c \
-	$(LIB_DIR)/LoRaWAN/Mac/LoRaMacSerializer.c \
+	$(LIB_DIR)/loramac-node/src/peripherals/soft-se/aes.c \
+	$(LIB_DIR)/loramac-node/src/peripherals/soft-se/cmac.c \
+	$(LIB_DIR)/loramac-node/src/peripherals/soft-se/soft-se.c \
 	$(LIB_DIR)/LoRaWAN/Utilities/low_power_manager.c \
 	$(LIB_DIR)/LoRaWAN/Utilities/queue.c \
 	$(LIB_DIR)/LoRaWAN/Utilities/systime.c \
@@ -98,9 +78,7 @@ INC_DIR += \
 	$(CFG_DIR) \
 	$(LIB_DIR)/B-L072Z-LRWAN1 \
 	$(LIB_DIR)/CMWX1ZZABZ-0xx \
-	$(LIB_DIR)/LoRaWAN/Crypto \
-	$(LIB_DIR)/LoRaWAN/Mac/region \
-	$(LIB_DIR)/LoRaWAN/Mac \
+	$(LIB_DIR)/loramac-node/src/peripherals/soft-se \
 	$(LIB_DIR)/LoRaWAN/Phy \
 	$(LIB_DIR)/LoRaWAN/Utilities \
 	$(LIB_DIR)/LoRaWAN/Patterns/Basic \
