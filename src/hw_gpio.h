@@ -40,6 +40,7 @@ Maintainer: Miguel Luis and Gregory Cristian
 extern "C" {
 #endif
 
+#include "stm32l0xx_hal.h"
 
 /* Exported types ------------------------------------------------------------*/
 

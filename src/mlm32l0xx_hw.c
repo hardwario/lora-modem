@@ -35,6 +35,7 @@ Maintainer: Miguel Luis and Gregory Cristian
 #include "radio.h"
 #include "debug.h"
 #include "vcom.h"
+#include <mlm32l07x01.h>
 
 /*!
  *  \brief Unique Devices IDs register set ( STM32L0xxx )
@@ -102,18 +103,13 @@ void HW_Init(void)
 
     HW_AdcInit();
 
-    Radio.IoInit();
+    SX1276IoInit();
 
     HW_SPI_Init();
 
     HW_RTC_Init();
 
     TraceInit();
-
-    BSP_LED_Init(LED1);
-    BSP_LED_Init(LED2);
-    BSP_LED_Init(LED3);
-    BSP_LED_Init(LED4);
 
     McuInitialized = true;
   }
@@ -128,7 +124,7 @@ void HW_DeInit(void)
 {
   HW_SPI_DeInit();
 
-  Radio.IoDeInit();
+  SX1276IoDeInit();
 
   vcom_DeInit();
 
@@ -144,7 +140,7 @@ static void HW_IoInit(void)
 {
   HW_SPI_IoInit();
 
-  Radio.IoInit();
+  SX1276IoInit();
 
   vcom_IoInit();
 }
@@ -167,7 +163,7 @@ static void HW_IoDeInit(void)
   HW_GPIO_Init(RADIO_NSS_PORT, RADIO_NSS_PIN, &initStruct);
 
 
-  Radio.IoDeInit();
+  SX1276IoDeInit();
 
 // vcom_IoDeInit( );
 }

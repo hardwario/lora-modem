@@ -28,7 +28,6 @@ extern "C" {
 /* Includes ------------------------------------------------------------------*/
 
 #include "mlm32l0xx_hw_conf.h"
-#include "b-l072z-lrwan1.h"
 #include "stm32l0xx_ll_rtc.h"
 
 /* --------Preprocessor compile swicth------------ */

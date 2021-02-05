@@ -1,0 +1,16 @@
+{
+    "configurations": [
+        {
+            "name": "STM32L083",
+            "defines": [
+                "STM32L083xx"
+            ],
+            "includePath": [
+                "${workspaceFolder}/**",
+                "${default}"
+            ],
+            "cStandard": "c11"
+        }
+    ],
+    "version": 4
+}

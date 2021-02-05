@@ -32,9 +32,7 @@ SRC_FILES += \
 	$(SRC_DIR)/mlm32l0xx_hal_msp.c \
 	$(SRC_DIR)/mlm32l0xx_hw.c \
 	$(SRC_DIR)/mlm32l0xx_it.c \
-	\
-	$(LIB_DIR)/B-L072Z-LRWAN1/b-l072z-lrwan1.c \
-	$(LIB_DIR)/CMWX1ZZABZ-0xx/mlm32l07x01.c \
+	$(SRC_DIR)/mlm32l07x01.c \
 	\
 	$(LIB_DIR)/loramac-node/src/peripherals/soft-se/aes.c \
 	$(LIB_DIR)/loramac-node/src/peripherals/soft-se/cmac.c \
@@ -96,12 +94,10 @@ SRC_FILES += \
 INC_DIR += \
 	$(SRC_DIR) \
 	$(CFG_DIR) \
-	$(LIB_DIR)/B-L072Z-LRWAN1 \
-	$(LIB_DIR)/CMWX1ZZABZ-0xx \
 	$(LIB_DIR)/loramac-node/src/peripherals/soft-se \
 	$(LIB_DIR)/loramac-node/src/mac/region \
 	$(LIB_DIR)/loramac-node/src/mac \
-	$(LIB_DIR)/LoRaWAN/Phy \
+	$(LIB_DIR)/loramac-node/src/radio\
 	$(LIB_DIR)/LoRaWAN/Utilities \
 	$(LIB_DIR)/LoRaWAN/Patterns/Basic \
 	$(LIB_DIR)/stm/include \
@@ -263,16 +259,16 @@ clean: $(ALLDEP)
 # J-Link                                          #
 ################################################################################
 
-.PHONY: jlink-flash
-jlink-flash: $(ALLDEP)
+.PHONY: flash
+flash: $(ALLDEP)
 ifeq ($(OS),Windows_NT)
 	JLink -device stm32l072cz -CommanderScript tools/jlink/flash.jlink
 else
 	JLinkExe -device stm32l072cz -CommanderScript tools/jlink/flash.jlink
 endif
 
-.PHONY: jlink-gdbserver
-jlink-gdbserver: $(ALLDEP)
+.PHONY: gdbserver
+gdbserver: $(ALLDEP)
 ifeq ($(OS),Windows_NT)
 	JLinkGDBServerCL -singlerun -device stm32l072cz -if swd -speed 4000 -localhostonly -reset
 else

@@ -87,8 +87,8 @@ static LoRaBoardCallback_t BoardCallbacks = { SX1276SetXO,
  */
 const struct Radio_s Radio =
 {
-    SX1276IoInit,
-    SX1276IoDeInit,
+    // SX1276IoInit,
+    // SX1276IoDeInit,
     SX1276Init,
     SX1276GetStatus,
     SX1276SetModem,

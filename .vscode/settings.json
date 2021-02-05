@@ -1,0 +1,15 @@
+{
+    "C_Cpp.default.includePath": [
+        "${workspaceFolder}/**",
+        "${default}"
+      ],
+    "C_Cpp.default.browse.path": [
+        "${workspaceFolder}/**",
+        "${default}"
+    ],
+    "C_Cpp.default.cStandard": "c11",
+    "terminal.integrated.shell.windows": "C:\\Windows\\sysnative\\cmd.exe",
+    "files.associations": {
+        "ranges": "c"
+    }
+}
