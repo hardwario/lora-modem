@@ -25,7 +25,6 @@
 #include "queue.h"
 #include "trace.h"
 #include "low_power_manager.h"
-#include "debug.h"
 /* Private typedef -----------------------------------------------------------*/
 /* Private defines -----------------------------------------------------------*/
 /* Private macros ------------------------------------------------------------*/
@@ -68,14 +67,14 @@ int32_t TraceSend( const char *strFormat, ...)
   uint16_t bufSize=vsnprintf(buf,TEMPBUFSIZE,strFormat, vaArgs);
   va_end(vaArgs);
   int status=0;
-  
+
   BACKUP_PRIMASK();
-  
+
   DISABLE_IRQ(); /**< Disable all interrupts by setting PRIMASK bit on Cortex*/
   //DBG_GPIO_SET(GPIOB, GPIO_PIN_15);
   //DBG_GPIO_RST(GPIOB, GPIO_PIN_15);
   status =circular_queue_add(&MsgTraceQueue,(uint8_t*)buf, bufSize);
-  
+
   if ((status==0 ) && (TracePeripheralReady==SET))
   {
     circular_queue_get(&MsgTraceQueue,&buffer,&bufSize);
@@ -90,7 +89,7 @@ int32_t TraceSend( const char *strFormat, ...)
   {
     RESTORE_PRIMASK();
   }
-  
+
   return status;
 }
 
@@ -128,7 +127,7 @@ static void Trace_TxCpltCallback(void)
   /* Sense if new data to be sent */
   status=circular_queue_sense(&MsgTraceQueue);
 
-  if ( status == 0) 
+  if ( status == 0)
   {
     circular_queue_get(&MsgTraceQueue,&buffer,&bufSize);
     RESTORE_PRIMASK();

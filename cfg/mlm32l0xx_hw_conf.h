@@ -103,7 +103,7 @@ extern "C" {
 
 /* --------------------------- RTC HW definition -------------------------------- */
 
-#define RTC_OUTPUT       DBG_RTC_OUTPUT
+#define RTC_OUTPUT       RTC_OUTPUT_DISABLE
 
 #define RTC_Alarm_IRQn              RTC_IRQn
 /* --------------------------- UART HW definition -------------------------------*/

@@ -75,7 +75,9 @@ void HAL_MspInit(void)
    * And will not wait that the FLACH is ready to be read. It can miss in this
    * case the first instruction. To overcome this issue, the flash remain clcoked during sleep mode
    */
-  DBG(__HAL_FLASH_SLEEP_POWERDOWN_DISABLE(););
+  #ifdef DEBUG
+  do{ __HAL_FLASH_SLEEP_POWERDOWN_DISABLE(); } while(0);
+  #endif
 
 #ifdef ENABLE_FAST_WAKEUP
   /*Enable fast wakeUp*/
@@ -110,7 +112,7 @@ void HAL_RTC_MspInit(RTC_HandleTypeDef *hrtc)
   RCC_OscInitStruct.LSEState = RCC_LSE_ON;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
-    Error_Handler();
+    error_handler();
   }
 
   /* -b- Select LSI as RTC clock source */
@@ -118,7 +120,7 @@ void HAL_RTC_MspInit(RTC_HandleTypeDef *hrtc)
   PeriphClkInitStruct.RTCClockSelection = RCC_RTCCLKSOURCE_LSE;
   if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct) != HAL_OK)
   {
-    Error_Handler();
+    error_handler();
   }
 
   /*##-2- Enable the RTC peripheral Clock ####################################*/

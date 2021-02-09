@@ -32,6 +32,7 @@ Maintainer: Miguel Luis, Gregory Cristian and Wael Guibene
   */
 
 /* Includes ------------------------------------------------------------------*/
+#include "system.h"
 #include "hw.h"
 #include "low_power_manager.h"
 #include "timeServer.h"
@@ -113,17 +114,10 @@ static LoRaParam_t LoRaParamInit = {LORAWAN_ADR_ON,
  */
 int main(void)
 {
-  /* STM32 HAL library initialization*/
-  HAL_Init();
-
-  /* Configure the system clock*/
-  SystemClock_Config();
+  system_init();
 
   /* Configure the hardware*/
   HW_Init();
-
-  /* Configure Debug mode */
-  DBG_Init();
 
   /* USER CODE BEGIN 1 */
   CMD_Init();
@@ -179,7 +173,7 @@ static void LoraRxData(lora_AppData_t *AppData)
 #ifdef  USE_FULL_ASSERT
 void assert_failed(uint8_t *file, uint32_t line)
 {
-  Error_Handler();
+  error_handler();
 }
 #endif
 

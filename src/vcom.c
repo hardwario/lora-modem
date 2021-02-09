@@ -59,7 +59,7 @@ void vcom_Init(void (*TxCb)(void))
   if (HAL_UART_Init(&UartHandle) != HAL_OK)
   {
     /* Initialization Error */
-    Error_Handler();
+    error_handler();
   }
 }
 

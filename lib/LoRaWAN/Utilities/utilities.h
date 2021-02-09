@@ -34,10 +34,10 @@ Maintainer: Miguel Luis and Gregory Cristian
 #define __UTILITIES_H__
 
 
-#include "hw_conf.h"
+#include "common.h"
 #include "trace.h"
-/* BACKUP_PRIMASK MUST be implemented at the begining of the funtion 
-   that implement a critical section                        
+/* BACKUP_PRIMASK MUST be implemented at the begining of the funtion
+   that implement a critical section
    PRIMASK is saved on STACK and recovered at the end of the funtion
    That way RESTORE_PRIMASK ensures critical sections are maintained even in nested calls...*/
 #define BACKUP_PRIMASK()  uint32_t primask_bit= __get_PRIMASK()
@@ -56,7 +56,7 @@ Maintainer: Miguel Luis and Gregory Cristian
 #define ALIGN(n)             __attribute__((aligned(n)))
 
 /* delay definition */
- #define DelayMs(n)             HAL_Delay(n) 
+ #define DelayMs(n)             HAL_Delay(n)
 
 typedef uint32_t TimerTime_t;
 #define TIMERTIME_T_MAX                             ( ( uint32_t )~0 )
@@ -95,8 +95,8 @@ typedef union Version_u
 {
     struct Version_s
     {
-        uint8_t Rfu;
         uint8_t Revision;
+        uint8_t Patch;
         uint8_t Minor;
         uint8_t Major;
     }Fields;
@@ -120,7 +120,7 @@ void srand1( uint32_t seed );
 int32_t randr( int32_t min, int32_t max );
 
 /*!
- * \brief Computes a random number between 
+ * \brief Computes a random number between
  *
  * \retval random random value in range min..max
  */
@@ -164,5 +164,43 @@ void memset1( uint8_t *dst, uint8_t value, uint16_t size );
  * \retval hexChar Converted hexadecimal character
  */
 int8_t Nibble2HexChar( uint8_t a );
+
+/*!
+ * \brief Computes a CCITT 32 bits CRC
+ *
+ * \param [IN] buffer   Data buffer used to compute the CRC
+ * \param [IN] length   Data buffer length
+ *
+ * \retval crc          The computed buffer of length CRC
+ */
+uint32_t Crc32( uint8_t *buffer, uint16_t length );
+
+/*!
+ * \brief Computes the initial value of the CCITT 32 bits CRC. This function
+ *        can be used with functions \ref Crc32Update and \ref Crc32Finalize.
+ *
+ * \retval crc          Initial crc value.
+ */
+uint32_t Crc32Init( void );
+
+/*!
+ * \brief Updates the value of the crc value.
+ *
+ * \param [IN] crcInit  Previous or initial crc value.
+ * \param [IN] buffer   Data pointer.
+ * \param [IN] length   Length of the data.
+ *
+ * \retval crc          Updated crc value.
+ */
+uint32_t Crc32Update( uint32_t crcInit, uint8_t *buffer, uint16_t length );
+
+/*!
+ * \brief Finalizes the crc value after the calls to \ref Crc32Update.
+ *
+ * \param [IN] crc      Recent crc value.
+ *
+ * \retval crc          Updated crc value.
+ */
+uint32_t Crc32Finalize( uint32_t crc );
 
 #endif // __UTILITIES_H__

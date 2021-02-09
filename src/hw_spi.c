@@ -84,7 +84,7 @@ void HW_SPI_Init(void)
   if (HAL_SPI_Init(&hspi) != HAL_OK)
   {
     /* Initialization Error */
-    Error_Handler();
+    error_handler();
   }
 
   /*##-2- Configure the SPI GPIOs */

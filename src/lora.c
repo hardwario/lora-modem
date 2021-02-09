@@ -24,7 +24,14 @@
 #include "lora.h"
 #include "lora-test.h"
 #include "tiny_sscanf.h"
+#include "util_console.h"
 
+#ifndef LORAMAC_VERSION
+/*!
+ * LORaWAN version definition.
+ */
+#define LORAMAC_VERSION                             0x01000300
+#endif
 
 /**
   * Lora Configuration
@@ -93,7 +100,7 @@ static lora_configuration_t lora_config =
  *
  * \remark Please note that ETSI mandates duty cycled transmissions. Use only for test purposes
  */
-#define LORAWAN_DUTYCYCLE_ON                        true
+#define LORAWAN_DUTYCYCLE_ON                        false
 
 #endif
 
@@ -437,7 +444,7 @@ void LORA_Init(LoRaMainCallback_t *callbacks, LoRaParam_t *LoRaParam)
   LoRaMacPrimitives.MacMlmeConfirm = MlmeConfirm;
   LoRaMacPrimitives.MacMlmeIndication = MlmeIndication;
   LoRaMacCallbacks.GetBatteryLevel = LoRaMainCallbacks->BoardGetBatteryLevel;
-  LoRaMacCallbacks.GetTemperatureLevel = LoRaMainCallbacks->BoardGetTemperatureLevel;
+  LoRaMacCallbacks.GetTemperatureLevel = NULL; //LoRaMainCallbacks->BoardGetTemperatureLevel;
   LoRaMacCallbacks.MacProcessNotify = LoRaMainCallbacks->MacProcessNotify;
 #if defined( REGION_AS923 )
   LoRaMacInitialization(&LoRaMacPrimitives, &LoRaMacCallbacks, LORAMAC_REGION_AS923);
@@ -525,8 +532,7 @@ void LORA_Init(LoRaMainCallback_t *callbacks, LoRaParam_t *LoRaParam)
   LoRaMacMibSetRequestConfirm(&mibReq);
 
 #if defined( REGION_EU868 ) || defined( REGION_RU864 ) || defined( REGION_CN779 ) || defined( REGION_EU433 )
-  LoRaMacTestSetDutyCycleOn(LORAWAN_DUTYCYCLE_ON);
-
+  LoRaMacTestSetDutyCycleOn(LORA_ENABLE);
   lora_config.duty_cycle = LORA_ENABLE;
 #else
   lora_config.duty_cycle = LORA_DISABLE;
@@ -557,7 +563,10 @@ LoraErrorStatus LORA_Join(void)
 
     JoinParameters = mlmeReq.Req.Join;
 
-    LoRaMacMlmeRequest(&mlmeReq);
+    LoRaMacStatus_t s = LoRaMacMlmeRequest(&mlmeReq);
+
+    PRINTF("status %d %d", s, mlmeReq.ReqReturn.DutyCycleWaitTime);
+    LOG("test log");
 
     status = LORA_SUCCESS;
   }
@@ -841,10 +850,7 @@ void lora_config_otaa_set(LoraState_t otaa)
     // Enable legacy mode to operate according to LoRaWAN Spec. 1.0.3
     Version_t abpLrWanVersion;
 
-    abpLrWanVersion.Fields.Major    = 1;
-    abpLrWanVersion.Fields.Minor    = 0;
-    abpLrWanVersion.Fields.Revision = 3;
-    abpLrWanVersion.Fields.Rfu      = 0;
+    abpLrWanVersion.Value = LORAMAC_VERSION;
 
     mibReq.Type = MIB_ABP_LORAWAN_VERSION;
     mibReq.Param.AbpLrWanVersion = abpLrWanVersion;

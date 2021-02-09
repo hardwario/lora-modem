@@ -42,13 +42,14 @@ extern "C" {
 #include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
-#include "hw_conf.h"
+#include "mlm32l0xx_hw_conf.h"
+#include "stm32l0xx_ll_rtc.h"
 #include "hw_gpio.h"
 #include "hw_spi.h"
 #include "hw_rtc.h"
 #include "hw_msp.h"
 #include "util_console.h"
-#include "debug.h"
+#include "error.h"
 
 
 #ifdef __cplusplus

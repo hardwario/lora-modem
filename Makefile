@@ -15,10 +15,13 @@ BIN ?= $(OUT_DIR)/$(TYPE)/$(OUT).bin
 ################################################################################
 # Source files                                                                 #
 ################################################################################
+	# $(LIB_DIR)/loramac-node/src/mac/region/RegionUS915.c
+	# $(LIB_DIR)/loramac-node/src/mac/region/RegionAU915.c
 SRC_FILES += \
 	$(SRC_DIR)/at.c \
 	$(SRC_DIR)/command.c \
-	$(SRC_DIR)/debug.c \
+    $(SRC_DIR)/system.c \
+    $(SRC_DIR)/error.c \
 	$(SRC_DIR)/hw_gpio.c \
 	$(SRC_DIR)/hw_rtc.c \
 	$(SRC_DIR)/hw_spi.c \
@@ -28,6 +31,7 @@ SRC_FILES += \
 	$(SRC_DIR)/tiny_sscanf.c \
 	$(SRC_DIR)/tiny_vsnprintf.c \
 	$(SRC_DIR)/vcom.c \
+    $(SRC_DIR)/board.c \
 	\
 	$(SRC_DIR)/mlm32l0xx_hal_msp.c \
 	$(SRC_DIR)/mlm32l0xx_hw.c \
@@ -37,9 +41,9 @@ SRC_FILES += \
 	$(LIB_DIR)/loramac-node/src/peripherals/soft-se/aes.c \
 	$(LIB_DIR)/loramac-node/src/peripherals/soft-se/cmac.c \
 	$(LIB_DIR)/loramac-node/src/peripherals/soft-se/soft-se.c \
+    $(LIB_DIR)/loramac-node/src/peripherals/soft-se/soft-se-hal.c \
 	$(LIB_DIR)/loramac-node/src/mac/region/Region.c \
 	$(LIB_DIR)/loramac-node/src/mac/region/RegionAS923.c \
-	$(LIB_DIR)/loramac-node/src/mac/region/RegionAU915.c \
 	$(LIB_DIR)/loramac-node/src/mac/region/RegionCN470.c \
 	$(LIB_DIR)/loramac-node/src/mac/region/RegionCN779.c \
 	$(LIB_DIR)/loramac-node/src/mac/region/RegionCommon.c \
@@ -48,7 +52,6 @@ SRC_FILES += \
 	$(LIB_DIR)/loramac-node/src/mac/region/RegionIN865.c \
 	$(LIB_DIR)/loramac-node/src/mac/region/RegionKR920.c \
 	$(LIB_DIR)/loramac-node/src/mac/region/RegionRU864.c \
-	$(LIB_DIR)/loramac-node/src/mac/region/RegionUS915.c \
 	$(LIB_DIR)/loramac-node/src/mac/LoRaMac.c \
 	$(LIB_DIR)/loramac-node/src/mac/LoRaMacAdr.c \
 	$(LIB_DIR)/loramac-node/src/mac/LoRaMacClassB.c \
@@ -170,6 +173,7 @@ CFLAGS_RELEASE += -D'RELEASE'
 CFLAGS += -DNO_MAC_PRINTF
 CFLAGS += -DUSE_FULL_LL_DRIVER
 CFLAGS += -DREGION_EU868
+CFLAGS += -DSOFT_SE
 
 ################################################################################
 # Compiler flags for "s" files                                                 #

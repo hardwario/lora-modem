@@ -1241,20 +1241,20 @@ void SX1276SetOpMode( uint8_t opMode )
     if( opMode == RF_OPMODE_SLEEP )
     {
       SX1276Write( REG_OPMODE, ( SX1276Read( REG_OPMODE ) & RF_OPMODE_MASK ) | opMode );
-      
+
       LoRaBoardCallbacks->SX1276BoardSetAntSwLowPower( true );
-      
-      LoRaBoardCallbacks->SX1276BoardSetXO( RESET ); 
+
+      LoRaBoardCallbacks->SX1276BoardSetXO( RESET );
     }
     else
     {
       // Enable TCXO if operating mode different from SLEEP.
-      LoRaBoardCallbacks->SX1276BoardSetXO( SET ); 
-      
+      LoRaBoardCallbacks->SX1276BoardSetXO( SET );
+
       LoRaBoardCallbacks->SX1276BoardSetAntSwLowPower( false );
-      
+
       LoRaBoardCallbacks->SX1276BoardSetAntSw( opMode );
-      
+
       SX1276Write( REG_OPMODE, ( SX1276Read( REG_OPMODE ) & RF_OPMODE_MASK ) | opMode );
     }
 }
