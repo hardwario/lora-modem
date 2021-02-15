@@ -24,9 +24,9 @@
 #include "lora-test.h"
 
 /*!
- *  Select either Device_Time_req or Beacon_Time_Req following LoRaWAN version 
- *  - Device_Time_req   Available for V1.0.3 or later                          
- *  - Beacon_time_Req   Available for V1.0.2 and before                        
+ *  Select either Device_Time_req or Beacon_Time_Req following LoRaWAN version
+ *  - Device_Time_req   Available for V1.0.3 or later
+ *  - Beacon_time_Req   Available for V1.0.2 and before
  */
 #define USE_DEVICE_TIMING
 
@@ -52,7 +52,7 @@
  * \remark periodicity is equal to 2^LORAWAN_DEFAULT_PING_SLOT_PERIODICITY seconds
  *         example: 2^3 = 8 seconds. The end-device will open an Rx slot every 8 seconds.
  */
-#define LORAWAN_DEFAULT_PING_SLOT_PERIODICITY       0   
+#define LORAWAN_DEFAULT_PING_SLOT_PERIODICITY       0
 
 #define HEX16(X)  X[0],X[1], X[2],X[3], X[4],X[5], X[6],X[7],X[8],X[9], X[10],X[11], X[12],X[13], X[14],X[15]
 #define HEX8(X)   X[0],X[1], X[2],X[3], X[4],X[5], X[6],X[7]
@@ -84,7 +84,6 @@ static LoraErrorStatus LORA_BeaconTimeReq(void);
 /*!
  * Defines the LoRa parameters at Init
  */
-static LoRaParam_t* LoRaParamInit;
 static LoRaMacPrimitives_t LoRaMacPrimitives;
 static LoRaMacCallback_t LoRaMacCallbacks;
 static MibRequestConfirm_t mibReq;
@@ -93,15 +92,11 @@ static LoRaMainCallback_t *LoRaMainCallbacks;
 
 extern lora_AppData_t AppData;
 
-
-
-
-
 /*!
  * MAC event info status strings.
  */
 const char* EventInfoStatusStrings[] =
-{ 
+{
     "OK", "Error", "Tx timeout", "Rx 1 timeout",
     "Rx 2 timeout", "Rx1 error", "Rx2 error",
     "Join failed", "Downlink repeated", "Tx DR payload size error",
@@ -157,7 +152,7 @@ static void TraceBeaconInfo(MlmeIndication_t *mlmeIndication);
 static void McpsConfirm( McpsConfirm_t *mcpsConfirm )
 {
     TVL2( PRINTNOW(); PRINTF("APP> McpsConfirm STATUS: %s\r\n", EventInfoStatusStrings[mcpsConfirm->Status] ); )
-  
+
     if( mcpsConfirm->Status == LORAMAC_EVENT_INFO_STATUS_OK )
     {
         switch( mcpsConfirm->McpsRequest )
@@ -184,7 +179,7 @@ static void McpsConfirm( McpsConfirm_t *mcpsConfirm )
                 break;
         }
     }
-    
+
     /*implicitely desactivated when VERBOSE_LEVEL < 2*/
     TraceUpLinkFrame(mcpsConfirm);
 }
@@ -198,7 +193,7 @@ static void McpsConfirm( McpsConfirm_t *mcpsConfirm )
 static void McpsIndication( McpsIndication_t *mcpsIndication )
 {
     TVL2( PRINTNOW(); PRINTF("APP> McpsInd STATUS: %s\r\n", EventInfoStatusStrings[mcpsIndication->Status] );)
-    
+
     lora_AppData_t AppData;
     if( mcpsIndication->Status != LORAMAC_EVENT_INFO_STATUS_OK )
     {
@@ -255,16 +250,16 @@ static void McpsIndication( McpsIndication_t *mcpsIndication )
           certif_rx( mcpsIndication, &JoinParameters );
           break;
         default:
-          
+
           AppData.Port = mcpsIndication->Port;
           AppData.BuffSize = mcpsIndication->BufferSize;
           AppData.Buff = mcpsIndication->Buffer;
-        
+
           LoRaMainCallbacks->LORA_RxData( &AppData );
           break;
       }
     }
-    
+
     /*implicitely desactivated when VERBOSE_LEVEL < 2*/
     TraceDownLinkFrame(mcpsIndication);
 }
@@ -282,7 +277,7 @@ static void MlmeConfirm( MlmeConfirm_t *mlmeConfirm )
 #endif /* LORAMAC_CLASSB_ENABLED */
 
     TVL2( PRINTNOW(); PRINTF("APP> MlmeConfirm STATUS: %s\r\n", EventInfoStatusStrings[mlmeConfirm->Status] );)
-    
+
     switch( mlmeConfirm->MlmeRequest )
     {
         case MLME_JOIN:
@@ -292,9 +287,9 @@ static void MlmeConfirm( MlmeConfirm_t *mlmeConfirm )
               // Status is OK, node has joined the network
               LoRaMainCallbacks->LORA_HasJoined();
 #ifdef LORAMAC_CLASSB_ENABLED
-#if defined( USE_DEVICE_TIMING )              
+#if defined( USE_DEVICE_TIMING )
               LORA_DeviceTimeReq();
-#else              
+#else
               LORA_BeaconTimeReq();
 #endif /* USE_DEVICE_TIMING */
 #endif /* LORAMAC_CLASSB_ENABLED */
@@ -346,14 +341,14 @@ static void MlmeConfirm( MlmeConfirm_t *mlmeConfirm )
                 mibReq.Type = MIB_DEVICE_CLASS;
                 mibReq.Param.Class = CLASS_B;
                 LoRaMacMibSetRequestConfirm( &mibReq );
-                
+
 #if defined( REGION_AU915 ) || defined( REGION_US915 )
                 mibReq.Type = MIB_PING_SLOT_DATARATE;
                 mibReq.Param.PingSlotDatarate = DR_8;
                 LoRaMacMibSetRequestConfirm( &mibReq );
 #endif
                 TVL2( PRINTF("\r\n#= Switch to Class B done. =#r\n" );)
-                
+
                 /*notify upper layer*/
                 LoRaMainCallbacks->LORA_ConfirmClass(CLASS_B);
             }
@@ -363,14 +358,14 @@ static void MlmeConfirm( MlmeConfirm_t *mlmeConfirm )
             }
             break;
         }
-#if defined( USE_DEVICE_TIMING )        
+#if defined( USE_DEVICE_TIMING )
         case MLME_DEVICE_TIME:
-        {        
+        {
             if( mlmeConfirm->Status != LORAMAC_EVENT_INFO_STATUS_OK )
             {
               LORA_DeviceTimeReq();
-            }  
-        }              
+            }
+        }
 #endif /* USE_DEVICE_TIMING */
 #endif /* LORAMAC_CLASSB_ENABLED */
         default:
@@ -396,7 +391,7 @@ static void MlmeIndication( MlmeIndication_t *MlmeIndication )
         case MLME_SCHEDULE_UPLINK:
         {
             // The MAC signals that we shall provide an uplink as soon as possible
-            LoRaMainCallbacks->LORA_TxNeeded( );			
+            LoRaMainCallbacks->LORA_TxNeeded( );
             break;
         }
 #ifdef LORAMAC_CLASSB_ENABLED
@@ -406,7 +401,7 @@ static void MlmeIndication( MlmeIndication_t *MlmeIndication )
             mibReq.Type = MIB_DEVICE_CLASS;
             mibReq.Param.Class = CLASS_A;
             LoRaMacMibSetRequestConfirm( &mibReq );
-            
+
             TVL2( PRINTF("\r\n#= Switch to Class A done. =# BEACON LOST\r\n" ); )
 
             LORA_BeaconReq();
@@ -437,20 +432,20 @@ void LORA_Init (LoRaMainCallback_t *callbacks, LoRaParam_t* LoRaParam )
 {
   uint8_t devEui[] = LORAWAN_DEVICE_EUI;
   uint8_t joinEui[] = LORAWAN_JOIN_EUI;
-  
+
   /* init the Tx Duty Cycle*/
   LoRaParamInit = LoRaParam;
-  
+
   /* init the main call backs*/
   LoRaMainCallbacks = callbacks;
-  
+
 #if (STATIC_DEVICE_EUI != 1)
-  LoRaMainCallbacks->BoardGetUniqueId( devEui );  
+  LoRaMainCallbacks->BoardGetUniqueId( devEui );
 #endif
-  
+
 #if( OVER_THE_AIR_ACTIVATION != 0 )
 
-  PPRINTF( "OTAA\n\r"); 
+  PPRINTF( "OTAA\n\r");
   PPRINTF( "DevEui= %02X-%02X-%02X-%02X-%02X-%02X-%02X-%02X\n\r", HEX8(devEui));
   PPRINTF( "AppEui= %02X-%02X-%02X-%02X-%02X-%02X-%02X-%02X\n\r", HEX8(joinEui));
   PPRINTF( "AppKey= %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X\n\r", HEX16(AppKey));
@@ -462,7 +457,7 @@ void LORA_Init (LoRaMainCallback_t *callbacks, LoRaParam_t* LoRaParam )
   // Choose a random device address
   DevAddr = randr( 0, 0x01FFFFFF );
 #endif
-  PPRINTF( "ABP\n\r"); 
+  PPRINTF( "ABP\n\r");
   PPRINTF( "DevEui= %02X-%02X-%02X-%02X-%02X-%02X-%02X-%02X\n\r", HEX8(devEui));
   PPRINTF( "DevAdd=  %08X\n\r", DevAddr) ;
   PPRINTF( "NwkSKey= %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X\n\r", HEX16(NwkSEncKey));
@@ -523,7 +518,7 @@ void LORA_Init (LoRaMainCallback_t *callbacks, LoRaParam_t* LoRaParam )
   mibReq.Type = MIB_DEV_EUI;
   mibReq.Param.DevEui = devEui;
   LoRaMacMibSetRequestConfirm( &mibReq );
-  
+
   mibReq.Type = MIB_JOIN_EUI;
   mibReq.Param.JoinEui = joinEui;
   LoRaMacMibSetRequestConfirm( &mibReq );
@@ -535,7 +530,7 @@ void LORA_Init (LoRaMainCallback_t *callbacks, LoRaParam_t* LoRaParam )
   mibReq.Type = MIB_PUBLIC_NETWORK;
   mibReq.Param.EnablePublicNetwork = LoRaParamInit->EnablePublicNetwork;
   LoRaMacMibSetRequestConfirm( &mibReq );
-  
+
   mibReq.Type = MIB_APP_KEY;
   mibReq.Param.AppKey = AppKey;
   LoRaMacMibSetRequestConfirm( &mibReq );
@@ -543,7 +538,7 @@ void LORA_Init (LoRaMainCallback_t *callbacks, LoRaParam_t* LoRaParam )
   mibReq.Type = MIB_NWK_KEY;
   mibReq.Param.NwkKey = NwkKey;
   LoRaMacMibSetRequestConfirm( &mibReq );
-                      
+
   mibReq.Type = MIB_DEVICE_CLASS;
   mibReq.Param.Class= CLASS_A;
   LoRaMacMibSetRequestConfirm( &mibReq );
@@ -551,7 +546,7 @@ void LORA_Init (LoRaMainCallback_t *callbacks, LoRaParam_t* LoRaParam )
 #if defined( REGION_EU868 ) || defined( REGION_RU864 ) || defined( REGION_CN779 ) || defined( REGION_EU433 )
   LoRaMacTestSetDutyCycleOn( LORAWAN_DUTYCYCLE_ON );
 #endif
-      
+
   mibReq.Type = MIB_SYSTEM_MAX_RX_ERROR;
   mibReq.Param.SystemMaxRxError = 20;
   LoRaMacMibSetRequestConfirm( &mibReq );
@@ -564,10 +559,10 @@ void LORA_Init (LoRaMainCallback_t *callbacks, LoRaParam_t* LoRaParam )
 void LORA_Join( void)
 {
     MlmeReq_t mlmeReq;
-  
+
     mlmeReq.Type = MLME_JOIN;
     mlmeReq.Req.Join.Datarate = LoRaParamInit->TxDatarate;
-  
+
     JoinParameters = mlmeReq.Req.Join;
 
 #if( OVER_THE_AIR_ACTIVATION != 0 )
@@ -600,7 +595,7 @@ void LORA_Join( void)
     mibReq.Type = MIB_NETWORK_ACTIVATION;
     mibReq.Param.NetworkActivation = ACTIVATION_TYPE_ABP;
     LoRaMacMibSetRequestConfirm( &mibReq );
-    
+
     // Enable legacy mode to operate according to LoRaWAN Spec. 1.0.3
     Version_t abpLrWanVersion;
 
@@ -622,7 +617,7 @@ LoraFlagStatus LORA_JoinStatus( void)
   MibRequestConfirm_t mibReq;
 
   mibReq.Type = MIB_NETWORK_ACTIVATION;
-  
+
   LoRaMacMibGetRequestConfirm( &mibReq );
 
   if( mibReq.Param.NetworkActivation == ACTIVATION_TYPE_NONE )
@@ -641,13 +636,13 @@ bool LORA_send(lora_AppData_t* AppData, LoraConfirm_t IsTxConfirmed)
 {
     McpsReq_t mcpsReq;
     LoRaMacTxInfo_t txInfo;
-  
+
     /*if certification test are on going, application data is not sent*/
     if (certif_running() == true)
     {
       return false;
     }
-    
+
     if( LoRaMacQueryTxPossible( AppData->BuffSize, &txInfo ) != LORAMAC_STATUS_OK )
     {
         // Send empty frame in order to flush MAC commands
@@ -681,7 +676,7 @@ bool LORA_send(lora_AppData_t* AppData, LoraConfirm_t IsTxConfirmed)
         return false;
     }
     return true;
-}  
+}
 
 #ifdef LORAMAC_CLASSB_ENABLED
 #if defined( USE_DEVICE_TIMING )
@@ -762,10 +757,10 @@ LoraErrorStatus LORA_RequestClass( DeviceClass_t newClass )
   LoraErrorStatus Errorstatus = LORA_SUCCESS;
   MibRequestConfirm_t mibReq;
   DeviceClass_t currentClass;
-  
+
   mibReq.Type = MIB_DEVICE_CLASS;
   LoRaMacMibGetRequestConfirm( &mibReq );
-  
+
   currentClass = mibReq.Param.Class;
   /*attempt to swicth only if class update*/
   if (currentClass != newClass)
@@ -820,7 +815,7 @@ LoraErrorStatus LORA_RequestClass( DeviceClass_t newClass )
       }
       default:
         break;
-    } 
+    }
   }
   return Errorstatus;
 }
@@ -828,10 +823,10 @@ LoraErrorStatus LORA_RequestClass( DeviceClass_t newClass )
 void LORA_GetCurrentClass( DeviceClass_t *currentClass )
 {
   MibRequestConfirm_t mibReq;
-  
+
   mibReq.Type = MIB_DEVICE_CLASS;
   LoRaMacMibGetRequestConfirm( &mibReq );
-  
+
   *currentClass = mibReq.Param.Class;
 }
 
@@ -844,7 +839,7 @@ static void TraceUpLinkFrame(McpsConfirm_t *mcpsConfirm)
 
     mibReq.Type = MIB_DEVICE_CLASS;
     LoRaMacMibGetRequestConfirm( &mibReq );
-  
+
     TVL2( PRINTF("\r\n" );)
     TVL2( PRINTNOW(); PRINTF("#= U/L FRAME %lu =# Class %c, Port %d, data size %d, pwr %d, ", \
                              mcpsConfirm->UpLinkCounter, \
@@ -878,13 +873,13 @@ static void TraceUpLinkFrame(McpsConfirm_t *mcpsConfirm)
     }
 
     TVL2( PRINTF("\r\n\r\n" );)
-} 
+}
 
 
 static void TraceDownLinkFrame(McpsIndication_t *mcpsIndication)
 {
     const char *slotStrings[] = { "1", "2", "C", "Ping-Slot", "Multicast Ping-Slot" };
-  
+
     TVL2( PRINTF("\r\n" );)
     TVL2( PRINTNOW(); PRINTF("#= D/L FRAME %lu =# RxWin %s, Port %d, data size %d, rssi %d, snr %d\r\n\r\n", \
                              mcpsIndication->DownLinkCounter, \
@@ -893,7 +888,7 @@ static void TraceDownLinkFrame(McpsIndication_t *mcpsIndication)
                              mcpsIndication->BufferSize, \
                              mcpsIndication->Rssi, \
                              mcpsIndication->Snr );)
-}  
+}
 
 #ifdef LORAMAC_CLASSB_ENABLED
 static void TraceBeaconInfo(MlmeIndication_t *mlmeIndication)
@@ -909,8 +904,8 @@ static void TraceBeaconInfo(MlmeIndication_t *mlmeIndication)
     {
         // Divide by 4
         snr = ( mlmeIndication->BeaconInfo.Snr & 0xFF ) >> 2;
-    }  
-    
+    }
+
     TVL2( PRINTF("\r\n" );)
     TVL2( PRINTNOW(); PRINTF("#= BEACON %lu =#, GW desc %d, rssi %d, snr %ld\r\n\r\n", \
                              mlmeIndication->BeaconInfo.Time, \

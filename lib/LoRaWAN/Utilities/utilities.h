@@ -35,7 +35,7 @@ Maintainer: Miguel Luis and Gregory Cristian
 
 
 #include "common.h"
-#include "trace.h"
+#include "atci.h"
 /* BACKUP_PRIMASK MUST be implemented at the begining of the funtion
    that implement a critical section
    PRIMASK is saved on STACK and recovered at the end of the funtion
@@ -50,7 +50,7 @@ Maintainer: Miguel Luis and Gregory Cristian
                                     __disable_irq()
 #define CRITICAL_SECTION_END( )   __set_PRIMASK(primask_bit)
 
-#define LOG(...)     do{ TraceSend(__VA_ARGS__); }while(0);
+#define LOG(...)     do{ atci_printf(__VA_ARGS__); }while(0);
 
 /* prepocessor directive to align buffer*/
 #define ALIGN(n)             __attribute__((aligned(n)))

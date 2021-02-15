@@ -18,20 +18,21 @@ BIN ?= $(OUT_DIR)/$(TYPE)/$(OUT).bin
 	# $(LIB_DIR)/loramac-node/src/mac/region/RegionUS915.c
 	# $(LIB_DIR)/loramac-node/src/mac/region/RegionAU915.c
 SRC_FILES += \
-	$(SRC_DIR)/at.c \
-	$(SRC_DIR)/command.c \
-    $(SRC_DIR)/system.c \
-    $(SRC_DIR)/error.c \
-	$(SRC_DIR)/hw_gpio.c \
-	$(SRC_DIR)/hw_rtc.c \
-	$(SRC_DIR)/hw_spi.c \
-	$(SRC_DIR)/lora.c \
-	$(SRC_DIR)/main.c \
-	$(SRC_DIR)/test_rf.c \
-	$(SRC_DIR)/tiny_sscanf.c \
-	$(SRC_DIR)/tiny_vsnprintf.c \
-	$(SRC_DIR)/vcom.c \
+    $(SRC_DIR)/cmd.c \
+    $(SRC_DIR)/atci.c \
     $(SRC_DIR)/board.c \
+    $(SRC_DIR)/console.c \
+    $(SRC_DIR)/eeprom.c \
+    $(SRC_DIR)/error.c \
+    $(SRC_DIR)/fifo.c \
+    $(SRC_DIR)/hw_gpio.c \
+    $(SRC_DIR)/hw_rtc.c \
+    $(SRC_DIR)/hw_spi.c \
+    $(SRC_DIR)/irq.c \
+    $(SRC_DIR)/lora.c \
+    $(SRC_DIR)/main.c \
+    $(SRC_DIR)/system.c \
+    $(SRC_DIR)/vcom.c \
 	\
 	$(SRC_DIR)/mlm32l0xx_hal_msp.c \
 	$(SRC_DIR)/mlm32l0xx_hw.c \
@@ -64,7 +65,6 @@ SRC_FILES += \
 	$(LIB_DIR)/LoRaWAN/Utilities/queue.c \
 	$(LIB_DIR)/LoRaWAN/Utilities/systime.c \
 	$(LIB_DIR)/LoRaWAN/Utilities/timeServer.c \
-	$(LIB_DIR)/LoRaWAN/Utilities/trace.c \
 	$(LIB_DIR)/LoRaWAN/Utilities/utilities.c \
 	$(LIB_DIR)/LoRaWAN/Patterns/Basic/lora-test.c \
 	\
@@ -172,7 +172,8 @@ CFLAGS_RELEASE += -D'RELEASE'
 # CFLAGS += -D'USE_HAL_DRIVER'
 CFLAGS += -DNO_MAC_PRINTF
 CFLAGS += -DUSE_FULL_LL_DRIVER
-CFLAGS += -DREGION_EU868
+# CFLAGS += -DREGION_EU868
+CFLAGS += -DREGION_AS923
 CFLAGS += -DSOFT_SE
 
 ################################################################################

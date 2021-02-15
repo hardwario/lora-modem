@@ -35,6 +35,7 @@ Maintainer: Miguel Luis and Gregory Cristian
 #include "radio.h"
 #include "vcom.h"
 #include <mlm32l07x01.h>
+#include "console.h"
 
 /*!
  *  \brief Unique Devices IDs register set ( STM32L0xxx )
@@ -106,7 +107,9 @@ void HW_Init(void)
 
     HW_SPI_Init();
 
-    TraceInit();
+    // TraceInit();
+
+    console_init();
 
     McuInitialized = true;
   }

@@ -51,7 +51,7 @@ static void Trace_TxCpltCallback(void);
 /* Functions Definition ------------------------------------------------------*/
 void TraceInit( void )
 {
-  OutputInit(Trace_TxCpltCallback);
+  vcom_Init(Trace_TxCpltCallback);
 
   circular_queue_init(&MsgTraceQueue, MsgTraceQueueBuff, DBG_TRACE_MSG_QUEUE_SIZE);
 
@@ -83,7 +83,7 @@ int32_t TraceSend( const char *strFormat, ...)
     LPM_SetStopMode(LPM_UART_TX_Id , LPM_Disable );
 
     RESTORE_PRIMASK();
-    OutputTrace(buffer, bufSize);
+    vcom_Trace(buffer, bufSize);
   }
   else
   {
@@ -133,7 +133,7 @@ static void Trace_TxCpltCallback(void)
     RESTORE_PRIMASK();
     //DBG_GPIO_SET(GPIOB, GPIO_PIN_14);
     //DBG_GPIO_RST(GPIOB, GPIO_PIN_14);
-    OutputTrace(buffer, bufSize);
+    vcom_Trace(buffer, bufSize);
   }
   else
   {

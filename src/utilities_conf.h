@@ -36,9 +36,6 @@ typedef enum
   LPM_UART_TX_Id = (1 << 5),
 } LPM_Id_t;
 
-#define OutputInit  vcom_Init
-#define OutputTrace vcom_Trace
-
 #define VERBOSE_LEVEL_0 0
 #define VERBOSE_LEVEL_1 1
 #define VERBOSE_LEVEL_2 2

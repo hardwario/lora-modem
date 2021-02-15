@@ -68,8 +68,6 @@ typedef struct
 
 } lora_AppData_t;
 
-
-
 typedef enum
 {
   LORA_RESET = 0,
@@ -115,28 +113,6 @@ typedef enum eTxEventType
   TX_ON_EVENT
 } TxEventType_t;
 
-
-/*!
- * LoRa State Machine states
- */
-typedef struct sLoRaParam
-{
-  /*!
-   * @brief Activation state of adaptativeDatarate
-   */
-  bool AdrEnable;
-  /*!
-   * @brief Uplink datarate, if AdrEnable is off
-   */
-  int8_t TxDatarate;
-  /*!
-   * @brief Enable or disable a public network
-   *
-   */
-  bool EnablePublicNetwork;
-
-} LoRaParam_t;
-
 /* Lora Main callbacks*/
 typedef struct sLoRaMainCallback
 {
@@ -173,11 +149,11 @@ typedef struct sLoRaMainCallback
   void (*LORA_RxData)(lora_AppData_t *AppData);
 
   /*!
-   * @brief callback indicating EndNode has jsu joiny
+   * @brief callback indicating EndNode has joined
    *
    * @param [IN] None
    */
-  void (*LORA_HasJoined)(void);
+  void (*join_status)(bool success);
   /*!
    * @brief Confirms the class change
    *
@@ -222,7 +198,7 @@ typedef struct sLoRaMainCallback
  * @param [IN] application parmaters
  * @retval none
  */
-void LORA_Init(LoRaMainCallback_t *callbacks, LoRaParam_t *LoRaParam);
+void LORA_Init(LoRaMainCallback_t *callbacks);
 
 /**
  * @brief run Lora classA state Machine
@@ -326,20 +302,6 @@ uint8_t *lora_config_appkey_get(void);
 void lora_config_appkey_set(uint8_t appkey[16]);
 
 /**
- * @brief  Set whether or not acknowledgement is required
- * @param  ENABLE or DISABLE
- * @retval None
- */
-void lora_config_reqack_set(LoraConfirm_t reqack);
-
-/**
- * @brief  Get whether or not acknowledgement is required
- * @param  None
- * @retval ENABLE or DISABLE
- */
-LoraConfirm_t lora_config_reqack_get(void);
-
-/**
  * @brief  Get the SNR of the last received data
  * @param  None
  * @retval SNR
@@ -387,6 +349,8 @@ int8_t lora_config_tx_datarate_get(void);
  * @retval LoRaMac region
  */
 LoRaMacRegion_t lora_region_get(void);
+
+void lora_save_config(void);
 
 #ifdef __cplusplus
 }

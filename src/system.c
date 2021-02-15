@@ -2,6 +2,7 @@
 #include "hw.h"
 #include "hw_rtc.h"
 
+static void _system_init_flash(void);
 static void _system_init_debug(void);
 static void _system_init_clock(void);
 
@@ -10,11 +11,22 @@ void system_init(void)
     /* STM32 HAL library initialization*/
     HAL_Init();
 
+    _system_init_flash();
+
     _system_init_debug();
 
     _system_init_clock();
 
     HW_RTC_Init();
+}
+
+static void _system_init_flash(void)
+{
+    // Enable prefetch
+    FLASH->ACR |= FLASH_ACR_PRFTEN;
+
+    // One wait state is used to read word from NVM
+    FLASH->ACR |= FLASH_ACR_LATENCY;
 }
 
 static void _system_init_debug(void)

@@ -22,21 +22,21 @@
 #define __UTIL_CONSOLE_H
 
 #include <stdint.h>
-#include "trace.h"
 #include "systime.h"
+#include "atci.h"
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
 
-#define PPRINTF(...)     do{ } while( 0!= TraceSend(__VA_ARGS__) ) //Polling Mode
+#define PPRINTF(...)     do{ } while( 0 == atci_printf(__VA_ARGS__) ) //Polling Mode
 
-#define PRINTF(...)     do{  TraceSend(__VA_ARGS__); }while(0)
+#define PRINTF(...)     do{  atci_printf(__VA_ARGS__); }while(0)
 #define PRINTNOW()      do{                                                           \
                           SysTime_t stime  =SysTimeGetMcuTime();                      \
-                          TraceSend("%3ds%03d: ",stime.Seconds, stime.SubSeconds); \
-                         }while(0) 
+                          atci_printf("%3ds%03d: ",stime.Seconds, stime.SubSeconds); \
+                         }while(0)
 
 #define TVL1(X)    do{ if(VERBOSE_LEVEL>=VERBOSE_LEVEL_1) { X } }while(0);
 #define TVL2(X)    do{ if(VERBOSE_LEVEL>=VERBOSE_LEVEL_2) { X } }while(0);
