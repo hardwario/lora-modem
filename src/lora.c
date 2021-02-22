@@ -23,7 +23,7 @@
 #include "LoRaMac.h"
 #include "lora.h"
 #include "util_console.h"
-#include "eeprom.h"
+#include "config.h"
 #include "utilities.h"
 
 #ifndef LORAMAC_VERSION
@@ -37,54 +37,13 @@
 #define CERTIF_PORT 224
 #endif
 
-/**
-  * Lora Configuration
-  */
-typedef struct
-{
-    LoraState_t otaa;           /*< ENABLE if over the air activation, DISABLE otherwise */
-    LoraState_t duty_cycle;     /*< ENABLE if dutycyle is on, DISABLE otherwise */
-    uint8_t DevEui[8];          /*< Device EUI */
-    uint8_t JoinEui[8];         /*< Join Eui */
-    uint8_t AppKey[16];         /*< Application Key */
-    uint8_t NwkKey[16];         /*< Application Key */
-    uint8_t NwkSEncKey[16];     /*< Network Session Key */
-    uint8_t AppSKey[16];        /*< Application Session Key */
-    uint8_t FNwkSIntKey[16];    /*< Application Session Key */
-    uint8_t SNwkSIntKey[16];    /*< Application Session Key */
-    uint8_t application_port;   /*< Application port we will receive to */
-    McpsConfirm_t *McpsConfirm; /*< pointer to the confirm structure */
-    int8_t TxDatarate;
-    bool AdrEnable;
-    bool EnablePublicNetwork;
-} lora_configuration_t;
-
-static lora_configuration_t lora_config;
-static const lora_configuration_t def_lora_config = {
-    .otaa = LORA_ENABLE,
-#if defined(REGION_EU868)
-    .duty_cycle = LORA_ENABLE,
-#else
-    .duty_cycle = LORA_DISABLE,
-#endif
-    .DevEui = LORAWAN_DEVICE_EUI,
-    .JoinEui = LORAWAN_JOIN_EUI,
-    .AppKey = LORAWAN_APP_KEY,
-    .NwkKey = LORAWAN_NWK_KEY,
-    .NwkSEncKey = LORAWAN_NWK_S_ENC_KEY,
-    .AppSKey = LORAWAN_APP_S_KEY,
-    .FNwkSIntKey = LORAWAN_F_NWK_S_INT_KEY,
-    .SNwkSIntKey = LORAWAN_S_NWK_S_INT_KEY,
-    .McpsConfirm = NULL,
-    .TxDatarate = DR_0,
-    .AdrEnable = LORAWAN_ADR_ON,
-    .EnablePublicNetwork = LORAWAN_PUBLIC_NETWORK,
-};
-
 static struct
 {
-    int16_t Rssi; /*< Rssi of the received packet */
-    int8_t Snr;   /*< Snr of the received packet */
+    lora_configuration_t *config;
+    McpsConfirm_t *McpsConfirm; // confirm structure
+    int16_t Rssi;               // Rssi of the received packet
+    int8_t Snr;                 // Snr of the received packet
+
 } _lora;
 
 /*!
@@ -127,8 +86,6 @@ uint8_t DefaultPingSlotPeriodicity;
 
 static MlmeReqJoin_t JoinParameters;
 
-static uint32_t DevAddr = LORAWAN_DEVICE_ADDRESS;
-
 #ifdef LORAMAC_CLASSB_ENABLED
 static LoraErrorStatus LORA_BeaconReq(void);
 static LoraErrorStatus LORA_PingSlotReq(void);
@@ -157,7 +114,7 @@ static LoRaMainCallback_t *LoRaMainCallbacks;
  */
 static void McpsConfirm(McpsConfirm_t *mcpsConfirm)
 {
-    lora_config.McpsConfirm = mcpsConfirm;
+    _lora.McpsConfirm = mcpsConfirm;
     if (mcpsConfirm->Status == LORAMAC_EVENT_INFO_STATUS_OK)
     {
         switch (mcpsConfirm->McpsRequest)
@@ -287,7 +244,11 @@ static void MlmeConfirm(MlmeConfirm_t *mlmeConfirm)
         {
             // Status is OK, node has joined the network
             LoRaMainCallbacks->join_status(true);
-            lora_save_config();
+
+            MibRequestConfirm_t mibReq = {.Type = MIB_DEV_ADDR};
+            LoRaMacMibGetRequestConfirm(&mibReq);
+            _lora.config->devaddr = mibReq.Param.DevAddr;
+
 #ifdef LORAMAC_CLASSB_ENABLED
 #if defined(USE_DEVICE_TIMING)
             LORA_DeviceTimeReq();
@@ -423,30 +384,27 @@ static void MlmeIndication(MlmeIndication_t *MlmeIndication)
 /**
  *  lora Init
  */
-void LORA_Init(LoRaMainCallback_t *callbacks)
+void LORA_Init(lora_configuration_t *config, LoRaMainCallback_t *callbacks)
 {
-    uint32_t crc;
-    eeprom_read(0, &crc, sizeof(crc));
-    eeprom_read(sizeof(crc), &lora_config, sizeof(lora_config));
+    memset(&_lora, 0, sizeof(_lora));
 
-    if (crc != Crc32((uint8_t *)&lora_config, sizeof(lora_config)))
-    {
-        memcpy(&lora_config, &def_lora_config, sizeof(lora_config));
-    }
+    _lora.config = config;
 
-    /* init the main call backs*/
     LoRaMainCallbacks = callbacks;
 
-#if (STATIC_DEVICE_EUI != 1)
-    LoRaMainCallbacks->BoardGetUniqueId(lora_config.DevEui);
-#endif
+    uint8_t empty_deveui[8] = LORAWAN_DEVICE_EUI;
 
-#if (STATIC_DEVICE_ADDRESS != 1)
-    // Random seed initialization
-    srand1(LoRaMainCallbacks->BoardGetRandomSeed());
-    // Choose a random device address
-    DevAddr = randr(0, 0x01FFFFFF);
-#endif
+    // fill deveui if not set in eeprom
+    if (memcmp(_lora.config->deveui, empty_deveui, 8) == 0)
+    {
+        LoRaMainCallbacks->BoardGetUniqueId(_lora.config->deveui);
+    }
+    // fill devaddr if not set in eeprom
+    if (_lora.config->devaddr == 0)
+    {
+        srand1(LoRaMainCallbacks->BoardGetRandomSeed());
+        _lora.config->devaddr = randr(0, 0x01FFFFFF);
+    }
 
     LoRaMacPrimitives.MacMcpsConfirm = McpsConfirm;
     LoRaMacPrimitives.MacMcpsIndication = McpsIndication;
@@ -510,42 +468,37 @@ void LORA_Init(LoRaMainCallback_t *callbacks)
 #endif
 #endif
 
-    lora_config_otaa_set(LORA_ENABLE);
+    lora_otaa_set(LORA_ENABLE);
 
     mibReq.Type = MIB_DEV_EUI;
-    mibReq.Param.DevEui = lora_config.DevEui;
+    mibReq.Param.DevEui = _lora.config->deveui;
     LoRaMacMibSetRequestConfirm(&mibReq);
 
     mibReq.Type = MIB_JOIN_EUI;
-    mibReq.Param.JoinEui = lora_config.JoinEui;
+    mibReq.Param.JoinEui = _lora.config->appeui;
     LoRaMacMibSetRequestConfirm(&mibReq);
 
     mibReq.Type = MIB_ADR;
-    mibReq.Param.AdrEnable = lora_config.AdrEnable;
+    mibReq.Param.AdrEnable = _lora.config->adr;
     LoRaMacMibSetRequestConfirm(&mibReq);
 
     mibReq.Type = MIB_PUBLIC_NETWORK;
-    mibReq.Param.EnablePublicNetwork = lora_config.EnablePublicNetwork;
+    mibReq.Param.EnablePublicNetwork = _lora.config->public_network;
     LoRaMacMibSetRequestConfirm(&mibReq);
 
     mibReq.Type = MIB_APP_KEY;
-    mibReq.Param.AppKey = lora_config.AppKey;
+    mibReq.Param.AppKey = _lora.config->appkey;
     LoRaMacMibSetRequestConfirm(&mibReq);
 
     mibReq.Type = MIB_NWK_KEY;
-    mibReq.Param.NwkKey = lora_config.NwkKey;
+    mibReq.Param.NwkKey = _lora.config->nwkkey;
     LoRaMacMibSetRequestConfirm(&mibReq);
 
     mibReq.Type = MIB_DEVICE_CLASS;
     mibReq.Param.Class = CLASS_A;
     LoRaMacMibSetRequestConfirm(&mibReq);
 
-#if defined(REGION_EU868) || defined(REGION_RU864) || defined(REGION_CN779) || defined(REGION_EU433)
-    LoRaMacTestSetDutyCycleOn(LORA_ENABLE);
-    lora_config.duty_cycle = LORA_ENABLE;
-#else
-    lora_config.duty_cycle = LORA_DISABLE;
-#endif
+    LoRaMacTestSetDutyCycleOn(_lora.config->duty_cycle);
 
     mibReq.Type = MIB_SYSTEM_MAX_RX_ERROR;
     mibReq.Param.SystemMaxRxError = 20;
@@ -562,12 +515,12 @@ void LORA_Init(LoRaMainCallback_t *callbacks)
 LoraErrorStatus LORA_Join(void)
 {
     LoraErrorStatus status;
-    if (lora_config.otaa == LORA_ENABLE)
+    if (_lora.config->otaa == LORA_ENABLE)
     {
         MlmeReq_t mlmeReq;
 
         mlmeReq.Type = MLME_JOIN;
-        mlmeReq.Req.Join.Datarate = DR_0; // LoRaParamInit->TxDatarate;
+        mlmeReq.Req.Join.Datarate = DR_0; // LoRaParamInit->tx_datarate;
 
         JoinParameters = mlmeReq.Req.Join;
 
@@ -575,7 +528,7 @@ LoraErrorStatus LORA_Join(void)
 
         // PRINTF("status %d %d", s, mlmeReq.ReqReturn.DutyCycleWaitTime);
 
-        status = LORA_SUCCESS;
+        status = s == LORAMAC_STATUS_OK ? LORA_SUCCESS : LORA_ERROR;
     }
     else
     {
@@ -621,7 +574,7 @@ LoraErrorStatus LORA_send(lora_AppData_t *AppData, LoraConfirm_t IsTxConfirmed)
         mcpsReq.Type = MCPS_UNCONFIRMED;
         mcpsReq.Req.Unconfirmed.fBuffer = NULL;
         mcpsReq.Req.Unconfirmed.fBufferSize = 0;
-        mcpsReq.Req.Unconfirmed.Datarate = lora_config_tx_datarate_get();
+        mcpsReq.Req.Unconfirmed.Datarate = lora_tx_datarate_get();
     }
     else
     {
@@ -631,7 +584,7 @@ LoraErrorStatus LORA_send(lora_AppData_t *AppData, LoraConfirm_t IsTxConfirmed)
             mcpsReq.Req.Unconfirmed.fPort = AppData->Port;
             mcpsReq.Req.Unconfirmed.fBufferSize = AppData->BuffSize;
             mcpsReq.Req.Unconfirmed.fBuffer = AppData->Buff;
-            mcpsReq.Req.Unconfirmed.Datarate = lora_config_tx_datarate_get();
+            mcpsReq.Req.Unconfirmed.Datarate = lora_tx_datarate_get();
         }
         else
         {
@@ -640,7 +593,7 @@ LoraErrorStatus LORA_send(lora_AppData_t *AppData, LoraConfirm_t IsTxConfirmed)
             mcpsReq.Req.Confirmed.fBufferSize = AppData->BuffSize;
             mcpsReq.Req.Confirmed.fBuffer = AppData->Buff;
             mcpsReq.Req.Confirmed.NbTrials = 8;
-            mcpsReq.Req.Confirmed.Datarate = lora_config_tx_datarate_get();
+            mcpsReq.Req.Confirmed.Datarate = lora_tx_datarate_get();
         }
     }
     if (LoRaMacMcpsRequest(&mcpsReq) == LORAMAC_STATUS_OK)
@@ -792,26 +745,26 @@ LoraErrorStatus LORA_RequestClass(DeviceClass_t newClass)
     return Errorstatus;
 }
 
-void LORA_GetCurrentClass(DeviceClass_t *currentClass)
+uint8_t lora_class_get(void)
 {
     MibRequestConfirm_t mibReq;
 
     mibReq.Type = MIB_DEVICE_CLASS;
     LoRaMacMibGetRequestConfirm(&mibReq);
 
-    *currentClass = mibReq.Param.Class;
+    return mibReq.Param.Class;
 }
 
-void lora_config_otaa_set(LoraState_t otaa)
+void lora_otaa_set(LoraState_t otaa)
 {
-    lora_config.otaa = otaa;
+    _lora.config->otaa = otaa;
 
-    if (lora_config.otaa == LORA_ENABLE)
+    if (_lora.config->otaa == LORA_ENABLE)
     {
         // PPRINTF("OTAA Mode enabled\n\r");
-        // PPRINTF("DevEui= %02X-%02X-%02X-%02X-%02X-%02X-%02X-%02X\n\r", HEX8(lora_config.DevEui));
-        // PPRINTF("JoinEui= %02X-%02X-%02X-%02X-%02X-%02X-%02X-%02X\n\r", HEX8(lora_config.JoinEui));
-        // PPRINTF("AppKey= %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X\n\r", HEX16(lora_config.AppKey));
+        // PPRINTF("deveui= %02X-%02X-%02X-%02X-%02X-%02X-%02X-%02X\n\r", HEX8(_lora.config->deveui));
+        // PPRINTF("appeui= %02X-%02X-%02X-%02X-%02X-%02X-%02X-%02X\n\r", HEX8(_lora.config->appeui));
+        // PPRINTF("appkey= %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X\n\r", HEX16(_lora.config->appkey));
 
         mibReq.Type = MIB_NETWORK_ACTIVATION;
         mibReq.Param.NetworkActivation = ACTIVATION_TYPE_NONE;
@@ -820,33 +773,33 @@ void lora_config_otaa_set(LoraState_t otaa)
     else
     {
         // PPRINTF("ABP Mode enabled\n\r");
-        // PPRINTF("DevEui= %02X-%02X-%02X-%02X-%02X-%02X-%02X-%02X\n\r", HEX8(lora_config.DevEui));
+        // PPRINTF("deveui= %02X-%02X-%02X-%02X-%02X-%02X-%02X-%02X\n\r", HEX8(_lora.config->deveui));
         // PPRINTF("DevAdd=  %08X\n\r", DevAddr);
-        // PPRINTF("NwkSKey= %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X\n\r", HEX16(lora_config.NwkSEncKey));
-        // PPRINTF("AppSKey= %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X\n\r", HEX16(lora_config.AppSKey));
+        // PPRINTF("NwkSKey= %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X\n\r", HEX16(_lora.config->nwksenckey));
+        // PPRINTF("appskey= %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X\n\r", HEX16(_lora.config->appskey));
 
         mibReq.Type = MIB_NET_ID;
         mibReq.Param.NetID = LORAWAN_NETWORK_ID;
         LoRaMacMibSetRequestConfirm(&mibReq);
 
         mibReq.Type = MIB_DEV_ADDR;
-        mibReq.Param.DevAddr = DevAddr;
+        mibReq.Param.DevAddr = _lora.config->devaddr;
         LoRaMacMibSetRequestConfirm(&mibReq);
 
         mibReq.Type = MIB_F_NWK_S_INT_KEY;
-        mibReq.Param.FNwkSIntKey = lora_config.FNwkSIntKey;
+        mibReq.Param.FNwkSIntKey = _lora.config->fnwksIntkey;
         LoRaMacMibSetRequestConfirm(&mibReq);
 
         mibReq.Type = MIB_S_NWK_S_INT_KEY;
-        mibReq.Param.SNwkSIntKey = lora_config.SNwkSIntKey;
+        mibReq.Param.SNwkSIntKey = _lora.config->snwksintkey;
         LoRaMacMibSetRequestConfirm(&mibReq);
 
         mibReq.Type = MIB_NWK_S_ENC_KEY;
-        mibReq.Param.NwkSEncKey = lora_config.NwkSEncKey;
+        mibReq.Param.NwkSEncKey = _lora.config->nwksenckey;
         LoRaMacMibSetRequestConfirm(&mibReq);
 
         mibReq.Type = MIB_APP_S_KEY;
-        mibReq.Param.AppSKey = lora_config.AppSKey;
+        mibReq.Param.AppSKey = _lora.config->appskey;
         LoRaMacMibSetRequestConfirm(&mibReq);
 
         mibReq.Type = MIB_NETWORK_ACTIVATION;
@@ -864,91 +817,124 @@ void lora_config_otaa_set(LoraState_t otaa)
     }
 }
 
-LoraState_t lora_config_otaa_get(void)
+LoraState_t lora_otaa_get(void)
 {
-    return lora_config.otaa;
+    return _lora.config->otaa;
 }
 
-void lora_config_duty_cycle_set(LoraState_t duty_cycle)
+void lora_duty_cycle_set(LoraState_t duty_cycle)
 {
-    lora_config.duty_cycle = duty_cycle;
+    _lora.config->duty_cycle = duty_cycle;
     LoRaMacTestSetDutyCycleOn((duty_cycle == LORA_ENABLE) ? 1 : 0);
 }
 
-LoraState_t lora_config_duty_cycle_get(void)
+LoraState_t lora_duty_cycle_get(void)
 {
-    return lora_config.duty_cycle;
+    return _lora.config->duty_cycle;
 }
 
-uint8_t *lora_config_deveui_get(void)
+uint8_t *lora_deveui_get(void)
 {
-    return lora_config.DevEui;
+    return _lora.config->deveui;
 }
 
-uint8_t *lora_config_joineui_get(void)
+void lora_deveui_set(uint8_t deveui[8])
 {
-    return lora_config.JoinEui;
-}
+    memcpy1(_lora.config->deveui, deveui, sizeof(_lora.config->deveui));
 
-void lora_config_joineui_set(uint8_t joineui[8])
-{
-    memcpy1(lora_config.JoinEui, joineui, sizeof(lora_config.JoinEui));
-    lora_save_config();
-
-    mibReq.Type = MIB_JOIN_EUI;
-    mibReq.Param.JoinEui = lora_config.JoinEui;
+    mibReq.Type = MIB_DEV_EUI;
+    mibReq.Param.DevEui = _lora.config->deveui;
     LoRaMacMibSetRequestConfirm(&mibReq);
 }
 
-uint8_t *lora_config_appkey_get(void)
+uint8_t *lora_appeui_get(void)
 {
-    return lora_config.AppKey;
+    return _lora.config->appeui;
 }
 
-void lora_config_appkey_set(uint8_t appkey[16])
+void lora_appeui_set(uint8_t appeui[8])
 {
-    memcpy1(lora_config.AppKey, appkey, sizeof(lora_config.AppKey));
-    memcpy1(lora_config.NwkKey, appkey, sizeof(lora_config.NwkKey));
-    lora_save_config();
+    memcpy1(_lora.config->appeui, appeui, sizeof(_lora.config->appeui));
+
+    mibReq.Type = MIB_JOIN_EUI;
+    mibReq.Param.JoinEui = _lora.config->appeui;
+    LoRaMacMibSetRequestConfirm(&mibReq);
+}
+
+uint32_t lora_devaddr_get(void)
+{
+    return _lora.config->devaddr;
+}
+
+void lora_devaddr_set(uint32_t devaddr)
+{
+    _lora.config->devaddr = devaddr;
+    mibReq.Type = MIB_DEV_ADDR;
+    mibReq.Param.DevAddr = _lora.config->devaddr;
+    LoRaMacMibSetRequestConfirm(&mibReq);
+}
+
+uint8_t *lora_appkey_get(void)
+{
+    return _lora.config->appkey;
+}
+
+void lora_appkey_set(uint8_t appkey[16])
+{
+    memcpy1(_lora.config->appkey, appkey, sizeof(_lora.config->appkey));
+    memcpy1(_lora.config->nwkkey, appkey, sizeof(_lora.config->nwkkey));
 
     mibReq.Type = MIB_APP_KEY;
-    mibReq.Param.AppKey = lora_config.AppKey;
+    mibReq.Param.AppKey = _lora.config->appkey;
     LoRaMacMibSetRequestConfirm(&mibReq);
 
     mibReq.Type = MIB_NWK_KEY;
-    mibReq.Param.NwkKey = lora_config.NwkKey;
+    mibReq.Param.NwkKey = _lora.config->nwkkey;
     LoRaMacMibSetRequestConfirm(&mibReq);
 }
 
-int8_t lora_config_snr_get(void)
+bool lora_public_network_get(void)
+{
+    return _lora.config->public_network;
+}
+
+void lora_public_network_set(bool enable)
+{
+    _lora.config->public_network = enable;
+    mibReq.Type = MIB_PUBLIC_NETWORK;
+    mibReq.Param.EnablePublicNetwork = _lora.config->public_network;
+    LoRaMacMibSetRequestConfirm(&mibReq);
+}
+
+int8_t lora_snr_get(void)
 {
     return _lora.Snr;
 }
 
-int16_t lora_config_rssi_get(void)
+int16_t lora_rssi_get(void)
 {
     return _lora.Rssi;
 }
 
-void lora_config_tx_datarate_set(int8_t TxDataRate)
+void lora_tx_datarate_set(int8_t tx_datarate)
 {
-    lora_config.TxDatarate = TxDataRate;
+    _lora.config->tx_datarate = tx_datarate;
 }
 
-int8_t lora_config_tx_datarate_get(void)
+int8_t lora_tx_datarate_get(void)
 {
-    return lora_config.TxDatarate;
+    return _lora.config->tx_datarate;
 }
 
-LoraState_t lora_config_isack_get(void)
+LoraState_t lora_isack_get(void)
 {
-    if (lora_config.McpsConfirm == NULL)
+    if (_lora.McpsConfirm == NULL)
     {
         return LORA_DISABLE;
     }
     else
     {
-        return (lora_config.McpsConfirm->AckReceived ? LORA_ENABLE : LORA_DISABLE);
+        return (_lora.McpsConfirm->AckReceived ? LORA_ENABLE : LORA_DISABLE);
     }
 }
 
@@ -982,9 +968,7 @@ LoRaMacRegion_t lora_region_get(void)
 
 void lora_save_config(void)
 {
-    uint32_t crc = Crc32((uint8_t *)&lora_config, sizeof(lora_config));
-    eeprom_write(0, &crc, sizeof(crc));
-    eeprom_write(sizeof(crc), &lora_config, sizeof(lora_config));
+    LoRaMainCallbacks->config_save();
 }
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

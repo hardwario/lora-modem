@@ -18,9 +18,10 @@ BIN ?= $(OUT_DIR)/$(TYPE)/$(OUT).bin
 	# $(LIB_DIR)/loramac-node/src/mac/region/RegionUS915.c
 	# $(LIB_DIR)/loramac-node/src/mac/region/RegionAU915.c
 SRC_FILES += \
-    $(SRC_DIR)/cmd.c \
     $(SRC_DIR)/atci.c \
     $(SRC_DIR)/board.c \
+    $(SRC_DIR)/cmd.c \
+    $(SRC_DIR)/config.c \
     $(SRC_DIR)/console.c \
     $(SRC_DIR)/eeprom.c \
     $(SRC_DIR)/error.c \
@@ -170,10 +171,10 @@ CFLAGS_RELEASE += -Os
 CFLAGS_RELEASE += -D'RELEASE'
 
 # CFLAGS += -D'USE_HAL_DRIVER'
-CFLAGS += -DNO_MAC_PRINTF
 CFLAGS += -DUSE_FULL_LL_DRIVER
 # CFLAGS += -DREGION_EU868
 CFLAGS += -DREGION_AS923
+CFLAGS += -D'REGION_AS923_DEFAULT_CHANNEL_PLAN=CHANNEL_PLAN_GROUP_AS923_1'
 CFLAGS += -DSOFT_SE
 
 ################################################################################

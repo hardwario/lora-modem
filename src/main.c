@@ -5,7 +5,9 @@
 #include "version.h"
 #include "lora.h"
 #include "atci.h"
+#include "config.h"
 #include "cmd.h"
+#include "common.h"
 
 #define LORAWAN_MAX_BAT 254
 #define LORAWAN_ADR_ON 1
@@ -19,7 +21,9 @@ static uint8_t LORA_GetBatteryLevel(void);
 static void LoraMacProcessNotify(void);
 static void LORA_McpsDataConfirm(void);
 
-static LoRaMainCallback_t LoRaMainCallbacks = {LORA_GetBatteryLevel,
+static LoRaMainCallback_t LoRaMainCallbacks = {
+    .config_save = config_save,
+                                               LORA_GetBatteryLevel,
                                                HW_GetTemperatureLevel,
                                                HW_GetUniqueId,
                                                HW_GetRandomSeed,
@@ -31,14 +35,60 @@ static LoRaMainCallback_t LoRaMainCallbacks = {LORA_GetBatteryLevel,
                                                LORA_McpsDataConfirm};
 LoraFlagStatus LoraMacProcessRequest = LORA_RESET;
 
+#pragma pack(push, 1)
+typedef struct
+{
+    lora_configuration_t lora;
+    struct
+    {
+        uint16_t baudrate;
+        uint8_t data_bit;
+        uint8_t stop_bit;
+        uint8_t parity;
+    } uart;
+
+} configuration_t;
+#pragma pack(pop)
+
+static const configuration_t configuration_default = {
+    .lora = {
+        .otaa = LORA_ENABLE,
+        .duty_cycle = LORAWAN_DUTY_CYCLE,
+        .class = LORAWAN_CLASS,
+        .devaddr = LORAWAN_DEVICE_ADDRESS,
+        .deveui = LORAWAN_DEVICE_EUI,
+        .appeui = LORAWAN_JOIN_EUI,
+        .appkey = LORAWAN_APP_KEY,
+        .nwkkey = LORAWAN_NWK_KEY,
+        .nwksenckey = LORAWAN_NWK_S_ENC_KEY,
+        .appskey = LORAWAN_APP_S_KEY,
+        .fnwksIntkey = LORAWAN_F_NWK_S_INT_KEY,
+        .snwksintkey = LORAWAN_S_NWK_S_INT_KEY,
+        .tx_datarate = DR_0,
+        .adr = LORAWAN_ADR_ON,
+        .public_network = LORAWAN_PUBLIC_NETWORK,
+    },
+    .uart = {
+        .baudrate = 19200,
+        .data_bit = 8,
+        .stop_bit = 0,
+        .parity = 1
+    }
+};
+
+configuration_t configuration;
+
 int main(void)
 {
     system_init();
+
+    config_init(&configuration, sizeof(lora_configuration_t), &configuration_default);
+
     HW_Init();
 
     LPM_SetOffMode(LPM_APPLI_Id, LPM_Disable);
 
-    LORA_Init(&LoRaMainCallbacks);
+    LORA_Init(&configuration.lora, &LoRaMainCallbacks);
 
     cmd_init();
 
@@ -103,5 +153,5 @@ uint8_t LORA_GetBatteryLevel(void)
 
 static void LORA_McpsDataConfirm(void)
 {
-    PRINTF("Network Server \"ack\" an uplink data confirmed message transmission\n\r");
+    PRINTF("+ACK\r\n\r\n");
 }

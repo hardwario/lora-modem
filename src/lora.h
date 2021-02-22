@@ -1,38 +1,3 @@
-/*
- / _____)             _              | |
-( (____  _____ ____ _| |_ _____  ____| |__
- \____ \| ___ |    (_   _) ___ |/ ___)  _ \
- _____) ) ____| | | || |_| ____( (___| | | |
-(______/|_____)_|_|_| \__)_____)\____)_| |_|
-    (C)2013 Semtech
-
-Description: LoRaMac classA device implementation
-
-License: Revised BSD License, see LICENSE.TXT file include in the project
-
-Maintainer: Miguel Luis, Gregory Cristian and Wael Guibene
-*/
-/**
-  ******************************************************************************
-  * @file    lora.h
-  * @author  MCD Application Team
-  * @brief   lora API to drive the lora state Machine
-  ******************************************************************************
-  * @attention
-  *
-  * <h2><center>&copy; Copyright (c) 2018 STMicroelectronics.
-  * All rights reserved.</center></h2>
-  *
-  * This software component is licensed by ST under Ultimate Liberty license
-  * SLA0044, the "License"; You may not use this file except in compliance with
-  * the License. You may obtain a copy of the License at:
-  *                             www.st.com/SLA0044
-  *
-  ******************************************************************************
-  */
-
-/* Define to prevent recursive inclusion -------------------------------------*/
-
 #ifndef __LORA_MAIN_H__
 #define __LORA_MAIN_H__
 
@@ -40,19 +5,20 @@ Maintainer: Miguel Luis, Gregory Cristian and Wael Guibene
 extern "C" {
 #endif
 
-/* Includes ------------------------------------------------------------------*/
 #include "Commissioning.h"
 #include "LoRaMac.h"
 #include "region/Region.h"
 
-/* Exported constants --------------------------------------------------------*/
-/*!
-* LoRaWAN confirmed messages
-*/
+#define LORAWAN_DEVICE_EUI      { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }
+#define LORAWAN_CLASS           CLASS_A
+#if defined(REGION_EU868) || defined(REGION_RU864) || defined(REGION_CN779) || defined(REGION_EU433)
+    #define LORAWAN_DUTY_CYCLE LORA_ENABLE
+#else
+    #define LORAWAN_DUTY_CYCLE LORA_DISABLE
+#endif
 
 #define LORAWAN_ADR_ON                              1
 #define LORAWAN_ADR_OFF                             0
-/* Exported types ------------------------------------------------------------*/
 
 /*!
  * Application Data structure
@@ -113,9 +79,32 @@ typedef enum eTxEventType
   TX_ON_EVENT
 } TxEventType_t;
 
+#pragma pack(push, 1)
+typedef struct
+{
+    bool public_network;      // if public network
+    bool otaa;                // if over the air activation
+    bool duty_cycle;          // if duty cyle
+    uint8_t class;            // Class mode
+    uint32_t devaddr;         // Device address
+    uint8_t deveui[8];        // Device EUI
+    uint8_t appeui[8];        // AppEUI x Join Eui
+    uint8_t appkey[16];       // App Key
+    uint8_t nwkkey[16];       // Application Key
+    uint8_t nwksenckey[16];   // Network Session Key
+    uint8_t appskey[16];      // Application Session Key
+    uint8_t fnwksIntkey[16];  // Application Session Key
+    uint8_t snwksintkey[16];  // Application Session Key
+    uint8_t application_port; // Application port we will receive to
+    uint8_t tx_datarate;      // TX datarate
+    bool adr;                 // if aptive data rate
+} lora_configuration_t;
+#pragma pack(pop)
+
 /* Lora Main callbacks*/
 typedef struct sLoRaMainCallback
 {
+    bool (*config_save)(void);
   /*!
    * @brief Get the current battery level
    *
@@ -198,7 +187,7 @@ typedef struct sLoRaMainCallback
  * @param [IN] application parmaters
  * @retval none
  */
-void LORA_Init(LoRaMainCallback_t *callbacks);
+void LORA_Init(lora_configuration_t *config, LoRaMainCallback_t *callbacks);
 
 /**
  * @brief run Lora classA state Machine
@@ -234,93 +223,128 @@ LoraErrorStatus LORA_RequestClass(DeviceClass_t newClass);
 
 /**
  * @brief get the current Lora Class
- * @param [IN] DeviceClass_t NewClass
- * @retval None
+ * @retval class
  */
-void LORA_GetCurrentClass(DeviceClass_t *currentClass);
+uint8_t lora_class_get(void);
+
 /**
   * @brief  Set join activation process: OTAA vs ABP
   * @param  Over The Air Activation status to set: enable or disable
   * @retval None
   */
-void lora_config_otaa_set(LoraState_t otaa);
+void lora_otaa_set(LoraState_t otaa);
 
 /**
   * @brief  Get join activation process: OTAA vs ABP
   * @param  None
   * @retval ENABLE if OTAA is used, DISABLE if ABP is used
   */
-LoraState_t lora_config_otaa_get(void);
+LoraState_t lora_otaa_get(void);
 
 /**
   * @brief  Set duty cycle: ENABLE or DISABLE
   * @param  Duty cycle to set: enable or disable
   * @retval None
   */
-void lora_config_duty_cycle_set(LoraState_t duty_cycle);
+void lora_duty_cycle_set(LoraState_t duty_cycle);
 
 /**
   * @brief  Get Duty cycle: OTAA vs ABP
   * @param  None
   * @retval ENABLE / DISABLE
   */
-LoraState_t lora_config_duty_cycle_get(void);
+LoraState_t lora_duty_cycle_get(void);
 
 /**
   * @brief  Get Device EUI
   * @param  None
   * @retval DevEUI
   */
-uint8_t *lora_config_deveui_get(void);
+uint8_t *lora_deveui_get(void);
+
+/**
+  * @brief  Set Device EUI
+  * @param  deveui
+  * @retval Nonoe
+  */
+void lora_deveui_set(uint8_t deveui[8]);
 
 /**
   * @brief  Get Join Eui
   * @param  None
   * @retval JoinEUI
   */
-uint8_t *lora_config_joineui_get(void);
+uint8_t *lora_appeui_get(void);
 
 /**
   * @brief  Set Join Eui
   * @param  JoinEUI
   * @retval Nonoe
   */
-void lora_config_joineui_set(uint8_t joineui[8]);
+void lora_appeui_set(uint8_t joineui[8]);
+
+/**
+  * @brief  Get Device address
+  * @param  None
+  * @retval JoinEUI
+  */
+uint32_t lora_devaddr_get(void);
+
+/**
+  * @brief  Set Device address
+  * @param  devaddr
+  * @retval Nonoe
+  */
+void lora_devaddr_set(uint32_t devaddr);
 
 /**
   * @brief  Get Application Key
   * @param  None
   * @retval AppKey
   */
-uint8_t *lora_config_appkey_get(void);
+uint8_t *lora_appkey_get(void);
 
 /**
   * @brief  Set Application Key
   * @param  AppKey
   * @retval None
   */
-void lora_config_appkey_set(uint8_t appkey[16]);
+void lora_appkey_set(uint8_t appkey[16]);
+
+/**
+  * @brief  Get is public network enabled
+  * @param  None
+  * @retval enabled
+  */
+bool lora_public_network_get(void);
+
+/**
+  * @brief  Set enable public network or not
+  * @param  enable
+  * @retval None
+  */
+void lora_public_network_set(bool enable);
 
 /**
  * @brief  Get the SNR of the last received data
  * @param  None
  * @retval SNR
  */
-int8_t lora_config_snr_get(void);
+int8_t lora_snr_get(void);
 
 /**
  * @brief  Get the RSSI of the last received data
  * @param  None
  * @retval RSSI
  */
-int16_t lora_config_rssi_get(void);
+int16_t lora_rssi_get(void);
 
 /**
  * @brief  Get whether or not the last sent data were acknowledged
  * @param  None
  * @retval ENABLE if so, DISABLE otherwise
  */
-LoraState_t lora_config_isack_get(void);
+LoraState_t lora_isack_get(void);
 
 /**
  * @brief  Launch LoraWan certification tests
@@ -334,14 +358,14 @@ void lora_wan_certif(void);
  * @param  None
  * @retval The application port
  */
-void lora_config_tx_datarate_set(int8_t TxDataRate);
+void lora_tx_datarate_set(int8_t TxDataRate);
 
 /**
  * @brief  get tx datarate
  * @param  None
  * @retval tx datarate
  */
-int8_t lora_config_tx_datarate_get(void);
+int8_t lora_tx_datarate_get(void);
 
 /**
  * @brief  get LoRaMac region
