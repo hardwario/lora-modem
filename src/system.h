@@ -5,5 +5,6 @@
 
 void system_init(void);
 
+void system_reset(void);
 
 #endif

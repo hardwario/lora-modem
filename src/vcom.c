@@ -49,7 +49,7 @@ void vcom_Init(void (*TxCb)(void))
       - Hardware flow control disabled (RTS and CTS signals) */
   UartHandle.Instance        = USARTx;
 
-  UartHandle.Init.BaudRate   = 19200;
+  UartHandle.Init.BaudRate   = 9600;
   UartHandle.Init.WordLength = UART_WORDLENGTH_8B;
   UartHandle.Init.StopBits   = UART_STOPBITS_1;
   UartHandle.Init.Parity     = UART_PARITY_NONE;
@@ -136,7 +136,7 @@ void HAL_UART_MspInit(UART_HandleTypeDef *huart)
   /* select USARTx clock source*/
   RCC_PeriphCLKInitTypeDef  PeriphClkInit = {0};
   PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_LPUART1;
-  PeriphClkInit.Lpuart1ClockSelection = RCC_LPUART1CLKSOURCE_HSI;
+  PeriphClkInit.Lpuart1ClockSelection = RCC_LPUART1CLKSOURCE_LSE;
   HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit);
 
   /* Enable DMA clock */

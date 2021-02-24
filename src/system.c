@@ -20,6 +20,11 @@ void system_init(void)
     HW_RTC_Init();
 }
 
+void system_reset(void)
+{
+    NVIC_SystemReset();
+}
+
 static void _system_init_flash(void)
 {
     // Enable prefetch
