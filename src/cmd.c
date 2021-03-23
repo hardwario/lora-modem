@@ -2,6 +2,8 @@
 #include "lora.h"
 #include "system.h"
 
+static bool _cmd_param_parse_is_enable(atci_param_t *param, bool *enable);
+
 static struct
 {
     lora_AppData_t lora_data;
@@ -18,6 +20,48 @@ static void cmd_deveui_get(void)
     uint8_t *data = lora_deveui_get();
     atci_print("+OK=");
     atci_print_buffer_as_hex(data, 8);
+}
+
+static void cmd_dutycycle_get(void)
+{
+    atci_printf("+OK=%d", lora_duty_cycle_get());
+}
+
+static void cmd_dutycycle_set(atci_param_t *param)
+{
+    bool enable;
+    if (_cmd_param_parse_is_enable(param, &enable))
+    {
+        lora_duty_cycle_set(enable);
+        lora_save_config();
+        atci_print("+OK");
+    } else {
+        atci_print("+ERR=-3");
+    }
+}
+
+static void cmd_dr_get(void)
+{
+    atci_printf("+OK=%d", lora_tx_datarate_get());
+}
+
+static void cmd_dr_set(atci_param_t *param)
+{
+    // TODO:
+    uint32_t value;
+    if (atci_param_get_uint(param, &value) && (value >= 0) && (value <=15))
+    {
+        lora_tx_datarate_set(value);
+        lora_save_config();
+        atci_print("+OK");
+    } else {
+        atci_print("+ERR=-3");
+    }
+}
+
+static void cmd_rfq_get()
+{
+    atci_printf("+OK=%d,%d", lora_rssi_get(), lora_snr_get());
 }
 
 static void cmd_deveui_set(atci_param_t *param)
@@ -117,23 +161,15 @@ static void cmd_nwk_get(void)
 
 static void cmd_nwk_set(atci_param_t *param)
 {
-    bool ok = false;
-    if (param->length == 1)
+    bool enable;
+    if (_cmd_param_parse_is_enable(param, &enable))
     {
-        if (param->txt[0] == '0')
-        {
-            lora_public_network_set(false);
-            ok = true;
-        }
-        else if (param->txt[0] == '1')
-        {
-            lora_public_network_set(true);
-            ok = true;
-        }
+        lora_public_network_set(enable);
+        lora_save_config();
+        atci_print("+OK");
+    } else {
+        atci_print("+ERR=-3");
     }
-    if (ok) lora_save_config();
-
-    atci_print(ok ? "+OK" : "+ERR=-3");
 }
 
 static void cmd_join(atci_param_t *param)
@@ -246,7 +282,10 @@ static const atci_command_t _cmd_commands[] = {
     {"+CLASS", NULL, NULL, cmd_class_get, NULL, "Class mode"},
     {"+BAND", NULL, NULL, cmd_band_get, NULL, "Radio band"},
     {"+NWK", NULL, cmd_nwk_set, cmd_nwk_get, NULL, "Public network"},
-    {"+MODE", NULL, NULL, cmd_mode_get, NULL, "Activation mode"},
+    {"+MODE", NULL, NULL, cmd_mode_get, NULL, "Activation mode 1:OTTA 0:ABP"},
+    {"+DUTYCYCLE", NULL, cmd_dutycycle_set, cmd_dutycycle_get, NULL, "Dutycycle"},
+    {"+DR", NULL, cmd_dr_set, cmd_dr_get, NULL, "Data rate"},
+    {"+RFQ", NULL, NULL, cmd_rfq_get, NULL, "RF parameter of last received message"},
     {"+DEVEUI", NULL, cmd_deveui_set, cmd_deveui_get, NULL, "Device identifier"},
     {"+APPEUI", NULL, cmd_appui_set, cmd_appui_get, NULL, "Application identifier"},
     {"+APPKEY", NULL, cmd_appkey_set, cmd_appkey_get, NULL, "Application key"},
@@ -270,4 +309,22 @@ void cmd_init()
 void cmd_event(const uint8_t type, const uint8_t no)
 {
     atci_printf("+EVENT=%d,%d\r\n\r\n", type, no);
+}
+
+static bool _cmd_param_parse_is_enable(atci_param_t *param, bool *enable)
+{
+    if (param->length == 1)
+    {
+        if (param->txt[0] == '0')
+        {
+            *enable = false;
+            return true;
+        }
+        else if (param->txt[0] == '1')
+        {
+            *enable = true;
+            return true;
+        }
+    }
+    return false;
 }

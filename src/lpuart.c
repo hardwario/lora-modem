@@ -1,29 +1,6 @@
-/**
-  ******************************************************************************
-  * @file    vcom.c
-  * @author  MCD Application Team
-  * @brief   manages virtual com port
-  ******************************************************************************
-  * @attention
-  *
-  * <h2><center>&copy; Copyright (c) 2018 STMicroelectronics.
-  * All rights reserved.</center></h2>
-  *
-  * This software component is licensed by ST under Ultimate Liberty license
-  * SLA0044, the "License"; You may not use this file except in compliance with
-  * the License. You may obtain a copy of the License at:
-  *                             www.st.com/SLA0044
-  *
-  ******************************************************************************
-  */
 #include "lpuart.h"
 #include "io.h"
 
-/* Private typedef -----------------------------------------------------------*/
-/* Private define ------------------------------------------------------------*/
-/* Private macro -------------------------------------------------------------*/
-/* Private variables ---------------------------------------------------------*/
-/* Uart Handle */
 static UART_HandleTypeDef UartHandle;
 
 uint8_t charRx;
@@ -31,12 +8,10 @@ uint8_t charRx;
 static void (*TxCpltCallback)(void);
 
 static void (*RxCpltCallback)(uint8_t *rxChar);
-/* Private function prototypes -----------------------------------------------*/
-/* Functions Definition ------------------------------------------------------*/
+
 void lpuart_init(void (*TxCb)(void))
 {
-
-    /*Record Tx complete for DMA*/
+    // Record Tx complete for DMA*/
     TxCpltCallback = TxCb;
     /*## Configure the UART peripheral ######################################*/
     /* Put the USART peripheral in the Asynchronous mode (UART Mode) */
@@ -62,9 +37,9 @@ void lpuart_init(void (*TxCb)(void))
     }
 }
 
-void lpuart_async_write(uint8_t *buffer, uint16_t size)
+void lpuart_async_write(uint8_t *buffer, size_t length)
 {
-    HAL_UART_Transmit_DMA(&UartHandle, buffer, size);
+    HAL_UART_Transmit_DMA(&UartHandle, buffer, length);
 }
 
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *UartHandle)
@@ -131,7 +106,7 @@ void HAL_UART_MspInit(UART_HandleTypeDef *huart)
 
     /*##-2- Configure peripheral GPIO ##########################################*/
     /* UART  pin configuration  */
-    vcom_io_init();
+    lpuart_io_init();
 
     /*##-3- Configure the DMA ##################################################*/
     /* Configure the DMA handler for Transmission process */
@@ -184,29 +159,29 @@ void HAL_UART_MspDeInit(UART_HandleTypeDef *huart)
     HAL_NVIC_DisableIRQ(DMA1_Channel4_5_6_7_IRQn);
 }
 
-void vcom_io_init(void)
+void lpuart_io_init(void)
 {
     GPIO_InitTypeDef GPIO_InitStruct = {0};
     /* Enable GPIO TX/RX clock */
     __GPIOA_CLK_ENABLE();
     __GPIOA_CLK_ENABLE();
     /* UART TX GPIO pin configuration  */
-    GPIO_InitStruct.Pin = USARTx_TX_PIN;
+    GPIO_InitStruct.Pin = LPUART_TX_PIN;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     GPIO_InitStruct.Speed = GPIO_SPEED_HIGH;
-    GPIO_InitStruct.Alternate = USARTx_TX_AF;
+    GPIO_InitStruct.Alternate = LPUART_TX_AF;
 
-    HAL_GPIO_Init(USARTx_TX_GPIO_PORT, &GPIO_InitStruct);
+    HAL_GPIO_Init(LPUART_TX_GPIO_PORT, &GPIO_InitStruct);
 
     /* UART RX GPIO pin configuration  */
-    GPIO_InitStruct.Pin = USARTx_RX_PIN;
-    GPIO_InitStruct.Alternate = USARTx_RX_AF;
+    GPIO_InitStruct.Pin = LPUART_RX_PIN;
+    GPIO_InitStruct.Alternate = LPUART_RX_AF;
 
-    HAL_GPIO_Init(USARTx_RX_GPIO_PORT, &GPIO_InitStruct);
+    HAL_GPIO_Init(LPUART_RX_GPIO_PORT, &GPIO_InitStruct);
 }
 
-vcom_io_deinit(void)
+void lpuart_io_deinit(void)
 {
     GPIO_InitTypeDef GPIO_InitStructure = {0};
 
@@ -215,11 +190,11 @@ vcom_io_deinit(void)
     GPIO_InitStructure.Mode = GPIO_MODE_ANALOG;
     GPIO_InitStructure.Pull = GPIO_NOPULL;
 
-    GPIO_InitStructure.Pin = USARTx_TX_PIN;
-    HAL_GPIO_Init(USARTx_TX_GPIO_PORT, &GPIO_InitStructure);
+    GPIO_InitStructure.Pin = LPUART_TX_PIN;
+    HAL_GPIO_Init(LPUART_TX_GPIO_PORT, &GPIO_InitStructure);
 
-    GPIO_InitStructure.Pin = USARTx_RX_PIN;
-    HAL_GPIO_Init(USARTx_RX_GPIO_PORT, &GPIO_InitStructure);
+    GPIO_InitStructure.Pin = LPUART_RX_PIN;
+    HAL_GPIO_Init(LPUART_RX_GPIO_PORT, &GPIO_InitStructure);
 }
 
 void RNG_LPUART1_IRQHandler(void)

@@ -1,5 +1,5 @@
-#ifndef __VCOM_H
-#define __VCOM_H
+#ifndef __LPUART_H
+#define __LPUART_H
 
 #include "common.h"
 
@@ -7,32 +7,32 @@
 #define UART_BAUDRATE 9600
 #endif
 
-//! @brief  init vcom
-//! @param  callback when Tx buffer has been sent
+//! @brief Init lpuart
+//! @param[in] callback when Tx buffer has been sent
 
 void lpuart_init(void (*Txcb)(void));
 
-//! @brief  Init receiver of vcom
-//! @param  callback When Rx char is received
+//! @brief Init receiver of lpuart
+//! @param[in] callback When Rx char is received
 
 void lpuart_set_rx_callback(void (*RxCb)(uint8_t *rxChar));
 
-//! @brief  Write buffer data in dma mode
-//! @param  buffer pointer to buffer
-//! @param  size of buffer p_data to be sent
+//! @brief Write buffer data in dma mode
+//! @param[in] buffer pointer to buffer
+//! @param[in] length of buffer p_data to be sent
 
-void lpuart_async_write(uint8_t *buffer, uint16_t size);
+void lpuart_async_write(uint8_t *buffer, size_t length);
 
-//! @brief  DeInit
+//! @brief DeInit
 
 void lpuart_deinit(void);
 
-//!@brief  Init IO
+//!@brief Init IO
 
-void vcom_io_init(void);
+void lpuart_io_init(void);
 
-//! @brief  DeInit IO
+//! @brief DeInit IO
 
-vcom_io_deinit(void);
+void lpuart_io_deinit(void);
 
-#endif // __VCOM_H
+#endif // __LPUART_H

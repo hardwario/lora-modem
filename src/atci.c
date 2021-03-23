@@ -1,5 +1,6 @@
 #include "atci.h"
 #include "console.h"
+#include "log.h"
 
 static void _atci_process_character(char character);
 static void _atci_process_line(void);
@@ -205,6 +206,8 @@ void atci_help_action(atci_param_t *param)
 
 static void _atci_process_line(void)
 {
+    log_debug("ATCI: %s", _atci.rx_buffer);
+
     if (_atci.rx_length < 2 || _atci.rx_buffer[0] != 'A' || _atci.rx_buffer[1] != 'T')
     {
         return;
@@ -300,6 +303,8 @@ static void _atci_process_line(void)
         }
         break;
     }
+
+    console_write("+ERR=-1", 7);
 }
 
 static void _atci_process_character(char character)
@@ -337,6 +342,7 @@ static void _atci_process_character(char character)
         }
         else if (_atci.rx_length > 0)
         {
+            _atci.rx_buffer[_atci.rx_length] = 0;
             _atci_process_line();
         }
 
