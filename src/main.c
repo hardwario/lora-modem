@@ -1,10 +1,17 @@
 #include "atci.h"
 #include "cmd.h"
+#include "adc.h"
+#include "sx1276io.h"
 #include "config.h"
 #include "io.h"
 #include "lora.h"
 #include "system.h"
 #include "timeServer.h"
+#include "log.h"
+#include "lpuart.h"
+#include "spi.h"
+#include "gpio.h"
+#include "usart.h"
 
 #define LORA_MAX_BAT 254
 #define LORA_ADR_ON 1
@@ -66,6 +73,8 @@ configuration_t configuration;
 int main(void)
 {
     system_init();
+
+    log_init(LOG_LEVEL_DUMP, LOG_TIMESTAMP_ABS);
 
     config_init(&configuration, sizeof(lora_configuration_t), &configuration_default);
 
@@ -162,11 +171,13 @@ void system_on_enter_stop_mode(void)
 
     sx1276io_deinit();
     adc_deinit();
+    usart_io_deinit();
 }
 
 void system_on_exit_stop_mode(void)
 {
     spi_io_init();
     sx1276io_init();
-    vcom_io_init();
+    lpuart_io_init();
+    usart_io_init();
 }
