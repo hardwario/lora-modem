@@ -30,6 +30,7 @@ SRC_FILES += \
 	$(SRC_DIR)/fifo.c \
 	$(SRC_DIR)/gpio.c \
 	$(SRC_DIR)/irq.c \
+	$(SRC_DIR)/log.c \
 	$(SRC_DIR)/lora.c \
 	$(SRC_DIR)/lpuart.c \
 	$(SRC_DIR)/main.c \
@@ -39,6 +40,9 @@ SRC_FILES += \
 	$(SRC_DIR)/spi.c \
 	$(SRC_DIR)/sx1276io.c \
 	$(SRC_DIR)/system.c \
+	$(SRC_DIR)/usart.c \
+	\
+	$(LIB_DIR)/rtt/segger_rtt.c \
 	\
 	$(LIB_DIR)/loramac-node/src/peripherals/soft-se/aes.c \
 	$(LIB_DIR)/loramac-node/src/peripherals/soft-se/cmac.c \
@@ -103,6 +107,7 @@ INC_DIR += \
 	$(LIB_DIR)/stm/include \
 	$(LIB_DIR)/stm/STM32L0xx_HAL_Driver/Inc \
 	$(LIB_DIR)/sx1276 \
+	$(LIB_DIR)/rtt \
 
 ################################################################################
 # ASM sources                                                                  #
