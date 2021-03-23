@@ -26,9 +26,9 @@ void system_init(void)
 
     _system_init_gpio();
 
-    _system_init_debug();
-
     _system_init_clock();
+
+    _system_init_debug();
 
     rtc_init();
 
@@ -57,6 +57,14 @@ void system_get_unique_id(uint8_t *id)
     id[0] = ((*(uint32_t *)_SYSTEM_ID2));
 }
 
+void system_wait_hsi(void)
+{
+    while ((RCC->CR & RCC_CR_HSIRDY) == 0)
+    {
+        continue;
+    }
+}
+
 void system_stop_mode_enable(system_mask_t mask)
 {
     BACKUP_PRIMASK();
@@ -82,7 +90,7 @@ bool system_is_stop_mode(void)
     return res;
 }
 
-void system_low_power()
+void system_low_power(void)
 {
     if (_system_stop_mode_disable)
     {
@@ -204,20 +212,20 @@ static void _system_init_debug(void)
 
 #else /* DEBUG */
     /* sw interface off*/
-    GPIO_InitTypeDef GPIO_InitStructure = {0};
+    // GPIO_InitTypeDef GPIO_InitStructure = {0};
 
-    GPIO_InitStructure.Mode = GPIO_MODE_ANALOG;
-    GPIO_InitStructure.Pull = GPIO_NOPULL;
-    GPIO_InitStructure.Pin = (GPIO_PIN_13 | GPIO_PIN_14);
-    __GPIOA_CLK_ENABLE();
-    HAL_GPIO_Init(GPIOA, &GPIO_InitStructure);
-    __GPIOA_CLK_DISABLE();
+    // GPIO_InitStructure.Mode = GPIO_MODE_ANALOG;
+    // GPIO_InitStructure.Pull = GPIO_NOPULL;
+    // GPIO_InitStructure.Pin = (GPIO_PIN_13 | GPIO_PIN_14);
+    // __GPIOA_CLK_ENABLE();
+    // HAL_GPIO_Init(GPIOA, &GPIO_InitStructure);
+    // __GPIOA_CLK_DISABLE();
 
-    __HAL_RCC_DBGMCU_CLK_ENABLE();
-    HAL_DBGMCU_DisableDBGSleepMode();
-    HAL_DBGMCU_DisableDBGStopMode();
-    HAL_DBGMCU_DisableDBGStandbyMode();
-    __HAL_RCC_DBGMCU_CLK_DISABLE();
+    // __HAL_RCC_DBGMCU_CLK_ENABLE();
+    // HAL_DBGMCU_DisableDBGSleepMode();
+    // HAL_DBGMCU_DisableDBGStopMode();
+    // HAL_DBGMCU_DisableDBGStandbyMode();
+    // __HAL_RCC_DBGMCU_CLK_DISABLE();
 #endif
 }
 

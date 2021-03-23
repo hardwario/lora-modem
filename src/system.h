@@ -20,13 +20,25 @@ uint32_t system_get_random_seed(void);
 
 void system_get_unique_id(uint8_t *id);
 
+//! @brief Aait on HSI
+
+void system_wait_hsi(void);
+
+//! @brief Stop mode mask subsystem
 typedef enum
 {
-    SYSTEM_LP_RTC = (1 << 0),
-    SYSTEM_LP_UART = (1 << 1),
+    SYSTEM_MASK_RTC = (1 << 0),
+    SYSTEM_MASK_LPUART = (1 << 1),
+    SYSTEM_MASK_USART = (1 << 2),
 } system_mask_t;
 
+//! @brief Enable stop mode
+//! @param[in] mask Mask subsystem
+
 void system_stop_mode_enable(system_mask_t mask);
+
+//! @brief Disable stop mode
+//! @param[in] mask Mask subsystem
 
 void system_stop_mode_disable(system_mask_t mask);
 
@@ -34,7 +46,7 @@ bool system_is_stop_mode(void);
 
 //! @brief Go to low power, sleep mode or stop mode
 
-void system_low_power();
+void system_low_power(void);
 
 //! @brief This function call on enter to stop mode (weak)
 

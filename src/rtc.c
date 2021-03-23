@@ -178,12 +178,12 @@ void rtc_set_alarm(uint32_t timeout)
     if ((MIN_ALARM_DELAY + McuWakeUpTimeCal) < ((timeout - rtc_get_timer_elapsed_time())))
     {
         // LPM_SetStopMode(LPM_RTC_Id, LPM_Enable);
-        system_stop_mode_enable(SYSTEM_LP_RTC);
+        system_stop_mode_enable(SYSTEM_MASK_RTC);
     }
     else
     {
         // LPM_SetStopMode(LPM_RTC_Id, LPM_Disable);
-        system_stop_mode_disable(SYSTEM_LP_RTC);
+        system_stop_mode_disable(SYSTEM_MASK_RTC);
     }
 
     /*In case stop mode is required */
@@ -470,7 +470,7 @@ void RTC_IRQHandler(void)
     RTC_HandleTypeDef *hrtc = &RtcHandle;
     /* enable low power at irq*/
     //   LPM_SetStopMode(LPM_RTC_Id, LPM_Enable);
-    system_stop_mode_enable(SYSTEM_LP_RTC);
+    system_stop_mode_enable(SYSTEM_MASK_RTC);
 
     /* Clear the EXTI's line Flag for RTC Alarm */
     __HAL_RTC_ALARM_EXTI_CLEAR_FLAG();
