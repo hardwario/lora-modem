@@ -1,6 +1,6 @@
 #include "error.h"
-#include "low_power_manager.h"
 #include "console.h"
+#include "system.h"
 
 void error_handler()
 {
@@ -9,6 +9,6 @@ void error_handler()
 
     while (1)
     {
-        LPM_EnterLowPower();
+        system_low_power();
     }
 }

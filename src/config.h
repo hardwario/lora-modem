@@ -1,7 +1,7 @@
 #ifndef _CONFIG_H
 #define _CONFIG_H
 
-#include <common.h>
+#include "common.h"
 
 #define CONFIG_SIGNATURE 0xdeadbeef
 #define CONFIG_ADDRESS_START 0

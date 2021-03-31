@@ -42,9 +42,10 @@
   */
 
 /* Includes ------------------------------------------------------------------*/
-#include "hw.h"
-#include "radio.h"
+
 #include "sx1276.h"
+#include "io.h"
+#include "spi.h"
 #include "timeServer.h"
 
 /*
@@ -248,7 +249,7 @@ static RadioEvents_t *RadioEvents;
  */
 static uint8_t RxTxBuffer[RX_BUFFER_SIZE];
 
-static LoRaBoardCallback_t *LoRaBoardCallbacks;
+static LoRaBoardCallback_t *LoRa_sx1276io_callbacks;
 
 /*
  * Public global variables
@@ -278,7 +279,7 @@ TimerEvent_t RxTimeoutSyncWord;
  */
 void SX1276BoardInit( LoRaBoardCallback_t *callbacks )
 {
-    LoRaBoardCallbacks =callbacks;
+    LoRa_sx1276io_callbacks =callbacks;
 }
 
 uint32_t SX1276Init( RadioEvents_t *events )
@@ -292,7 +293,7 @@ uint32_t SX1276Init( RadioEvents_t *events )
     TimerInit( &RxTimeoutTimer, SX1276OnTimeoutIrq );
     TimerInit( &RxTimeoutSyncWord, SX1276OnTimeoutIrq );
 
-    LoRaBoardCallbacks->SX1276BoardSetXO( SET );
+    LoRa_sx1276io_callbacks->SX1276BoardSetXO( SET );
 
     SX1276Reset( );
 
@@ -300,7 +301,7 @@ uint32_t SX1276Init( RadioEvents_t *events )
 
     SX1276SetOpMode( RF_OPMODE_SLEEP );
 
-    LoRaBoardCallbacks->SX1276BoardIoIrqInit( DioIrq );
+    LoRa_sx1276io_callbacks->SX1276BoardIoIrqInit( DioIrq );
 
     for( i = 0; i < sizeof( RadioRegsInit ) / sizeof( RadioRegisters_t ); i++ )
     {
@@ -312,7 +313,7 @@ uint32_t SX1276Init( RadioEvents_t *events )
 
     SX1276.Settings.State = RF_IDLE;
 
-    return ( uint32_t )LoRaBoardCallbacks->SX1276BoardGetWakeTime( ) + RADIO_WAKEUP_TIME;// BOARD_WAKEUP_TIME;
+    return ( uint32_t )LoRa_sx1276io_callbacks->SX1276BoardGetWakeTime( ) + RADIO_WAKEUP_TIME;// BOARD_WAKEUP_TIME;
 }
 
 RadioState_t SX1276GetStatus( void )
@@ -647,7 +648,7 @@ void SX1276SetTxConfig( RadioModems_t modem, int8_t power, uint32_t fdev,
 {
     SX1276SetModem( modem );
 
-    LoRaBoardCallbacks->SX1276BoardSetRfTxPower( power );
+    LoRa_sx1276io_callbacks->SX1276BoardSetRfTxPower( power );
 
     switch( modem )
     {
@@ -883,7 +884,7 @@ void SX1276SetSleep( void )
     SX1276SetOpMode( RF_OPMODE_SLEEP );
 
     // Disable TCXO radio is in SLEEP mode
-    LoRaBoardCallbacks->SX1276BoardSetXO( RESET );
+    LoRa_sx1276io_callbacks->SX1276BoardSetXO( RESET );
 
     SX1276.Settings.State = RF_IDLE;
 }
@@ -1215,15 +1216,15 @@ void SX1276Reset( void )
     initStruct.Speed = GPIO_SPEED_HIGH;
 
     // Set RESET pin to 0
-    HW_GPIO_Init( RADIO_RESET_PORT, RADIO_RESET_PIN, &initStruct );
-    HW_GPIO_Write( RADIO_RESET_PORT, RADIO_RESET_PIN, 0 );
+    gpio_init( RADIO_RESET_PORT, RADIO_RESET_PIN, &initStruct );
+    gpio_write( RADIO_RESET_PORT, RADIO_RESET_PIN, 0 );
 
     // Wait 1 ms
     DelayMs( 1 );
 
     // Configure RESET as input
     initStruct.Mode = GPIO_NOPULL;
-    HW_GPIO_Init( RADIO_RESET_PORT, RADIO_RESET_PIN, &initStruct );
+    gpio_init( RADIO_RESET_PORT, RADIO_RESET_PIN, &initStruct );
 
     // Wait 6 ms
     DelayMs( 6 );
@@ -1235,18 +1236,18 @@ void SX1276SetOpMode( uint8_t opMode )
     {
       SX1276Write( REG_OPMODE, ( SX1276Read( REG_OPMODE ) & RF_OPMODE_MASK ) | opMode );
 
-      LoRaBoardCallbacks->SX1276BoardSetAntSwLowPower( true );
+      LoRa_sx1276io_callbacks->SX1276BoardSetAntSwLowPower( true );
 
-      LoRaBoardCallbacks->SX1276BoardSetXO( RESET );
+      LoRa_sx1276io_callbacks->SX1276BoardSetXO( RESET );
     }
     else
     {
       // Enable TCXO if operating mode different from SLEEP.
-      LoRaBoardCallbacks->SX1276BoardSetXO( SET );
+      LoRa_sx1276io_callbacks->SX1276BoardSetXO( SET );
 
-      LoRaBoardCallbacks->SX1276BoardSetAntSwLowPower( false );
+      LoRa_sx1276io_callbacks->SX1276BoardSetAntSwLowPower( false );
 
-      LoRaBoardCallbacks->SX1276BoardSetAntSw( opMode );
+      LoRa_sx1276io_callbacks->SX1276BoardSetAntSw( opMode );
 
       SX1276Write( REG_OPMODE, ( SX1276Read( REG_OPMODE ) & RF_OPMODE_MASK ) | opMode );
     }
@@ -1306,16 +1307,16 @@ void SX1276WriteBuffer( uint16_t addr, uint8_t *buffer, uint8_t size )
     uint8_t i;
 
     //NSS = 0;
-    HW_GPIO_Write( RADIO_NSS_PORT, RADIO_NSS_PIN, 0 );
+    gpio_write( RADIO_NSS_PORT, RADIO_NSS_PIN, 0 );
 
-    HW_SPI_InOut( addr | 0x80 );
+    spi_transfer( addr | 0x80 );
     for( i = 0; i < size; i++ )
     {
-        HW_SPI_InOut( buffer[i] );
+        spi_transfer( buffer[i] );
     }
 
     //NSS = 1;
-    HW_GPIO_Write( RADIO_NSS_PORT, RADIO_NSS_PIN, 1 );
+    gpio_write( RADIO_NSS_PORT, RADIO_NSS_PIN, 1 );
 }
 
 void SX1276ReadBuffer( uint16_t addr, uint8_t *buffer, uint8_t size )
@@ -1323,17 +1324,17 @@ void SX1276ReadBuffer( uint16_t addr, uint8_t *buffer, uint8_t size )
     uint8_t i;
 
     //NSS = 0;
-    HW_GPIO_Write( RADIO_NSS_PORT, RADIO_NSS_PIN, 0 );
+    gpio_write( RADIO_NSS_PORT, RADIO_NSS_PIN, 0 );
 
-    HW_SPI_InOut( addr & 0x7F );
+    spi_transfer( addr & 0x7F );
 
     for( i = 0; i < size; i++ )
     {
-        buffer[i] = HW_SPI_InOut( 0 );
+        buffer[i] = spi_transfer( 0 );
     }
 
     //NSS = 1;
-    HW_GPIO_Write( RADIO_NSS_PORT, RADIO_NSS_PIN, 1 );
+    gpio_write( RADIO_NSS_PORT, RADIO_NSS_PIN, 1 );
 }
 
 void SX1276WriteFifo( uint8_t *buffer, uint8_t size )
@@ -1382,7 +1383,7 @@ void SX1276SetPublicNetwork( bool enable )
 
 uint32_t SX1276GetWakeupTime( void )
 {
-    return ( uint32_t )LoRaBoardCallbacks->SX1276BoardGetWakeTime( ) + RADIO_WAKEUP_TIME;// BOARD_WAKEUP_TIME;
+    return ( uint32_t )LoRa_sx1276io_callbacks->SX1276BoardGetWakeTime( ) + RADIO_WAKEUP_TIME;// BOARD_WAKEUP_TIME;
 }
 
 static uint32_t SX1276GetLoRaBandwidthInHz( uint32_t bw )

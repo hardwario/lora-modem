@@ -1,23 +1,12 @@
-#ifndef __BOARD_H__
-#define __BOARD_H__
+#ifndef _BOARD_H
+#define _BOARD_H
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
+#include "system.h"
 
-#include <stdint.h>
-#include "utilities.h"
+// Need for /lib/loramac-node/src/peripherals/soft-se
 
-/*!
- * \brief Gets the board 64 bits unique ID
- *
- * \param [IN] id Pointer to an array that will contain the Unique ID
- */
+//! @brief Gets the board 64 bits unique ID
+
 void BoardGetUniqueId( uint8_t *id );
 
-#ifdef __cplusplus
-}
-#endif
-
-#endif // __BOARD_H__
+#endif // _BOARD_H

@@ -42,6 +42,8 @@
 #ifndef __SX1276_H__
 #define __SX1276_H__
 
+#include "common.h"
+#include "radio.h"
 #include "sx1276Regs-Fsk.h"
 #include "sx1276Regs-LoRa.h"
 

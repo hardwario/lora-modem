@@ -3,7 +3,8 @@
 
 #include "common.h"
 
+void irq_init(void);
 void irq_enable(void);
 void irq_disable(void);
 
-#endif
+#endif // _IRQ_H

@@ -2,6 +2,6 @@ out/
 obj/
 tools/ozone/ozone.jdebug.user
 firmware.bin
-src/example
+_src/
 *.bin
 *.hex

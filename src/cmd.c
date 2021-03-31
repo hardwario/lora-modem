@@ -23,7 +23,7 @@ static void cmd_deveui_get(void)
 static void cmd_deveui_set(atci_param_t *param)
 {
     uint8_t deveui[8];
-    if (atci_get_buffer_from_hex(param, deveui, 8) == 8)
+    if (atci_param_get_buffer_from_hex(param, deveui, 8) == 8)
     {
         lora_deveui_set(deveui);
         lora_save_config();
@@ -44,7 +44,7 @@ static void cmd_devaddr_get(void)
 static void cmd_devaddr_set(atci_param_t *param)
 {
     uint32_t devaddr;
-    if (atci_get_buffer_from_hex(param, &devaddr, 4) == 4)
+    if (atci_param_get_buffer_from_hex(param, &devaddr, 4) == 4)
     {
         lora_devaddr_set(devaddr);
         lora_save_config();
@@ -76,7 +76,7 @@ static void cmd_appui_get(void)
 static void cmd_appui_set(atci_param_t *param)
 {
     uint8_t appeui[8];
-    if (atci_get_buffer_from_hex(param, appeui, 8) == 8)
+    if (atci_param_get_buffer_from_hex(param, appeui, 8) == 8)
     {
         lora_appeui_set(appeui);
         lora_save_config();
@@ -98,7 +98,7 @@ static void cmd_appkey_get(void)
 static void cmd_appkey_set(atci_param_t *param)
 {
     uint8_t appkey[16];
-    if (atci_get_buffer_from_hex(param, appkey, 16) == 16)
+    if (atci_param_get_buffer_from_hex(param, appkey, 16) == 16)
     {
         lora_appkey_set(appkey);
         lora_save_config();
@@ -139,7 +139,7 @@ static void cmd_nwk_set(atci_param_t *param)
 static void cmd_join(atci_param_t *param)
 {
     (void)param;
-    LoraErrorStatus status = LORA_Join();
+    LoraErrorStatus status = lora_join();
     if (status == LORA_SUCCESS)
     {
         atci_print("+OK");
@@ -156,7 +156,7 @@ static void cmd_putx_data(atci_param_t *param)
 
     memcpy(_at.buffer, param->txt, param->length);
 
-    if (LORA_send(&_at.lora_data, LORAWAN_UNCONFIRMED_MSG) == LORA_SUCCESS)
+    if (lora_send(&_at.lora_data, LORA_UNCONFIRMED_MSG) == LORA_SUCCESS)
     {
         atci_print("+OK");
     }
@@ -170,13 +170,13 @@ static void cmd_putx(atci_param_t *param)
 {
     uint32_t value;
 
-    if (!atci_get_uint(param, &value) || value > 255)
+    if (!atci_param_get_uint(param, &value) || value > 255)
     {
         atci_print("+ERR=-2");
         return;
     }
 
-    if (!atci_is_comma(param))
+    if (!atci_param_is_comma(param))
     {
         atci_print("+ERR=-2");
         return;
@@ -184,7 +184,7 @@ static void cmd_putx(atci_param_t *param)
 
     _at.lora_data.Port = value;
 
-    if (!atci_get_uint(param, &value) || value > 255)
+    if (!atci_param_get_uint(param, &value) || value > 255)
     {
         atci_print("+ERR=-2");
         return;
@@ -199,7 +199,7 @@ static void cmd_pctx_data(atci_param_t *param)
 
     memcpy(_at.buffer, param->txt, param->length);
 
-    if (LORA_send(&_at.lora_data, LORAWAN_CONFIRMED_MSG) == LORA_SUCCESS)
+    if (lora_send(&_at.lora_data, LORA_CONFIRMED_MSG) == LORA_SUCCESS)
     {
         atci_print("+OK");
     }
@@ -213,13 +213,13 @@ static void cmd_pctx(atci_param_t *param)
 {
     uint32_t value;
 
-    if (!atci_get_uint(param, &value) || value > 255)
+    if (!atci_param_get_uint(param, &value) || value > 255)
     {
         atci_print("+ERR=-2");
         return;
     }
 
-    if (!atci_is_comma(param))
+    if (!atci_param_is_comma(param))
     {
         atci_print("+ERR=-2");
         return;
@@ -227,7 +227,7 @@ static void cmd_pctx(atci_param_t *param)
 
     _at.lora_data.Port = value;
 
-    if (!atci_get_uint(param, &value) || value > 255)
+    if (!atci_param_get_uint(param, &value) || value > 255)
     {
         atci_print("+ERR=-2");
         return;

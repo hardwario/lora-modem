@@ -23,7 +23,7 @@
  * \author    MCD Application Team ( STMicroelectronics International )
  */
 #include <stdio.h>
-#include "hw_rtc.h"
+#include "rtc.h"
 #include "systime.h"
 
 #define END_OF_FEBRUARY_LEAP                         60 //31+29
@@ -104,15 +104,15 @@ SysTime_t SysTimeSub( SysTime_t a, SysTime_t b )
 void SysTimeSet( SysTime_t sysTime )
 {
     SysTime_t DeltaTime;
-  
+
     SysTime_t calendarTime = { .Seconds = 0, .SubSeconds = 0 };
 
-    calendarTime.Seconds = HW_RTC_GetCalendarTime( ( uint16_t* )&calendarTime.SubSeconds );
+    calendarTime.Seconds = rtc_get_calendar_time( ( uint16_t* )&calendarTime.SubSeconds );
 
     // sysTime is epoch
     DeltaTime = SysTimeSub( sysTime, calendarTime );
 
-    HW_RTC_BKUPWrite( DeltaTime.Seconds, ( uint32_t )DeltaTime.SubSeconds );
+    rtc_write_backup_registers( DeltaTime.Seconds, ( uint32_t )DeltaTime.SubSeconds );
 }
 
 SysTime_t SysTimeGet( void )
@@ -121,9 +121,9 @@ SysTime_t SysTimeGet( void )
     SysTime_t sysTime = { .Seconds = 0, .SubSeconds = 0 };
     SysTime_t DeltaTime;
 
-    calendarTime.Seconds = HW_RTC_GetCalendarTime( ( uint16_t* )&calendarTime.SubSeconds );
+    calendarTime.Seconds = rtc_get_calendar_time( ( uint16_t* )&calendarTime.SubSeconds );
 
-    HW_RTC_BKUPRead( &DeltaTime.Seconds, ( uint32_t* )&DeltaTime.SubSeconds );
+    rtc_read_backup_registers( &DeltaTime.Seconds, ( uint32_t* )&DeltaTime.SubSeconds );
 
     sysTime = SysTimeAdd( DeltaTime, calendarTime );
 
@@ -135,15 +135,15 @@ SysTime_t SysTimeGetMcuTime( void )
 {
     SysTime_t calendarTime = { .Seconds = 0, .SubSeconds = 0 };
 
-    calendarTime.Seconds = HW_RTC_GetCalendarTime( ( uint16_t* )&calendarTime.SubSeconds );
-    
+    calendarTime.Seconds = rtc_get_calendar_time( ( uint16_t* )&calendarTime.SubSeconds );
+
     return calendarTime;
 }
 
 uint32_t SysTimeToMs( SysTime_t sysTime )
 {
     SysTime_t DeltaTime;
-    HW_RTC_BKUPRead( &DeltaTime.Seconds, ( uint32_t* )&DeltaTime.SubSeconds );
+    rtc_read_backup_registers( &DeltaTime.Seconds, ( uint32_t* )&DeltaTime.SubSeconds );
     SysTime_t calendarTime = SysTimeSub( sysTime, DeltaTime );
     return calendarTime.Seconds * 1000 + calendarTime.SubSeconds;
 }
@@ -153,7 +153,7 @@ SysTime_t SysTimeFromMs( uint32_t timeMs )
     uint32_t seconds = timeMs / 1000;
     SysTime_t sysTime = { .Seconds = seconds, .SubSeconds =  timeMs - seconds * 1000 };
     SysTime_t DeltaTime = { 0 };
-    HW_RTC_BKUPRead( &DeltaTime.Seconds, ( uint32_t* )&DeltaTime.SubSeconds );
+    rtc_read_backup_registers( &DeltaTime.Seconds, ( uint32_t* )&DeltaTime.SubSeconds );
 
     return SysTimeAdd( sysTime, DeltaTime );
 }
@@ -181,7 +181,7 @@ uint32_t SysTimeMkTime( const struct tm* localtime )
     // Convert from days to seconds
     nbsecs = nbdays * TM_SECONDS_IN_1DAY;
 
-    nbsecs += ( ( uint32_t )localtime->tm_sec + 
+    nbsecs += ( ( uint32_t )localtime->tm_sec +
                 ( ( uint32_t )localtime->tm_min * TM_SECONDS_IN_1MINUTE ) +
                 ( ( uint32_t )localtime->tm_hour * TM_SECONDS_IN_1HOUR ) );
     return nbsecs - UNIX_HOUR_OFFSET;

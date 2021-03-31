@@ -25,6 +25,9 @@ static struct
 void atci_init(const atci_command_t *commands, int length)
 {
     memset(&_atci, 0, sizeof(_atci));
+
+    console_init();
+
     _atci.commands = commands;
     _atci.commands_length = length;
 }
@@ -49,9 +52,9 @@ void atci_process(void)
     }
 }
 
-size_t atci_print(const char *buffer)
+size_t atci_print(const char *message)
 {
-    return console_write(buffer, strlen(buffer));
+    return console_write(message, strlen(message));
 }
 
 size_t atci_printf(const char *format, ...)
@@ -89,7 +92,7 @@ size_t atci_print_buffer_as_hex(const void *buffer, size_t length)
     return console_write(_atci.tmp, on_write);
 }
 
-size_t atci_get_buffer_from_hex(atci_param_t *param, void *buffer, size_t length)
+size_t atci_param_get_buffer_from_hex(atci_param_t *param, void *buffer, size_t length)
 {
     if ((buffer == NULL) || ((param->length - param->offset) / 2 < length))
     {
@@ -136,7 +139,7 @@ size_t atci_get_buffer_from_hex(atci_param_t *param, void *buffer, size_t length
     return l;
 }
 
-bool atci_get_uint(atci_param_t *param, uint32_t *value)
+bool atci_param_get_uint(atci_param_t *param, uint32_t *value)
 {
     if (param->offset >= param->length)
     {
@@ -171,7 +174,7 @@ bool atci_get_uint(atci_param_t *param, uint32_t *value)
     return true;
 }
 
-bool atci_is_comma(atci_param_t *param)
+bool atci_param_is_comma(atci_param_t *param)
 {
     return param->txt[param->offset++] == ',';
 }
@@ -292,6 +295,7 @@ static void _atci_process_line(void)
         }
         else
         {
+            atci_printf("Unknown: %s", command);
             return;
         }
         break;

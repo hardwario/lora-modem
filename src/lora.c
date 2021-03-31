@@ -1,41 +1,7 @@
-/**
-  ******************************************************************************
-  * @file    lora.c
-  * @author  MCD Application Team
-  * @brief   lora API to drive the lora state Machine
-  ******************************************************************************
-  * @attention
-  *
-  * <h2><center>&copy; Copyright (c) 2018 STMicroelectronics.
-  * All rights reserved.</center></h2>
-  *
-  * This software component is licensed by ST under Ultimate Liberty license
-  * SLA0044, the "License"; You may not use this file except in compliance with
-  * the License. You may obtain a copy of the License at:
-  *                             www.st.com/SLA0044
-  *
-  ******************************************************************************
-  */
-
-/* Includes ------------------------------------------------------------------*/
-#include "hw.h"
-#include "timeServer.h"
-#include "LoRaMac.h"
 #include "lora.h"
-#include "util_console.h"
-#include "config.h"
+#include "timeServer.h"
 #include "utilities.h"
-
-#ifndef LORAMAC_VERSION
-/*!
- * LORaWAN version definition.
- */
-#define LORAMAC_VERSION 0x01000300
-#endif
-
-#ifndef CERTIF_PORT
-#define CERTIF_PORT 224
-#endif
+#include "LoRaMac.h"
 
 static struct
 {
@@ -43,6 +9,7 @@ static struct
     McpsConfirm_t *McpsConfirm; // confirm structure
     int16_t Rssi;               // Rssi of the received packet
     int8_t Snr;                 // Snr of the received packet
+    lora_callback_t *callbacks;
 
 } _lora;
 
@@ -58,26 +25,14 @@ static struct
  */
 #define OVER_THE_AIR_ACTIVATION_DUTYCYCLE 10000 // 10 [s] value in ms
 
-#include "LoRaMacTest.h"
-
-#if defined(REGION_EU868) || defined(REGION_RU864) || defined(REGION_CN779) || defined(REGION_EU433)
-/*!
- * LoRaWAN ETSI duty cycle control enable/disable
- *
- * \remark Please note that ETSI mandates duty cycled transmissions. Use only for test purposes
- */
-#define LORAWAN_DUTYCYCLE_ON false
-
-#endif
-
 #ifdef LORAMAC_CLASSB_ENABLED
 /*!
  * Default ping slots periodicity
  *
- * \remark periodicity is equal to 2^LORAWAN_DEFAULT_PING_SLOT_PERIODICITY seconds
+ * \remark periodicity is equal to 2^LORA_DEFAULT_PING_SLOT_PERIODICITY seconds
  *         example: 2^3 = 8 seconds. The end-device will open an Rx slot every 8 seconds.
  */
-#define LORAWAN_DEFAULT_PING_SLOT_PERIODICITY 0
+#define LORA_DEFAULT_PING_SLOT_PERIODICITY 0
 uint8_t DefaultPingSlotPeriodicity;
 
 #endif
@@ -105,7 +60,6 @@ static LoRaMacCallback_t LoRaMacCallbacks;
 static MibRequestConfirm_t mibReq;
 static LoRaMacRegion_t LoRaRegion;
 
-static LoRaMainCallback_t *LoRaMainCallbacks;
 /*!
  * \brief   MCPS-Confirm event function
  *
@@ -132,7 +86,7 @@ static void McpsConfirm(McpsConfirm_t *mcpsConfirm)
             // Check AckReceived
             if (mcpsConfirm->AckReceived)
             {
-                LoRaMainCallbacks->LORA_McpsDataConfirm();
+                _lora.callbacks->send_data_confirm();
             }
             // Check NbTrials
             break;
@@ -192,35 +146,22 @@ static void McpsIndication(McpsIndication_t *mcpsIndication)
     {
         // The server signals that it has pending data to be sent.
         // We schedule an uplink as soon as possible to flush the server.
-        LoRaMainCallbacks->LORA_TxNeeded();
+        _lora.callbacks->tx_needed();
     }
     // Check Buffer
     // Check BufferSize
     // Check Rssi
     // Check Snr
     // Check RxSlot
-    if (certif_running() == true)
-    {
-        certif_DownLinkIncrement();
-    }
 
     if (mcpsIndication->RxData == true)
     {
-        switch (mcpsIndication->Port)
-        {
-        case CERTIF_PORT:
-            certif_rx(mcpsIndication, &JoinParameters);
-            break;
-        default:
-
             AppData.Port = mcpsIndication->Port;
             AppData.BuffSize = mcpsIndication->BufferSize;
             AppData.Buff = mcpsIndication->Buffer;
             _lora.Rssi = mcpsIndication->Rssi;
             _lora.Snr = mcpsIndication->Snr;
-            LoRaMainCallbacks->LORA_RxData(&AppData);
-            break;
-        }
+            _lora.callbacks->rx_data(&AppData);
     }
 }
 
@@ -243,7 +184,7 @@ static void MlmeConfirm(MlmeConfirm_t *mlmeConfirm)
         if (mlmeConfirm->Status == LORAMAC_EVENT_INFO_STATUS_OK)
         {
             // Status is OK, node has joined the network
-            LoRaMainCallbacks->join_status(true);
+            _lora.callbacks->join_status(true);
 
             MibRequestConfirm_t mibReq = {.Type = MIB_DEV_ADDR};
             LoRaMacMibGetRequestConfirm(&mibReq);
@@ -259,7 +200,7 @@ static void MlmeConfirm(MlmeConfirm_t *mlmeConfirm)
         }
         else
         {
-            LoRaMainCallbacks->join_status(false);
+            _lora.callbacks->join_status(false);
         }
         break;
     }
@@ -269,10 +210,6 @@ static void MlmeConfirm(MlmeConfirm_t *mlmeConfirm)
         {
             // Check DemodMargin
             // Check NbGateways
-            if (certif_running() == true)
-            {
-                certif_linkCheck(mlmeConfirm);
-            }
         }
         break;
     }
@@ -311,7 +248,7 @@ static void MlmeConfirm(MlmeConfirm_t *mlmeConfirm)
 #endif
 
             /*notify upper layer*/
-            LoRaMainCallbacks->LORA_ConfirmClass(CLASS_B);
+            _lora.callbacks->confirm_class(CLASS_B);
         }
         else
         {
@@ -350,7 +287,7 @@ static void MlmeIndication(MlmeIndication_t *MlmeIndication)
     case MLME_SCHEDULE_UPLINK:
     {
         // The MAC signals that we shall provide an uplink as soon as possible
-        LoRaMainCallbacks->LORA_TxNeeded();
+        _lora.callbacks->tx_needed();
         break;
     }
 #ifdef LORAMAC_CLASSB_ENABLED
@@ -384,25 +321,24 @@ static void MlmeIndication(MlmeIndication_t *MlmeIndication)
 /**
  *  lora Init
  */
-void LORA_Init(lora_configuration_t *config, LoRaMainCallback_t *callbacks)
+void lora_init(lora_configuration_t *config, lora_callback_t *callbacks)
 {
     memset(&_lora, 0, sizeof(_lora));
 
     _lora.config = config;
+    _lora.callbacks = callbacks;
 
-    LoRaMainCallbacks = callbacks;
-
-    uint8_t empty_deveui[8] = LORAWAN_DEVICE_EUI;
+    uint8_t empty_deveui[8] = LORA_DEVICE_EUI;
 
     // fill deveui if not set in eeprom
     if (memcmp(_lora.config->deveui, empty_deveui, 8) == 0)
     {
-        LoRaMainCallbacks->BoardGetUniqueId(_lora.config->deveui);
+        _lora.callbacks->get_unique_Id(_lora.config->deveui);
     }
     // fill devaddr if not set in eeprom
     if (_lora.config->devaddr == 0)
     {
-        srand1(LoRaMainCallbacks->BoardGetRandomSeed());
+        srand1(_lora.callbacks->get_random_seed());
         _lora.config->devaddr = randr(0, 0x01FFFFFF);
     }
 
@@ -410,9 +346,9 @@ void LORA_Init(lora_configuration_t *config, LoRaMainCallback_t *callbacks)
     LoRaMacPrimitives.MacMcpsIndication = McpsIndication;
     LoRaMacPrimitives.MacMlmeConfirm = MlmeConfirm;
     LoRaMacPrimitives.MacMlmeIndication = MlmeIndication;
-    LoRaMacCallbacks.GetBatteryLevel = LoRaMainCallbacks->BoardGetBatteryLevel;
-    LoRaMacCallbacks.GetTemperatureLevel = NULL; //LoRaMainCallbacks->BoardGetTemperatureLevel;
-    LoRaMacCallbacks.MacProcessNotify = LoRaMainCallbacks->MacProcessNotify;
+    LoRaMacCallbacks.GetBatteryLevel = _lora.callbacks->get_battery_level;
+    LoRaMacCallbacks.GetTemperatureLevel = _lora.callbacks->get_temperature_level;
+    LoRaMacCallbacks.MacProcessNotify = _lora.callbacks->mac_process_notify;
 #if defined(REGION_AS923)
     LoRaMacInitialization(&LoRaMacPrimitives, &LoRaMacCallbacks, LORAMAC_REGION_AS923);
     LoRaRegion = LORAMAC_REGION_AS923;
@@ -505,14 +441,14 @@ void LORA_Init(lora_configuration_t *config, LoRaMainCallback_t *callbacks)
     LoRaMacMibSetRequestConfirm(&mibReq);
 
 #ifdef LORAMAC_CLASSB_ENABLED
-    DefaultPingSlotPeriodicity = LORAWAN_DEFAULT_PING_SLOT_PERIODICITY;
+    DefaultPingSlotPeriodicity = LORA_DEFAULT_PING_SLOT_PERIODICITY;
 #endif /* LORAMAC_CLASSB_ENABLED */
 
     /*set Mac statein Idle*/
     LoRaMacStart();
 }
 
-LoraErrorStatus LORA_Join(void)
+LoraErrorStatus lora_join(void)
 {
     LoraErrorStatus status;
     if (_lora.config->otaa == LORA_ENABLE)
@@ -539,7 +475,7 @@ LoraErrorStatus LORA_Join(void)
     return status;
 }
 
-LoraFlagStatus LORA_JoinStatus(void)
+LoraFlagStatus lora_is_join(void)
 {
     MibRequestConfirm_t mibReq;
 
@@ -557,16 +493,10 @@ LoraFlagStatus LORA_JoinStatus(void)
     }
 }
 
-LoraErrorStatus LORA_send(lora_AppData_t *AppData, LoraConfirm_t IsTxConfirmed)
+LoraErrorStatus lora_send(lora_AppData_t *AppData, LoraConfirm_t IsTxConfirmed)
 {
     McpsReq_t mcpsReq;
     LoRaMacTxInfo_t txInfo;
-
-    /*if certification test are on going, application data is not sent*/
-    if (certif_running() == true)
-    {
-        return LORA_ERROR;
-    }
 
     if (LoRaMacQueryTxPossible(AppData->BuffSize, &txInfo) != LORAMAC_STATUS_OK)
     {
@@ -578,7 +508,7 @@ LoraErrorStatus LORA_send(lora_AppData_t *AppData, LoraConfirm_t IsTxConfirmed)
     }
     else
     {
-        if (IsTxConfirmed == LORAWAN_UNCONFIRMED_MSG)
+        if (IsTxConfirmed == LORA_UNCONFIRMED_MSG)
         {
             mcpsReq.Type = MCPS_UNCONFIRMED;
             mcpsReq.Req.Unconfirmed.fPort = AppData->Port;
@@ -677,7 +607,7 @@ static LoraErrorStatus LORA_PingSlotReq(void)
 }
 #endif /* LORAMAC_CLASSB_ENABLED */
 
-LoraErrorStatus LORA_RequestClass(DeviceClass_t newClass)
+LoraErrorStatus lora_class_change(DeviceClass_t newClass)
 {
     LoraErrorStatus Errorstatus = LORA_SUCCESS;
     MibRequestConfirm_t mibReq;
@@ -698,7 +628,7 @@ LoraErrorStatus LORA_RequestClass(DeviceClass_t newClass)
             if (LoRaMacMibSetRequestConfirm(&mibReq) == LORAMAC_STATUS_OK)
             {
                 /*switch is instantanuous*/
-                LoRaMainCallbacks->LORA_ConfirmClass(CLASS_A);
+                _lora.callbacks->confirm_class(CLASS_A);
             }
             else
             {
@@ -730,7 +660,7 @@ LoraErrorStatus LORA_RequestClass(DeviceClass_t newClass)
             mibReq.Param.Class = CLASS_C;
             if (LoRaMacMibSetRequestConfirm(&mibReq) == LORAMAC_STATUS_OK)
             {
-                LoRaMainCallbacks->LORA_ConfirmClass(CLASS_C);
+                _lora.callbacks->confirm_class(CLASS_C);
             }
             else
             {
@@ -779,7 +709,7 @@ void lora_otaa_set(LoraState_t otaa)
         // PPRINTF("appskey= %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X\n\r", HEX16(_lora.config->appskey));
 
         mibReq.Type = MIB_NET_ID;
-        mibReq.Param.NetID = LORAWAN_NETWORK_ID;
+        mibReq.Param.NetID = LORA_NETWORK_ID;
         LoRaMacMibSetRequestConfirm(&mibReq);
 
         mibReq.Type = MIB_DEV_ADDR;
@@ -809,7 +739,7 @@ void lora_otaa_set(LoraState_t otaa)
         // Enable legacy mode to operate according to LoRaWAN Spec. 1.0.3
         Version_t abpLrWanVersion;
 
-        abpLrWanVersion.Value = LORAMAC_VERSION;
+        abpLrWanVersion.Value = LORA_MAC_VERSION;
 
         mibReq.Type = MIB_ABP_LORAWAN_VERSION;
         mibReq.Param.AbpLrWanVersion = abpLrWanVersion;
@@ -938,29 +868,6 @@ LoraState_t lora_isack_get(void)
     }
 }
 
-/* Dummy data sent periodically to let the tester respond with start test command*/
-static TimerEvent_t TxcertifTimer;
-
-void OnCertifTimer(void *context)
-{
-    uint8_t Dummy[1] = {1};
-    lora_AppData_t AppData;
-    AppData.Buff = Dummy;
-    AppData.BuffSize = sizeof(Dummy);
-    AppData.Port = 224;
-
-    LORA_send(&AppData, LORAWAN_UNCONFIRMED_MSG);
-}
-
-void lora_wan_certif(void)
-{
-    LoRaMacTestSetDutyCycleOn(false);
-    LORA_Join();
-    TimerInit(&TxcertifTimer, OnCertifTimer); /* 8s */
-    TimerSetValue(&TxcertifTimer, 8000);      /* 8s */
-    TimerStart(&TxcertifTimer);
-}
-
 LoRaMacRegion_t lora_region_get(void)
 {
     return LoRaRegion;
@@ -968,7 +875,6 @@ LoRaMacRegion_t lora_region_get(void)
 
 void lora_save_config(void)
 {
-    LoRaMainCallbacks->config_save();
+    _lora.callbacks->config_save();
 }
 
-/************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

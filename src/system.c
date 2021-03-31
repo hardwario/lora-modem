@@ -1,10 +1,21 @@
 #include "system.h"
-#include "hw.h"
-#include "hw_rtc.h"
+#include "stm32l0xx_hal.h"
+#include "rtc.h"
+#include "irq.h"
+#include "io.h"
+#include "utilities.h"
+
+// Unique Devices IDs register set ( STM32L0xxx )
+#define _SYSTEM_ID1 (0x1FF80050)
+#define _SYSTEM_ID2 (0x1FF80054)
+#define _SYSTEM_ID3 (0x1FF80064)
 
 static void _system_init_flash(void);
+static void _system_init_gpio(void);
 static void _system_init_debug(void);
 static void _system_init_clock(void);
+
+static uint32_t _system_stop_mode_disable = 0;
 
 void system_init(void)
 {
@@ -13,16 +24,114 @@ void system_init(void)
 
     _system_init_flash();
 
+    _system_init_gpio();
+
     _system_init_debug();
 
     _system_init_clock();
 
-    HW_RTC_Init();
+    rtc_init();
+
+    // irq_init();
 }
 
 void system_reset(void)
 {
     NVIC_SystemReset();
+}
+
+uint32_t system_get_random_seed(void)
+{
+    return ((*(uint32_t *)_SYSTEM_ID1) ^ (*(uint32_t *)_SYSTEM_ID2) ^ (*(uint32_t *)_SYSTEM_ID3));
+}
+
+void system_get_unique_id(uint8_t *id)
+{
+    id[7] = ((*(uint32_t *)_SYSTEM_ID1) + (*(uint32_t *)_SYSTEM_ID3)) >> 24;
+    id[6] = ((*(uint32_t *)_SYSTEM_ID1) + (*(uint32_t *)_SYSTEM_ID3)) >> 16;
+    id[5] = ((*(uint32_t *)_SYSTEM_ID1) + (*(uint32_t *)_SYSTEM_ID3)) >> 8;
+    id[4] = ((*(uint32_t *)_SYSTEM_ID1) + (*(uint32_t *)_SYSTEM_ID3));
+    id[3] = ((*(uint32_t *)_SYSTEM_ID2)) >> 24;
+    id[2] = ((*(uint32_t *)_SYSTEM_ID2)) >> 16;
+    id[1] = ((*(uint32_t *)_SYSTEM_ID2)) >> 8;
+    id[0] = ((*(uint32_t *)_SYSTEM_ID2));
+}
+
+void system_stop_mode_enable(system_mask_t mask)
+{
+    BACKUP_PRIMASK();
+    DISABLE_IRQ();
+    _system_stop_mode_disable &= ~(uint32_t)mask;
+    RESTORE_PRIMASK();
+}
+
+void system_stop_mode_disable(system_mask_t mask)
+{
+    BACKUP_PRIMASK();
+    DISABLE_IRQ();
+    _system_stop_mode_disable |= (uint32_t)mask;
+    RESTORE_PRIMASK();
+}
+
+bool system_is_stop_mode(void)
+{
+    BACKUP_PRIMASK();
+    DISABLE_IRQ();
+    bool res = _system_stop_mode_disable == 0;
+    RESTORE_PRIMASK();
+    return res;
+}
+
+void system_low_power()
+{
+    if (_system_stop_mode_disable)
+    {
+        // Only sleep
+        HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFI);
+    }
+    else
+    {
+        {
+            // STOP mode
+            BACKUP_PRIMASK();
+            DISABLE_IRQ();
+            system_on_enter_stop_mode();
+            SET_BIT(PWR->CR, PWR_CR_CWUF);
+            RESTORE_PRIMASK();
+            HAL_PWR_EnterSTOPMode(PWR_LOWPOWERREGULATOR_ON, PWR_STOPENTRY_WFI);
+        }
+        {
+            // wake-up from STOP mode
+            BACKUP_PRIMASK();
+            DISABLE_IRQ();
+
+            // reconfigure the system clock
+
+            __HAL_RCC_HSI_ENABLE();
+            while (__HAL_RCC_GET_FLAG(RCC_FLAG_HSIRDY) == RESET)
+            {
+                continue;
+            }
+
+            __HAL_RCC_PLL_ENABLE();
+            while (__HAL_RCC_GET_FLAG(RCC_FLAG_PLLRDY) == RESET)
+            {
+                continue;
+            }
+
+            __HAL_RCC_SYSCLK_CONFIG(RCC_SYSCLKSOURCE_PLLCLK);
+
+            while (__HAL_RCC_GET_SYSCLK_SOURCE() != RCC_SYSCLKSOURCE_STATUS_PLLCLK)
+            {
+                continue;
+            }
+
+            system_on_exit_stop_mode();
+            RESTORE_PRIMASK();
+        }
+    }
+
+    return;
 }
 
 static void _system_init_flash(void)
@@ -32,6 +141,37 @@ static void _system_init_flash(void)
 
     // One wait state is used to read word from NVM
     FLASH->ACR |= FLASH_ACR_LATENCY;
+}
+
+static void _system_init_gpio(void)
+{
+    //Configure all GPIO's to Analog input to reduce the power consumption
+    GPIO_InitTypeDef GPIO_InitStruct = {0};
+
+    /* Configure all GPIO as analog to reduce current consumption on non used IOs */
+    /* Enable GPIOs clock */
+    __HAL_RCC_GPIOA_CLK_ENABLE();
+    __HAL_RCC_GPIOB_CLK_ENABLE();
+    __HAL_RCC_GPIOC_CLK_ENABLE();
+    __HAL_RCC_GPIOH_CLK_ENABLE();
+
+    GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    /* All GPIOs except debug pins (SWCLK and SWD) */
+    GPIO_InitStruct.Pin = GPIO_PIN_All & (~(GPIO_PIN_13 | GPIO_PIN_14));
+    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+    /* All GPIOs */
+    GPIO_InitStruct.Pin = GPIO_PIN_All;
+    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+    HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+    HAL_GPIO_Init(GPIOH, &GPIO_InitStruct);
+
+    /* Disable GPIOs clock */
+    __HAL_RCC_GPIOA_CLK_DISABLE();
+    __HAL_RCC_GPIOB_CLK_DISABLE();
+    __HAL_RCC_GPIOC_CLK_DISABLE();
+    __HAL_RCC_GPIOH_CLK_DISABLE();
 }
 
 static void _system_init_debug(void)
@@ -138,3 +278,17 @@ static void _system_init_clock(void)
         error_handler();
     }
 }
+
+void SysTick_Handler(void)
+{
+    HAL_IncTick();
+}
+
+__weak void system_on_enter_stop_mode(void)
+{
+}
+
+__weak void system_on_exit_stop_mode(void)
+{
+}
+

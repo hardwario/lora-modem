@@ -7,6 +7,7 @@ OUT_DIR ?= out
 
 OUT ?= firmware
 TYPE ?= debug
+BAUDRATE ?= 9600
 
 ELF ?= $(OUT_DIR)/$(TYPE)/$(OUT).elf
 MAP ?= $(OUT_DIR)/$(TYPE)/$(OUT).map
@@ -18,27 +19,26 @@ BIN ?= $(OUT_DIR)/$(TYPE)/$(OUT).bin
 	# $(LIB_DIR)/loramac-node/src/mac/region/RegionUS915.c
 	# $(LIB_DIR)/loramac-node/src/mac/region/RegionAU915.c
 SRC_FILES += \
-    $(SRC_DIR)/atci.c \
-    $(SRC_DIR)/board.c \
-    $(SRC_DIR)/cmd.c \
-    $(SRC_DIR)/config.c \
-    $(SRC_DIR)/console.c \
-    $(SRC_DIR)/eeprom.c \
-    $(SRC_DIR)/error.c \
-    $(SRC_DIR)/fifo.c \
-    $(SRC_DIR)/hw_gpio.c \
-    $(SRC_DIR)/hw_rtc.c \
-    $(SRC_DIR)/hw_spi.c \
-    $(SRC_DIR)/irq.c \
-    $(SRC_DIR)/lora.c \
-    $(SRC_DIR)/main.c \
-    $(SRC_DIR)/system.c \
-    $(SRC_DIR)/vcom.c \
-	\
+	$(SRC_DIR)/adc.c \
+	$(SRC_DIR)/atci.c \
+	$(SRC_DIR)/board.c \
+	$(SRC_DIR)/cmd.c \
+	$(SRC_DIR)/config.c \
+	$(SRC_DIR)/console.c \
+	$(SRC_DIR)/eeprom.c \
+	$(SRC_DIR)/error.c \
+	$(SRC_DIR)/fifo.c \
+	$(SRC_DIR)/gpio.c \
+	$(SRC_DIR)/irq.c \
+	$(SRC_DIR)/lora.c \
+	$(SRC_DIR)/lpuart.c \
+	$(SRC_DIR)/main.c \
 	$(SRC_DIR)/mlm32l0xx_hal_msp.c \
-	$(SRC_DIR)/mlm32l0xx_hw.c \
-	$(SRC_DIR)/mlm32l0xx_it.c \
-	$(SRC_DIR)/mlm32l07x01.c \
+	$(SRC_DIR)/radio.c \
+	$(SRC_DIR)/rtc.c \
+	$(SRC_DIR)/spi.c \
+	$(SRC_DIR)/sx1276io.c \
+	$(SRC_DIR)/system.c \
 	\
 	$(LIB_DIR)/loramac-node/src/peripherals/soft-se/aes.c \
 	$(LIB_DIR)/loramac-node/src/peripherals/soft-se/cmac.c \
@@ -62,12 +62,9 @@ SRC_FILES += \
 	$(LIB_DIR)/loramac-node/src/mac/LoRaMacCrypto.c \
 	$(LIB_DIR)/loramac-node/src/mac/LoRaMacParser.c \
 	$(LIB_DIR)/loramac-node/src/mac/LoRaMacSerializer.c \
-	$(LIB_DIR)/LoRaWAN/Utilities/low_power_manager.c \
-	$(LIB_DIR)/LoRaWAN/Utilities/queue.c \
 	$(LIB_DIR)/LoRaWAN/Utilities/systime.c \
 	$(LIB_DIR)/LoRaWAN/Utilities/timeServer.c \
 	$(LIB_DIR)/LoRaWAN/Utilities/utilities.c \
-	$(LIB_DIR)/LoRaWAN/Patterns/Basic/lora-test.c \
 	\
 	$(LIB_DIR)/stm/src/system_stm32l0xx.c \
 	$(LIB_DIR)/stm/STM32L0xx_HAL_Driver/Src/stm32l0xx_hal.c \
@@ -103,7 +100,6 @@ INC_DIR += \
 	$(LIB_DIR)/loramac-node/src/mac \
 	$(LIB_DIR)/loramac-node/src/radio\
 	$(LIB_DIR)/LoRaWAN/Utilities \
-	$(LIB_DIR)/LoRaWAN/Patterns/Basic \
 	$(LIB_DIR)/stm/include \
 	$(LIB_DIR)/stm/STM32L0xx_HAL_Driver/Inc \
 	$(LIB_DIR)/sx1276 \
@@ -170,6 +166,7 @@ CFLAGS_DEBUG += -D'DEBUG'
 CFLAGS_RELEASE += -Os
 CFLAGS_RELEASE += -D'RELEASE'
 
+CFLAGS_RELEASE += -D'UART_BAUDRATE=${BAUDRATE}'
 # CFLAGS += -D'USE_HAL_DRIVER'
 CFLAGS += -DUSE_FULL_LL_DRIVER
 CFLAGS += -DREGION_EU868

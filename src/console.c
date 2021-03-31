@@ -1,8 +1,8 @@
 #include "console.h"
+#include "system.h"
 #include "fifo.h"
-#include "vcom.h"
+#include "lpuart.h"
 #include "irq.h"
-#include "low_power_manager.h"
 
 static void _console_vcom_tx_callback(void);
 static void _console_vcom_rx_callback(uint8_t *character);
@@ -29,8 +29,8 @@ void console_init(void)
     fifo_init(&_console.tx_fifo, _console.tx_buffer, sizeof(_console.tx_buffer));
     fifo_init(&_console.rx_fifo, _console.rx_buffer, sizeof(_console.rx_buffer));
 
-    vcom_Init(_console_vcom_tx_callback);
-    vcom_ReceiveInit(_console_vcom_rx_callback);
+    lpuart_init(_console_vcom_tx_callback);
+    lpuart_set_rx_callback(_console_vcom_rx_callback);
 }
 
 size_t console_write(const char *buffer, size_t length)
@@ -50,9 +50,10 @@ size_t console_write(const char *buffer, size_t length)
 
         _console.vcom_ready = RESET;
 
-        LPM_SetStopMode(LPM_UART_TX_Id, LPM_Disable);
+        // LPM_SetStopMode(LPM_UART_TX_Id, LPM_Disable);
+        system_stop_mode_disable(SYSTEM_LP_UART);
 
-        vcom_Trace(_console.dma_buffer, length);
+        lpuart_async_write(_console.dma_buffer, length);
     }
 
     irq_enable();
@@ -71,11 +72,12 @@ static void _console_vcom_tx_callback(void)
 
     if (length > 0)
     {
-        vcom_Trace(_console.dma_buffer, length);
+        lpuart_async_write(_console.dma_buffer, length);
     }
     else
     {
-        LPM_SetStopMode(LPM_UART_TX_Id, LPM_Enable);
+        // LPM_SetStopMode(LPM_UART_TX_Id, LPM_Enable);
+        system_stop_mode_enable(SYSTEM_LP_UART);
         _console.vcom_ready = SET;
     }
 }
