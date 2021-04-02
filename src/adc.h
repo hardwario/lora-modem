@@ -12,15 +12,20 @@ void adc_init(void);
 void adc_deinit(void);
 
 //! @brief Read the analogue voltage value
-//! @param [IN] Channel to read
+//! @param[in] Channel to read
 //! @retval value Analogue value
 
 uint16_t adc_get_value(uint32_t channel);
 
 //! @brief Get the current temperature
-//! @retval value  temperature in degreeCelcius( q7.8 )
+//! @retval value temperature in degreeCelcius( q7.8 )
 
 uint16_t adc_get_temperature_level(void);
+
+//! @brief Get the current temperature in celsius
+//! @retval value temperature
+
+float adc_get_temperature_celsius(void);
 
 //! @brief Get the current battery level
 //! @retval value  battery level ( 0: very low, 254: fully charged )

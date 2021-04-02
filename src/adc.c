@@ -1,5 +1,6 @@
 #include "adc.h"
 #include "stm32l0xx_hal.h"
+#include "log.h"
 
 #define VDDA_VREFINT_CAL ((uint32_t)3000)
 
@@ -126,23 +127,20 @@ uint16_t adc_get_temperature_level(void)
     {
         batteryLevelmV = (((uint32_t)VDDA_VREFINT_CAL * (*VREFINT_CAL)) / measuredLevel);
     }
-#if 0
-  PRINTF("VDDA= %d\n\r", batteryLevelmV);
-#endif
 
     measuredLevel = adc_get_value(ADC_CHANNEL_TEMPSENSOR);
 
     temperatureDegreeC = COMPUTE_TEMPERATURE(measuredLevel, batteryLevelmV);
 
-#if 0
-  {
-    uint16_t temperatureDegreeC_Int = (temperatureDegreeC) >> 8;
-    uint16_t temperatureDegreeC_Frac = ((temperatureDegreeC - (temperatureDegreeC_Int << 8)) * 100) >> 8;
-    PRINTF("temp= %d, %d,%d\n\r", temperatureDegreeC, temperatureDegreeC_Int, temperatureDegreeC_Frac);
-  }
-#endif
-
     return (uint16_t)temperatureDegreeC;
+}
+
+float adc_get_temperature_celsius(void)
+{
+    uint16_t temp = adc_get_temperature_level();
+    uint16_t temp_int = (temp) >> 8;
+    uint16_t temp_frac = ((temp - (temp_int << 8)) * 100) >> 8;
+    return (float) temp_int + ((float) temp_frac) / 100.f;
 }
 
 uint16_t adc_get_battery_level(void)
