@@ -49,12 +49,13 @@ SRC_FILES += \
 	$(LIB_DIR)/loramac-node/src/peripherals/soft-se/soft-se.c \
     $(LIB_DIR)/loramac-node/src/peripherals/soft-se/soft-se-hal.c \
 	$(LIB_DIR)/loramac-node/src/mac/region/Region.c \
-	$(LIB_DIR)/loramac-node/src/mac/region/RegionAS923.c \
-	$(LIB_DIR)/loramac-node/src/mac/region/RegionCN470.c \
-	$(LIB_DIR)/loramac-node/src/mac/region/RegionCN779.c \
 	$(LIB_DIR)/loramac-node/src/mac/region/RegionCommon.c \
-	$(LIB_DIR)/loramac-node/src/mac/region/RegionEU433.c \
+	$(LIB_DIR)/loramac-node/src/mac/region/RegionBaseUS.c \
+	$(LIB_DIR)/loramac-node/src/mac/region/RegionAS923.c \
+	$(LIB_DIR)/loramac-node/src/mac/region/RegionAU915.c \
 	$(LIB_DIR)/loramac-node/src/mac/region/RegionEU868.c \
+	$(LIB_DIR)/loramac-node/src/mac/region/RegionCN779.c \
+	$(LIB_DIR)/loramac-node/src/mac/region/RegionEU433.c \
 	$(LIB_DIR)/loramac-node/src/mac/region/RegionIN865.c \
 	$(LIB_DIR)/loramac-node/src/mac/region/RegionKR920.c \
 	$(LIB_DIR)/loramac-node/src/mac/region/RegionRU864.c \
@@ -175,8 +176,9 @@ CFLAGS_RELEASE += -D'UART_BAUDRATE=${BAUDRATE}'
 # CFLAGS += -D'USE_HAL_DRIVER'
 CFLAGS += -DUSE_FULL_LL_DRIVER
 CFLAGS += -DREGION_EU868
-# CFLAGS += -DREGION_AS923
-# CFLAGS += -D'REGION_AS923_DEFAULT_CHANNEL_PLAN=CHANNEL_PLAN_GROUP_AS923_1'
+CFLAGS += -DREGION_AU915
+CFLAGS += -DREGION_AS923
+CFLAGS += -D'REGION_AS923_DEFAULT_CHANNEL_PLAN=CHANNEL_PLAN_GROUP_AS923_1'
 CFLAGS += -DSOFT_SE
 
 ################################################################################

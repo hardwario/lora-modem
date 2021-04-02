@@ -48,18 +48,18 @@
 #define RADIO_ANT_SWITCH_PORT_TX_RFO              GPIOC //CRF2
 #define RADIO_ANT_SWITCH_PIN_TX_RFO               GPIO_PIN_2
 
-#define LPUART_TX_PIN                    GPIO_PIN_2
 #define LPUART_TX_GPIO_PORT              GPIOA
+#define LPUART_TX_PIN                    GPIO_PIN_2
 #define LPUART_TX_AF                     GPIO_AF6_LPUART1
-#define LPUART_RX_PIN                    GPIO_PIN_3
 #define LPUART_RX_GPIO_PORT              GPIOA
+#define LPUART_RX_PIN                    GPIO_PIN_3
 #define LPUART_RX_AF                     GPIO_AF6_LPUART1
 
-#define USART_TX_PIN                     GPIO_PIN_9
 #define USART_TX_GPIO_PORT               GPIOA
+#define USART_TX_PIN                     GPIO_PIN_9
 #define USART_TX_AF                      GPIO_AF4_USART1
-#define USART_RX_PIN                     GPIO_PIN_10
 #define USART_RX_GPIO_PORT               GPIOA
+#define USART_RX_PIN                     GPIO_PIN_10
 #define USART_RX_AF                      GPIO_AF4_USART1
 
 #endif

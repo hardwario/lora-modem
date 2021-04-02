@@ -4,6 +4,7 @@
 #include "irq.h"
 #include "io.h"
 #include "utilities.h"
+#include "error.h"
 
 // Unique Devices IDs register set ( STM32L0xxx )
 #define _SYSTEM_ID1 (0x1FF80050)
@@ -26,9 +27,9 @@ void system_init(void)
 
     _system_init_gpio();
 
-    _system_init_clock();
-
     _system_init_debug();
+
+    _system_init_clock();
 
     rtc_init();
 
@@ -67,27 +68,32 @@ void system_wait_hsi(void)
 
 void system_stop_mode_enable(system_mask_t mask)
 {
-    BACKUP_PRIMASK();
-    DISABLE_IRQ();
+    irq_disable();
     _system_stop_mode_disable &= ~(uint32_t)mask;
-    RESTORE_PRIMASK();
+    irq_enable();
 }
 
 void system_stop_mode_disable(system_mask_t mask)
 {
-    BACKUP_PRIMASK();
-    DISABLE_IRQ();
+    irq_disable();
     _system_stop_mode_disable |= (uint32_t)mask;
-    RESTORE_PRIMASK();
+    irq_enable();
 }
 
 bool system_is_stop_mode(void)
 {
-    BACKUP_PRIMASK();
-    DISABLE_IRQ();
+    irq_disable();
     bool res = _system_stop_mode_disable == 0;
-    RESTORE_PRIMASK();
+    irq_enable();
     return res;
+}
+
+system_mask_t system_get_stop_mode_mask(void)
+{
+    irq_disable();
+    system_mask_t mask = _system_stop_mode_disable;
+    irq_enable();
+    return mask;
 }
 
 void system_low_power(void)
@@ -212,20 +218,20 @@ static void _system_init_debug(void)
 
 #else /* DEBUG */
     /* sw interface off*/
-    // GPIO_InitTypeDef GPIO_InitStructure = {0};
+    GPIO_InitTypeDef GPIO_InitStructure = {0};
 
-    // GPIO_InitStructure.Mode = GPIO_MODE_ANALOG;
-    // GPIO_InitStructure.Pull = GPIO_NOPULL;
-    // GPIO_InitStructure.Pin = (GPIO_PIN_13 | GPIO_PIN_14);
-    // __GPIOA_CLK_ENABLE();
-    // HAL_GPIO_Init(GPIOA, &GPIO_InitStructure);
-    // __GPIOA_CLK_DISABLE();
+    GPIO_InitStructure.Mode = GPIO_MODE_ANALOG;
+    GPIO_InitStructure.Pull = GPIO_NOPULL;
+    GPIO_InitStructure.Pin = (GPIO_PIN_13 | GPIO_PIN_14);
+    __GPIOA_CLK_ENABLE();
+    HAL_GPIO_Init(GPIOA, &GPIO_InitStructure);
+    __GPIOA_CLK_DISABLE();
 
-    // __HAL_RCC_DBGMCU_CLK_ENABLE();
-    // HAL_DBGMCU_DisableDBGSleepMode();
-    // HAL_DBGMCU_DisableDBGStopMode();
-    // HAL_DBGMCU_DisableDBGStandbyMode();
-    // __HAL_RCC_DBGMCU_CLK_DISABLE();
+    __HAL_RCC_DBGMCU_CLK_ENABLE();
+    HAL_DBGMCU_DisableDBGSleepMode();
+    HAL_DBGMCU_DisableDBGStopMode();
+    HAL_DBGMCU_DisableDBGStandbyMode();
+    __HAL_RCC_DBGMCU_CLK_DISABLE();
 #endif
 }
 

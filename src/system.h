@@ -44,6 +44,8 @@ void system_stop_mode_disable(system_mask_t mask);
 
 bool system_is_stop_mode(void);
 
+system_mask_t system_get_stop_mode_mask(void);
+
 //! @brief Go to low power, sleep mode or stop mode
 
 void system_low_power(void);

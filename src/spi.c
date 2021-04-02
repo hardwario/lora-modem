@@ -1,4 +1,6 @@
 #include "spi.h"
+#include "gpio.h"
+#include "error.h"
 #include "io.h"
 
 static SPI_HandleTypeDef hspi;
@@ -58,7 +60,6 @@ void spi_io_init(void)
     initStruct.Pull = GPIO_NOPULL;
 
     gpio_init(RADIO_NSS_PORT, RADIO_NSS_PIN, &initStruct);
-
     gpio_write(RADIO_NSS_PORT, RADIO_NSS_PIN, 1);
 }
 
@@ -66,6 +67,14 @@ void spi_io_deinit(void)
 {
     GPIO_InitTypeDef initStruct = {0};
 
+    initStruct.Mode = GPIO_MODE_ANALOG;
+    initStruct.Pull = GPIO_NOPULL;
+    gpio_init(RADIO_MOSI_PORT, RADIO_MOSI_PIN, &initStruct);
+    gpio_init(RADIO_MISO_PORT, RADIO_MISO_PIN, &initStruct);
+    gpio_init(RADIO_SCLK_PORT, RADIO_SCLK_PIN, &initStruct);
+    gpio_init(RADIO_NSS_PORT, RADIO_NSS_PIN, &initStruct);
+
+    /*
     initStruct.Mode = GPIO_MODE_OUTPUT_PP;
 
     initStruct.Pull = GPIO_NOPULL;
@@ -83,6 +92,7 @@ void spi_io_deinit(void)
     initStruct.Pull = GPIO_NOPULL;
     gpio_init(RADIO_NSS_PORT, RADIO_NSS_PIN, &initStruct);
     gpio_write(RADIO_NSS_PORT, RADIO_NSS_PIN, 1);
+    */
 }
 
 uint8_t spi_transfer(uint8_t tx)

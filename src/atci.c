@@ -93,9 +93,14 @@ size_t atci_print_buffer_as_hex(const void *buffer, size_t length)
     return console_write(_atci.tmp, on_write);
 }
 
+size_t atci_write(const char *buffer, size_t length)
+{
+    return console_write(buffer, length);
+}
+
 size_t atci_param_get_buffer_from_hex(atci_param_t *param, void *buffer, size_t length)
 {
-    if ((buffer == NULL) || ((param->length - param->offset) / 2 < length))
+    if ((buffer == NULL) || (length < (param->length - param->offset) / 2))
     {
         return 0;
     }
@@ -296,12 +301,12 @@ static void _atci_process_line(void)
                 return;
             }
         }
-        else
-        {
-            atci_printf("Unknown: %s", command);
-            return;
-        }
-        break;
+        // else
+        // {
+        //     atci_printf("Unknown: %s", command->command);
+        //     return;
+        // }
+        // break;
     }
 
     console_write("+ERR=-1", 7);
