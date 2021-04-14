@@ -63,6 +63,7 @@ static const configuration_t configuration_default = {
         .chmask = {0xff,0,0,0,0,0},
         .tx_datarate = DR_0,
         .adr = LORA_ADR_ON,
+        .tx_repeats = 1,
     }
 };
 
@@ -76,7 +77,7 @@ int main(void)
 
     log_debug("configuration %d", sizeof(configuration));
 
-    config_init(&configuration, sizeof(lora_configuration_t), &configuration_default);
+    config_init(&configuration, sizeof(configuration), &configuration_default);
 
     adc_init();
 
@@ -97,7 +98,7 @@ int main(void)
         lora_process();
 
         // low power section
-        irq_disable();
+        CRITICAL_SECTION_BEGIN();
         if (lora_process_request)
         {
             lora_process_request = false; // reset notification flag
@@ -108,15 +109,13 @@ int main(void)
             system_low_power();
 #endif
         }
-        irq_enable();
+        CRITICAL_SECTION_END();
     }
 }
 
 void lora_mac_process_notify(void)
 {
-    irq_disable();
     lora_process_request = true;
-    irq_enable();
 }
 
 static void lora_join_status(bool status)

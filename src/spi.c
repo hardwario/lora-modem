@@ -73,6 +73,7 @@ void spi_io_deinit(void)
     gpio_init(RADIO_MISO_PORT, RADIO_MISO_PIN, &initStruct);
     gpio_init(RADIO_SCLK_PORT, RADIO_SCLK_PIN, &initStruct);
     gpio_init(RADIO_NSS_PORT, RADIO_NSS_PIN, &initStruct);
+    gpio_write(RADIO_NSS_PORT, RADIO_NSS_PIN, 1);
 
     /*
     initStruct.Mode = GPIO_MODE_OUTPUT_PP;

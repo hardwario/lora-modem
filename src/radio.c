@@ -6,14 +6,14 @@
 static bool SX1276CheckRfFrequency(uint32_t frequency)
 {
     // Implement check. Currently all frequencies are supported
-    log_debug("Check frequency %d", frequency);
+    log_debug("Check frequency %ld", frequency);
     return true;
 }
 
 void SetChannel(uint32_t freq)
 {
     SX1276SetChannel(freq);
-    log_debug("SX1276: SetChannel freq: %d", freq);
+    log_debug("SX1276: SetChannel freq: %ld", freq);
 }
 
 void SetTxConfig(RadioModems_t modem, int8_t power, uint32_t fdev,
@@ -28,9 +28,9 @@ void SetTxConfig(RadioModems_t modem, int8_t power, uint32_t fdev,
                       coderate, preambleLen,
                       fixLen, crcOn, freqHopOn,
                       hopPeriod, iqInverted, timeout);
-    // log_debug("SX1276 SetTxConfig modem: %d power: %d fdev: %d bandwidth: %d datarate %d", modem, power, fdev, bandwidth, datarate);
-    // log_debug("SX1276 SetTxConfig coderate: %d preambleLen: %d fixLen: %d crcOn: %d freqHopOn %d", coderate, preambleLen, fixLen, crcOn, freqHopOn);
-    // log_debug("SX1276 SetTxConfig hopPeriod: %d iqInverted: %d timeout: %d ", hopPeriod, iqInverted, timeout);
+    log_debug("SX1276 SetTxConfig modem: %d power: %d fdev: %ld bandwidth: %ld datarate %ld", modem, power, fdev, bandwidth, datarate);
+    log_debug("SX1276 SetTxConfig coderate: %d preambleLen: %d fixLen: %d crcOn: %d freqHopOn %d", coderate, preambleLen, fixLen, crcOn, freqHopOn);
+    log_debug("SX1276 SetTxConfig hopPeriod: %d iqInverted: %d timeout: %ld ", hopPeriod, iqInverted, timeout);
 }
 
 void SetRxConfig(RadioModems_t modem, uint32_t bandwidth,
@@ -48,9 +48,9 @@ void SetRxConfig(RadioModems_t modem, uint32_t bandwidth,
                       payloadLen,
                       crcOn, freqHopOn, hopPeriod,
                       iqInverted, rxContinuous);
-    // log_debug("SX1276 SetRxConfig modem: %d bandwidth: %d datarate %d", modem, bandwidth, datarate);
-    // log_debug("SX1276 SetRxConfig coderate: %d bandwidthAfc: %d preambleLen: %d symbTimeout: %d fixLen %d", coderate, bandwidthAfc, preambleLen, symbTimeout, fixLen);
-    // log_debug("SX1276 SetRxConfig payloadLen: %d crcOn: %d freqHopOn: %d hopPeriod: %d iqInverted: %d rxContinuous: %d", payloadLen, crcOn, freqHopOn, hopPeriod, iqInverted, rxContinuous);
+    log_debug("SX1276 SetRxConfig modem: %d bandwidth: %ld datarate %ld", modem, bandwidth, datarate);
+    log_debug("SX1276 SetRxConfig coderate: %d bandwidthAfc: %ld preambleLen: %d symbTimeout: %d fixLen %d", coderate, bandwidthAfc, preambleLen, symbTimeout, fixLen);
+    log_debug("SX1276 SetRxConfig payloadLen: %d crcOn: %d freqHopOn: %d hopPeriod: %d iqInverted: %d rxContinuous: %d", payloadLen, crcOn, freqHopOn, hopPeriod, iqInverted, rxContinuous);
 }
 
 // Radio driver structure initialization

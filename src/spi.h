@@ -2,6 +2,7 @@
 #define _HW_SPI_H
 
 #include "common.h"
+#include "gpio.h"
 
 //! @brief Initialize SPI channel
 //! @param[in] speed SPI communication speed [hz]
@@ -25,5 +26,10 @@ void spi_io_deinit(void);
 //! @retval Received byte.
 
 uint8_t spi_transfer(uint8_t tx);
+
+typedef struct
+{
+    Gpio_t Nss;
+} Spi_t;
 
 #endif // _HW_SPI_H

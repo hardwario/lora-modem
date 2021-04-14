@@ -19,6 +19,7 @@ BIN ?= $(OUT_DIR)/$(TYPE)/$(OUT).bin
 	# $(LIB_DIR)/loramac-node/src/mac/region/RegionUS915.c
 	# $(LIB_DIR)/loramac-node/src/mac/region/RegionAU915.c
 SRC_FILES += \
+	$(SRC_DIR)/radio.c \
 	$(SRC_DIR)/adc.c \
 	$(SRC_DIR)/atci.c \
 	$(SRC_DIR)/board.c \
@@ -35,10 +36,10 @@ SRC_FILES += \
 	$(SRC_DIR)/lpuart.c \
 	$(SRC_DIR)/main.c \
 	$(SRC_DIR)/mlm32l0xx_hal_msp.c \
-	$(SRC_DIR)/radio.c \
+	$(SRC_DIR)/sx1276io.c \
+	$(SRC_DIR)/sx1276-board.c \
 	$(SRC_DIR)/rtc.c \
 	$(SRC_DIR)/spi.c \
-	$(SRC_DIR)/sx1276io.c \
 	$(SRC_DIR)/system.c \
 	$(SRC_DIR)/usart.c \
 	\
@@ -67,6 +68,7 @@ SRC_FILES += \
 	$(LIB_DIR)/loramac-node/src/mac/LoRaMacCrypto.c \
 	$(LIB_DIR)/loramac-node/src/mac/LoRaMacParser.c \
 	$(LIB_DIR)/loramac-node/src/mac/LoRaMacSerializer.c \
+	$(LIB_DIR)/loramac-node/src/radio/sx1276/sx1276.c \
 	$(LIB_DIR)/LoRaWAN/Utilities/systime.c \
 	$(LIB_DIR)/LoRaWAN/Utilities/timeServer.c \
 	$(LIB_DIR)/LoRaWAN/Utilities/utilities.c \
@@ -92,7 +94,6 @@ SRC_FILES += \
 	$(LIB_DIR)/stm/STM32L0xx_HAL_Driver/Src/stm32l0xx_hal_usart.c \
 	$(LIB_DIR)/stm/STM32L0xx_HAL_Driver/Src/stm32l0xx_ll_dma.c \
 	\
-	$(LIB_DIR)/sx1276/sx1276.c \
 
 ################################################################################
 # Include directories                                                          #
@@ -104,10 +105,10 @@ INC_DIR += \
 	$(LIB_DIR)/loramac-node/src/mac/region \
 	$(LIB_DIR)/loramac-node/src/mac \
 	$(LIB_DIR)/loramac-node/src/radio\
+	$(LIB_DIR)/loramac-node/src/radio/sx1276 \
 	$(LIB_DIR)/LoRaWAN/Utilities \
 	$(LIB_DIR)/stm/include \
 	$(LIB_DIR)/stm/STM32L0xx_HAL_Driver/Inc \
-	$(LIB_DIR)/sx1276 \
 	$(LIB_DIR)/rtt \
 
 ################################################################################

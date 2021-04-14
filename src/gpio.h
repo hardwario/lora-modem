@@ -3,6 +3,7 @@
 
 #include "common.h"
 #include "stm32l0xx_hal.h"
+#include "io.h"
 
 typedef void(gpio_irq_handler_t)(void *context);
 
@@ -39,6 +40,12 @@ uint32_t gpio_read(GPIO_TypeDef *port, uint16_t pin);
 //! @param [IN] pin specifies the port bit to be written.
 
 void gpio_hal_msp_irq_handler(uint16_t pin);
+
+typedef struct
+{
+    void *port;
+    uint16_t pinIndex;
+} Gpio_t;
 
 #endif // _HW_GPIO_H
 

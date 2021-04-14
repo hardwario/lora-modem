@@ -32,6 +32,7 @@ void gpio_init(GPIO_TypeDef *port, uint16_t pin, GPIO_InitTypeDef *init_struct)
 
 void gpio_set_irq(GPIO_TypeDef *port, uint16_t pin, uint32_t prio, gpio_irq_handler_t *irqHandler)
 {
+    (void) port; 
     IRQn_Type irq_nb;
 
     uint32_t bit_pos = HW_GPIO_Getbit_pos(pin);
@@ -45,9 +46,11 @@ void gpio_set_irq(GPIO_TypeDef *port, uint16_t pin, uint32_t prio, gpio_irq_hand
         case GPIO_PIN_0:
         case GPIO_PIN_1:
             irq_nb = EXTI0_1_IRQn;
+            break;
         case GPIO_PIN_2:
         case GPIO_PIN_3:
             irq_nb = EXTI2_3_IRQn;
+            break;
         case GPIO_PIN_4:
         case GPIO_PIN_5:
         case GPIO_PIN_6:
