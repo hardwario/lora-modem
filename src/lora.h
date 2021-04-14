@@ -58,6 +58,7 @@ typedef struct
     uint8_t snwksintkey[16];  // Application Session Key
     uint16_t chmask[LORA_CHMASK_LENGTH]; 
     uint8_t tx_datarate;      // TX datarate
+    uint8_t tx_repeats;       // unconfirmed messages only 
 } lora_configuration_t;
 #pragma pack(pop)
 
@@ -293,6 +294,15 @@ bool lora_region_set(LoRaMacRegion_t region);
 lora_channel_list_t lora_get_channel_list(void);
 
 bool lora_chmask_set(uint16_t chmask[LORA_CHMASK_LENGTH]);
+
+//! @brief Set Number of uplink unconfirmed messages repeats
+//! @param[in] repeats Number in the range 1 to 15
+
+bool lora_unconfirmed_message_repeats_set(uint8_t repeats);
+
+//! @brief Get Number of uplink unconfirmed messages repeats
+
+uint8_t lora_unconfirmed_message_repeats_get(void);
 
 //! @brief Save config
 

@@ -4,7 +4,9 @@
 #include "radio.h"
 #include "config.h"
 #include "sx1276.h"
-
+#include "gpio.h"
+#include "log.h"
+#include "rtc.h"
 
 static bool _cmd_param_parse_is_enable(atci_param_t *param, bool *enable);
 
@@ -50,9 +52,8 @@ static void cmd_dr_get(void)
 
 static void cmd_dr_set(atci_param_t *param)
 {
-    // TODO:
     uint32_t value;
-    if (atci_param_get_uint(param, &value) && (value >= 0) && (value <=15))
+    if (atci_param_get_uint(param, &value) && (value <=15))
     {
         lora_tx_datarate_set(value);
         lora_save_config();
@@ -314,8 +315,26 @@ static void cmd_chmask_set(atci_param_t *param)
     }
 }
 
+static void cmd_rep_get(void)
+{
+    atci_printf("+OK=%d", lora_unconfirmed_message_repeats_get());
+}
+
+static void cmd_rep_set(atci_param_t *param)
+{
+    uint32_t value;
+    if (atci_param_get_uint(param, &value) && lora_unconfirmed_message_repeats_set(value))
+    {
+        lora_save_config();
+        atci_print("+OK");
+        return;
+    }
+    atci_print("+ERR=-2");
+}
+
 static void cmd_facnew(atci_param_t *param)
 {
+    (void) param;
     config_reset();
     config_save();
     atci_print("+OK");
@@ -325,10 +344,9 @@ static void cmd_channels_get(void)
 {
     lora_channel_list_t list = lora_get_channel_list();
 
-    log_debug("%d %d", list.length, list.chmask_length);
-
-    log_dump(list.chmask, list.chmask_length * 2, "masks");
-    log_dump(list.chmask_default, list.chmask_length * 2, "default_mask");
+    // log_debug("%d %d", list.length, list.chmask_length);
+    // log_dump(list.chmask, list.chmask_length * 2, "masks");
+    // log_dump(list.chmask_default, list.chmask_length * 2, "default_mask");
 
     for (uint8_t i = 0; i < list.length; i++)
     {
@@ -344,7 +362,7 @@ static void cmd_channels_get(void)
         list.channels[i].DrRange.Fields.Max, 
         list.channels[i].Band);
     }
-     atci_print("OK");
+     atci_print("+OK");
 }
 
 static void cmd_reboot(atci_param_t *param)
@@ -362,8 +380,6 @@ static void cmd_dbg(atci_param_t *param)
     // RF_CAD,        //!< The radio is doing channel activity detection
     atci_printf("$DBG: \"stop_mode_mask\",%d\r\n", system_get_stop_mode_mask());
     atci_printf("$DBG: \"radio_state\",%d\r\n", Radio.GetStatus());
-
-    SX1276SetSleep();
     atci_print("OK");
 }
 
@@ -383,6 +399,7 @@ static const atci_command_t _cmd_commands[] = {
     {"+PUTX", cmd_putx, NULL, NULL, NULL, "Send string frame with port"},
     {"+PCTX", cmd_pctx, NULL, NULL, NULL, "Send string frame with port"},
     {"+CHMASK", NULL, cmd_chmask_set, cmd_chmask_get, NULL, "Channels mask"},
+    {"+REP", NULL, cmd_rep_set, cmd_rep_get, NULL, "Unconfirmed message repeats [1..15]"},
     {"+FACNEW", cmd_facnew, NULL, NULL, NULL, "Restore modem to factory"},
     {"$CHANNELS", NULL, NULL, cmd_channels_get, NULL, ""},
     {"+REBOOT", cmd_reboot, NULL, NULL, NULL, "Reboot"},

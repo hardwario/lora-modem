@@ -3,6 +3,7 @@
 #include "eeprom.h"
 #include "utilities.h"
 #include "error.h"
+#include "log.h"
 
 #define _CONFIG_BANK_A (CONFIG_ADDRESS_START)
 #define _CONFIG_BANK_B (_CONFIG_BANK_A + CONFIG_BANK_SIZE)
@@ -48,6 +49,7 @@ void config_init(void *config, size_t size, void *init_config)
 
     if (!config_load())
     {
+        log_warning("Config reset");
         config_reset();
     }
 

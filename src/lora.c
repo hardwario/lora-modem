@@ -180,12 +180,16 @@ void lora_init(lora_configuration_t *config, lora_callback_t *callbacks)
 #endif
 
     // Restore chennel mask from eeprom, need change both !!!
-    log_dump(lora.config->chmask, 12, "config.chmask");
+    // log_dump(lora.config->chmask, 12, "config.chmask");
     lora.mib_req.Type = MIB_CHANNELS_MASK;
     lora.mib_req.Param.ChannelsMask = lora.config->chmask;
     LoRaMacMibSetRequestConfirm(&lora.mib_req);
     lora.mib_req.Type = MIB_CHANNELS_DEFAULT_MASK;
     lora.mib_req.Param.ChannelsDefaultMask = lora.config->chmask;
+    LoRaMacMibSetRequestConfirm(&lora.mib_req);
+
+    lora.mib_req.Type = MIB_CHANNELS_NB_TRANS;
+    lora.mib_req.Param.ChannelsNbTrans = lora.config->tx_repeats;
     LoRaMacMibSetRequestConfirm(&lora.mib_req);
 
     lora_otaa_set(LORA_ENABLE);
@@ -237,10 +241,10 @@ bool lora_is_busy(void)
     if (LoRaMacIsBusy())
         return true;
 
-    if (!lora_is_join())
-    {
-        return true;
-    }
+    // if (!lora_is_join())
+    // {
+    //     return true;
+    // }
 
     return false;
 }
@@ -574,6 +578,19 @@ bool lora_chmask_set(uint16_t chmask[LORA_CHMASK_LENGTH])
     lora.mib_req.Type = MIB_CHANNELS_DEFAULT_MASK;
     lora.mib_req.Param.ChannelsDefaultMask = lora.config->chmask;
     return LoRaMacMibSetRequestConfirm(&lora.mib_req) == LORAMAC_STATUS_OK;
+}
+
+bool lora_unconfirmed_message_repeats_set(uint8_t repeats)
+{
+    lora.config->tx_repeats = repeats;
+    lora.mib_req.Type = MIB_CHANNELS_NB_TRANS;
+    lora.mib_req.Param.ChannelsNbTrans = lora.config->tx_repeats;
+    return LoRaMacMibSetRequestConfirm(&lora.mib_req) == LORAMAC_STATUS_OK;
+}
+
+uint8_t lora_unconfirmed_message_repeats_get(void)
+{
+    return lora.config->tx_repeats;
 }
 
 void lora_save_config(void)

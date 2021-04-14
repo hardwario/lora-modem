@@ -314,6 +314,8 @@ static void _atci_process_line(void)
 
 static void _atci_process_character(char character)
 {
+    // log_debug("c %c %d %d", character, character, _atci.read_next_data.length);
+
     if (_atci.read_next_data.length != 0)
     {
         _atci.rx_buffer[_atci.rx_length++] = character;
@@ -359,7 +361,7 @@ static void _atci_process_character(char character)
         _atci.rx_length = 0;
         _atci.rx_error = false;
     }
-    else if (character == '\r')
+    else if (character == '\n')
     {
         return;
     }
