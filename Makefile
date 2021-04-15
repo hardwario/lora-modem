@@ -32,7 +32,7 @@ SRC_FILES += \
 	$(SRC_DIR)/gpio.c \
 	$(SRC_DIR)/irq.c \
 	$(SRC_DIR)/log.c \
-	$(SRC_DIR)/lora.c \
+	$(SRC_DIR)/lrw.c \
 	$(SRC_DIR)/lpuart.c \
 	$(SRC_DIR)/main.c \
 	$(SRC_DIR)/mlm32l0xx_hal_msp.c \

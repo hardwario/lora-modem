@@ -1,4 +1,4 @@
-#include "lora.h"
+#include "lrw.h"
 #include "timeServer.h"
 #include "utilities.h"
 #include "LoRaMac.h"
@@ -6,10 +6,10 @@
 
 static struct
 {
-    lora_configuration_t *config;
-    lora_callback_t *callbacks;
-    lora_tx_params_t tx_params;
-    lora_rx_params_t rx_params;
+    lrw_configuration_t *config;
+    lrw_callback_t *callbacks;
+    lrw_tx_params_t tx_params;
+    lrw_rx_params_t rx_params;
     LoRaMacPrimitives_t mac_primitives;
     LoRaMacCallback_t mac_callbacks;
     MibRequestConfirm_t mib_req;
@@ -81,7 +81,7 @@ static void mlme_confirm(MlmeConfirm_t *param)
 
         if (param->Status == LORAMAC_EVENT_INFO_STATUS_OK)
         {
-            lora_class_change(lora.config->class);
+            lrw_class_change(lora.config->class);
 
             // overwrites the channel mask of the obtained connection to confirm
             lora.mib_req.Type = MIB_CHANNELS_MASK;
@@ -127,14 +127,14 @@ static void mlme_indication(MlmeIndication_t *param)
     }
 }
 
-void lora_init(lora_configuration_t *config, lora_callback_t *callbacks)
+void lrw_init(lrw_configuration_t *config, lrw_callback_t *callbacks)
 {
     memset(&lora, 0, sizeof(lora));
 
     lora.config = config;
     lora.callbacks = callbacks;
 
-    uint8_t empty_deveui[8] = LORA_DEVICE_EUI;
+    uint8_t empty_deveui[8] = LRW_DEVICE_EUI;
 
     // fill deveui if not set in eeprom
     if (memcmp(lora.config->deveui, empty_deveui, 8) == 0)
@@ -192,7 +192,7 @@ void lora_init(lora_configuration_t *config, lora_callback_t *callbacks)
     lora.mib_req.Param.ChannelsNbTrans = lora.config->tx_repeats;
     LoRaMacMibSetRequestConfirm(&lora.mib_req);
 
-    lora_otaa_set(LORA_ENABLE);
+    lrw_otaa_set(LRW_ENABLE);
 
     lora.mib_req.Type = MIB_DEV_EUI;
     lora.mib_req.Param.DevEui = lora.config->deveui;
@@ -231,17 +231,17 @@ void lora_init(lora_configuration_t *config, lora_callback_t *callbacks)
     LoRaMacStart();
 }
 
-void lora_process(void)
+void lrw_process(void)
 {
     LoRaMacProcess();
 }
 
-bool lora_is_busy(void)
+bool lrw_is_busy(void)
 {
     if (LoRaMacIsBusy())
         return true;
 
-    // if (!lora_is_join())
+    // if (!lrw_is_join())
     // {
     //     return true;
     // }
@@ -249,12 +249,12 @@ bool lora_is_busy(void)
     return false;
 }
 
-bool lora_join(void)
+bool lrw_join(void)
 {
     if (LoRaMacIsBusy())
         return false;
 
-    if (!lora_otaa_get())
+    if (!lrw_otaa_get())
         return false;
 
     MlmeReq_t mlmeReq;
@@ -265,7 +265,7 @@ bool lora_join(void)
     return status == LORAMAC_STATUS_OK;
 }
 
-bool lora_is_join(void)
+bool lrw_is_join(void)
 {
     lora.mib_req.Type = MIB_NETWORK_ACTIVATION;
     if (LoRaMacMibGetRequestConfirm(&lora.mib_req) != LORAMAC_STATUS_OK)
@@ -273,7 +273,7 @@ bool lora_is_join(void)
     return lora.mib_req.Param.NetworkActivation != ACTIVATION_TYPE_NONE;
 }
 
-bool lora_send(uint8_t port, void *buffer, uint8_t length, bool confirmed)
+bool lrw_send(uint8_t port, void *buffer, uint8_t length, bool confirmed)
 {
     McpsReq_t mcpsReq;
     LoRaMacTxInfo_t txInfo;
@@ -284,17 +284,17 @@ bool lora_send(uint8_t port, void *buffer, uint8_t length, bool confirmed)
         mcpsReq.Type = MCPS_UNCONFIRMED;
         mcpsReq.Req.Unconfirmed.fBuffer = NULL;
         mcpsReq.Req.Unconfirmed.fBufferSize = 0;
-        mcpsReq.Req.Unconfirmed.Datarate = lora_tx_datarate_get();
+        mcpsReq.Req.Unconfirmed.Datarate = lrw_tx_datarate_get();
     }
     else
     {
-        if (confirmed == LORA_UNCONFIRMED_MSG)
+        if (confirmed == LRW_UNCONFIRMED_MSG)
         {
             mcpsReq.Type = MCPS_UNCONFIRMED;
             mcpsReq.Req.Unconfirmed.fPort = port;
             mcpsReq.Req.Unconfirmed.fBufferSize = length;
             mcpsReq.Req.Unconfirmed.fBuffer = buffer;
-            mcpsReq.Req.Unconfirmed.Datarate = lora_tx_datarate_get();
+            mcpsReq.Req.Unconfirmed.Datarate = lrw_tx_datarate_get();
         }
         else
         {
@@ -303,7 +303,7 @@ bool lora_send(uint8_t port, void *buffer, uint8_t length, bool confirmed)
             mcpsReq.Req.Confirmed.fBufferSize = length;
             mcpsReq.Req.Confirmed.fBuffer = buffer;
             mcpsReq.Req.Confirmed.NbTrials = 8;
-            mcpsReq.Req.Confirmed.Datarate = lora_tx_datarate_get();
+            mcpsReq.Req.Confirmed.Datarate = lrw_tx_datarate_get();
         }
     }
     if (LoRaMacMcpsRequest(&mcpsReq) == LORAMAC_STATUS_OK)
@@ -313,7 +313,7 @@ bool lora_send(uint8_t port, void *buffer, uint8_t length, bool confirmed)
     return false;
 }
 
-bool lora_class_change(DeviceClass_t new_class)
+bool lrw_class_change(DeviceClass_t new_class)
 {
     lora.mib_req.Type = MIB_DEVICE_CLASS;
     LoRaMacMibGetRequestConfirm(&lora.mib_req);
@@ -326,7 +326,7 @@ bool lora_class_change(DeviceClass_t new_class)
     return LoRaMacMibSetRequestConfirm(&lora.mib_req) == LORAMAC_STATUS_OK;
 }
 
-uint8_t lora_class_get(void)
+uint8_t lrw_class_get(void)
 {
     lora.mib_req.Type = MIB_DEVICE_CLASS;
     LoRaMacMibGetRequestConfirm(&lora.mib_req);
@@ -334,11 +334,11 @@ uint8_t lora_class_get(void)
     return lora.mib_req.Param.Class;
 }
 
-void lora_otaa_set(LoraState_t otaa)
+void lrw_otaa_set(LoraState_t otaa)
 {
     lora.config->otaa = otaa;
 
-    if (lora.config->otaa == LORA_ENABLE)
+    if (lora.config->otaa == LRW_ENABLE)
     {
         lora.mib_req.Type = MIB_NETWORK_ACTIVATION;
         lora.mib_req.Param.NetworkActivation = ACTIVATION_TYPE_NONE;
@@ -347,7 +347,7 @@ void lora_otaa_set(LoraState_t otaa)
     else
     {
         lora.mib_req.Type = MIB_NET_ID;
-        lora.mib_req.Param.NetID = LORA_NETWORK_ID;
+        lora.mib_req.Param.NetID = LRW_NETWORK_ID;
         LoRaMacMibSetRequestConfirm(&lora.mib_req);
 
         lora.mib_req.Type = MIB_DEV_ADDR;
@@ -376,35 +376,35 @@ void lora_otaa_set(LoraState_t otaa)
 
         // Enable legacy mode to operate according to LoRaWAN Spec. 1.0.3
         Version_t abpLrWanVersion;
-        abpLrWanVersion.Value = LORA_MAC_VERSION;
+        abpLrWanVersion.Value = LRW_MAC_VERSION;
         lora.mib_req.Type = MIB_ABP_LORAWAN_VERSION;
         lora.mib_req.Param.AbpLrWanVersion = abpLrWanVersion;
         LoRaMacMibSetRequestConfirm(&lora.mib_req);
     }
 }
 
-LoraState_t lora_otaa_get(void)
+LoraState_t lrw_otaa_get(void)
 {
     return lora.config->otaa;
 }
 
-void lora_duty_cycle_set(bool duty_cycle)
+void lrw_duty_cycle_set(bool duty_cycle)
 {
     lora.config->duty_cycle = duty_cycle;
-    LoRaMacTestSetDutyCycleOn((duty_cycle == LORA_ENABLE) ? 1 : 0);
+    LoRaMacTestSetDutyCycleOn((duty_cycle == LRW_ENABLE) ? 1 : 0);
 }
 
-bool lora_duty_cycle_get(void)
+bool lrw_duty_cycle_get(void)
 {
     return lora.config->duty_cycle;
 }
 
-uint8_t *lora_deveui_get(void)
+uint8_t *lrw_deveui_get(void)
 {
     return lora.config->deveui;
 }
 
-void lora_deveui_set(uint8_t deveui[8])
+void lrw_deveui_set(uint8_t deveui[8])
 {
     memcpy1(lora.config->deveui, deveui, sizeof(lora.config->deveui));
 
@@ -413,12 +413,12 @@ void lora_deveui_set(uint8_t deveui[8])
     LoRaMacMibSetRequestConfirm(&lora.mib_req);
 }
 
-uint8_t *lora_appeui_get(void)
+uint8_t *lrw_appeui_get(void)
 {
     return lora.config->appeui;
 }
 
-void lora_appeui_set(uint8_t appeui[8])
+void lrw_appeui_set(uint8_t appeui[8])
 {
     memcpy1(lora.config->appeui, appeui, sizeof(lora.config->appeui));
 
@@ -427,12 +427,12 @@ void lora_appeui_set(uint8_t appeui[8])
     LoRaMacMibSetRequestConfirm(&lora.mib_req);
 }
 
-uint32_t lora_devaddr_get(void)
+uint32_t lrw_devaddr_get(void)
 {
     return lora.config->devaddr;
 }
 
-void lora_devaddr_set(uint32_t devaddr)
+void lrw_devaddr_set(uint32_t devaddr)
 {
     lora.config->devaddr = devaddr;
     lora.mib_req.Type = MIB_DEV_ADDR;
@@ -440,12 +440,12 @@ void lora_devaddr_set(uint32_t devaddr)
     LoRaMacMibSetRequestConfirm(&lora.mib_req);
 }
 
-uint8_t *lora_appkey_get(void)
+uint8_t *lrw_appkey_get(void)
 {
     return lora.config->appkey;
 }
 
-void lora_appkey_set(uint8_t appkey[16])
+void lrw_appkey_set(uint8_t appkey[16])
 {
     memcpy1(lora.config->appkey, appkey, sizeof(lora.config->appkey));
     memcpy1(lora.config->nwkkey, appkey, sizeof(lora.config->nwkkey));
@@ -459,12 +459,12 @@ void lora_appkey_set(uint8_t appkey[16])
     LoRaMacMibSetRequestConfirm(&lora.mib_req);
 }
 
-bool lora_public_network_get(void)
+bool lrw_public_network_get(void)
 {
     return lora.config->public_network;
 }
 
-void lora_public_network_set(bool enable)
+void lrw_public_network_set(bool enable)
 {
     lora.config->public_network = enable;
     lora.mib_req.Type = MIB_PUBLIC_NETWORK;
@@ -472,37 +472,37 @@ void lora_public_network_set(bool enable)
     LoRaMacMibSetRequestConfirm(&lora.mib_req);
 }
 
-int8_t lora_snr_get(void)
+int8_t lrw_snr_get(void)
 {
     return lora.rx_params.snr;
 }
 
-int16_t lora_rssi_get(void)
+int16_t lrw_rssi_get(void)
 {
     return lora.rx_params.rssi;
 }
 
-void lora_tx_datarate_set(int8_t tx_datarate)
+void lrw_tx_datarate_set(int8_t tx_datarate)
 {
     lora.config->tx_datarate = tx_datarate;
 }
 
-int8_t lora_tx_datarate_get(void)
+int8_t lrw_tx_datarate_get(void)
 {
     return lora.config->tx_datarate;
 }
 
-LoraState_t lora_isack_get(void)
+LoraState_t lrw_isack_get(void)
 {
     return lora.tx_params.ack_received;
 }
 
-LoRaMacRegion_t lora_region_get(void)
+LoRaMacRegion_t lrw_region_get(void)
 {
     return lora.config->region;
 }
 
-bool lora_region_set(LoRaMacRegion_t region)
+bool lrw_region_set(LoRaMacRegion_t region)
 {
     // test is region build
     if (!RegionIsActive(region))
@@ -513,7 +513,7 @@ bool lora_region_set(LoRaMacRegion_t region)
     // set default duty cycle for region
     GetPhyParams_t req = {.Attribute = PHY_DUTY_CYCLE};
     PhyParam_t resp = RegionGetPhyParam(region, &req);
-    lora_duty_cycle_set(resp.Value != 0);
+    lrw_duty_cycle_set(resp.Value != 0);
 
     // TODO
     // InitDefaultsParams_t init_param = { .Type = INIT_TYPE_DEFAULTS };
@@ -522,16 +522,16 @@ bool lora_region_set(LoRaMacRegion_t region)
     // get default channel mask
     // req.Attribute = PHY_CHANNELS_DEFAULT_MASK;
     // PhyParam_t respm = RegionGetPhyParam(region, &req);   
-    // log_dump(respm.ChannelsMask, lora_get_channels_mask_length() * 2, "respm.ChannelsMask");
+    // log_dump(respm.ChannelsMask, lrw_get_channels_mask_length() * 2, "respm.ChannelsMask");
     // log_debug("respm.ChannelsMask[0] %d %04x", respm.ChannelsMask[0], respm.ChannelsMask[0]);
     // memset(lora.config->channels_mask, 0, sizeof(lora.config->channels_mask));
-    // RegionCommonChanMaskCopy(lora.config->channels_mask, respm.ChannelsMask, lora_get_channels_mask_length());
-    // log_dump(lora.config->channels_mask, lora_get_channels_mask_length() * 2, "lora.config->channels_mask");
+    // RegionCommonChanMaskCopy(lora.config->channels_mask, respm.ChannelsMask, lrw_get_channels_mask_length());
+    // log_dump(lora.config->channels_mask, lrw_get_channels_mask_length() * 2, "lora.config->channels_mask");
 
     return true;
 }
 
-uint8_t lora_get_chmask_length(void)
+uint8_t lrw_get_chmask_length(void)
 {
     // REGION_NVM_CHANNELS_MASK_SIZE
     if ((lora.config->region == LORAMAC_REGION_AU915) || 
@@ -541,14 +541,14 @@ uint8_t lora_get_chmask_length(void)
     return 1;
 }
 
-lora_channel_list_t lora_get_channel_list(void)
+lrw_channel_list_t lrw_get_channel_list(void)
 {
-    lora_channel_list_t result;
+    lrw_channel_list_t result;
 
-    result.chmask_length = lora_get_chmask_length();
+    result.chmask_length = lrw_get_chmask_length();
 
     GetPhyParams_t req = {.Attribute = PHY_MAX_NB_CHANNELS};
-    PhyParam_t resp = RegionGetPhyParam(lora_region_get(), &req);
+    PhyParam_t resp = RegionGetPhyParam(lrw_region_get(), &req);
     result.length = resp.Value;
 
     lora.mib_req.Type = MIB_CHANNELS;
@@ -566,7 +566,7 @@ lora_channel_list_t lora_get_channel_list(void)
     return result;
 }
 
-bool lora_chmask_set(uint16_t chmask[LORA_CHMASK_LENGTH])
+bool lrw_chmask_set(uint16_t chmask[LRW_CHMASK_LENGTH])
 {
     memcpy(lora.config->chmask, chmask, sizeof(lora.config->chmask));
 
@@ -580,7 +580,7 @@ bool lora_chmask_set(uint16_t chmask[LORA_CHMASK_LENGTH])
     return LoRaMacMibSetRequestConfirm(&lora.mib_req) == LORAMAC_STATUS_OK;
 }
 
-bool lora_unconfirmed_message_repeats_set(uint8_t repeats)
+bool lrw_unconfirmed_message_repeats_set(uint8_t repeats)
 {
     lora.config->tx_repeats = repeats;
     lora.mib_req.Type = MIB_CHANNELS_NB_TRANS;
@@ -588,12 +588,12 @@ bool lora_unconfirmed_message_repeats_set(uint8_t repeats)
     return LoRaMacMibSetRequestConfirm(&lora.mib_req) == LORAMAC_STATUS_OK;
 }
 
-uint8_t lora_unconfirmed_message_repeats_get(void)
+uint8_t lrw_unconfirmed_message_repeats_get(void)
 {
     return lora.config->tx_repeats;
 }
 
-void lora_save_config(void)
+void lrw_save_config(void)
 {
     lora.callbacks->config_save();
 }

@@ -1,5 +1,5 @@
 #include "cmd.h"
-#include "lora.h"
+#include "lrw.h"
 #include "system.h"
 #include "radio.h"
 #include "config.h"
@@ -22,14 +22,14 @@ static void cmd_mode_get(void)
 
 static void cmd_deveui_get(void)
 {
-    uint8_t *data = lora_deveui_get();
+    uint8_t *data = lrw_deveui_get();
     atci_print("+OK=");
     atci_print_buffer_as_hex(data, 8);
 }
 
 static void cmd_dutycycle_get(void)
 {
-    atci_printf("+OK=%d", lora_duty_cycle_get());
+    atci_printf("+OK=%d", lrw_duty_cycle_get());
 }
 
 static void cmd_dutycycle_set(atci_param_t *param)
@@ -37,8 +37,8 @@ static void cmd_dutycycle_set(atci_param_t *param)
     bool enable;
     if (_cmd_param_parse_is_enable(param, &enable))
     {
-        lora_duty_cycle_set(enable);
-        lora_save_config();
+        lrw_duty_cycle_set(enable);
+        lrw_save_config();
         atci_print("+OK");
     } else {
         atci_print("+ERR=-3");
@@ -47,7 +47,7 @@ static void cmd_dutycycle_set(atci_param_t *param)
 
 static void cmd_dr_get(void)
 {
-    atci_printf("+OK=%d", lora_tx_datarate_get());
+    atci_printf("+OK=%d", lrw_tx_datarate_get());
 }
 
 static void cmd_dr_set(atci_param_t *param)
@@ -55,8 +55,8 @@ static void cmd_dr_set(atci_param_t *param)
     uint32_t value;
     if (atci_param_get_uint(param, &value) && (value <=15))
     {
-        lora_tx_datarate_set(value);
-        lora_save_config();
+        lrw_tx_datarate_set(value);
+        lrw_save_config();
         atci_print("+OK");
     } else {
         atci_print("+ERR=-3");
@@ -65,7 +65,7 @@ static void cmd_dr_set(atci_param_t *param)
 
 static void cmd_rfq_get()
 {
-    atci_printf("+OK=%d,%d", lora_rssi_get(), lora_snr_get());
+    atci_printf("+OK=%d,%d", lrw_rssi_get(), lrw_snr_get());
 }
 
 static void cmd_deveui_set(atci_param_t *param)
@@ -73,8 +73,8 @@ static void cmd_deveui_set(atci_param_t *param)
     uint8_t deveui[8];
     if (atci_param_get_buffer_from_hex(param, deveui, 8) == 8)
     {
-        lora_deveui_set(deveui);
-        lora_save_config();
+        lrw_deveui_set(deveui);
+        lrw_save_config();
         atci_print("+OK");
     }
     else
@@ -85,7 +85,7 @@ static void cmd_deveui_set(atci_param_t *param)
 
 static void cmd_devaddr_get(void)
 {
-    uint32_t devaddr = lora_devaddr_get();
+    uint32_t devaddr = lrw_devaddr_get();
     atci_printf("+OK=%08X", devaddr);
 }
 
@@ -94,8 +94,8 @@ static void cmd_devaddr_set(atci_param_t *param)
     uint32_t devaddr;
     if (atci_param_get_buffer_from_hex(param, &devaddr, 4) == 4)
     {
-        lora_devaddr_set(devaddr);
-        lora_save_config();
+        lrw_devaddr_set(devaddr);
+        lrw_save_config();
         atci_print("+OK");
     }
     else
@@ -106,21 +106,21 @@ static void cmd_devaddr_set(atci_param_t *param)
 
 static void cmd_class_get(void)
 {
-    atci_printf("+OK=%d", lora_class_get());
+    atci_printf("+OK=%d", lrw_class_get());
 }
 
 static void cmd_band_get(void)
 {
-    atci_printf("+OK=%d", lora_region_get());
+    atci_printf("+OK=%d", lrw_region_get());
 }
 
 static void cmd_band_set(atci_param_t *param)
 {
     uint32_t value;
 
-    if (atci_param_get_uint(param, &value) && lora_region_set(value))
+    if (atci_param_get_uint(param, &value) && lrw_region_set(value))
     {
-        lora_save_config();
+        lrw_save_config();
         atci_print("+OK");
         return;
     }
@@ -129,7 +129,7 @@ static void cmd_band_set(atci_param_t *param)
 
 static void cmd_appui_get(void)
 {
-    uint8_t *data = lora_appeui_get();
+    uint8_t *data = lrw_appeui_get();
     atci_print("+OK=");
     atci_print_buffer_as_hex(data, 8);
 }
@@ -139,8 +139,8 @@ static void cmd_appui_set(atci_param_t *param)
     uint8_t appeui[8];
     if (atci_param_get_buffer_from_hex(param, appeui, 8) == 8)
     {
-        lora_appeui_set(appeui);
-        lora_save_config();
+        lrw_appeui_set(appeui);
+        lrw_save_config();
         atci_print("+OK");
     }
     else
@@ -151,7 +151,7 @@ static void cmd_appui_set(atci_param_t *param)
 
 static void cmd_appkey_get(void)
 {
-    uint8_t *data = lora_appkey_get();
+    uint8_t *data = lrw_appkey_get();
     atci_print("+OK=");
     atci_print_buffer_as_hex(data, 16);
 }
@@ -161,8 +161,8 @@ static void cmd_appkey_set(atci_param_t *param)
     uint8_t appkey[16];
     if (atci_param_get_buffer_from_hex(param, appkey, 16) == 16)
     {
-        lora_appkey_set(appkey);
-        lora_save_config();
+        lrw_appkey_set(appkey);
+        lrw_save_config();
         atci_print("+OK");
     }
     else
@@ -173,7 +173,7 @@ static void cmd_appkey_set(atci_param_t *param)
 
 static void cmd_nwk_get(void)
 {
-    atci_printf("+OK=%d", lora_public_network_get());
+    atci_printf("+OK=%d", lrw_public_network_get());
 }
 
 static void cmd_nwk_set(atci_param_t *param)
@@ -181,8 +181,8 @@ static void cmd_nwk_set(atci_param_t *param)
     bool enable;
     if (_cmd_param_parse_is_enable(param, &enable))
     {
-        lora_public_network_set(enable);
-        lora_save_config();
+        lrw_public_network_set(enable);
+        lrw_save_config();
         atci_print("+OK");
     } else {
         atci_print("+ERR=-3");
@@ -193,9 +193,9 @@ static void cmd_join(atci_param_t *param)
 {
     (void)param;
 
-    if (lora_otaa_get())
+    if (lrw_otaa_get())
     {
-        if (lora_join())
+        if (lrw_join())
         {
             atci_print("+OK");
         }
@@ -212,7 +212,7 @@ static void cmd_join(atci_param_t *param)
 
 static void cmd_putx_data(atci_param_t *param)
 {
-    if (lora_send(_at.port, param->txt, param->length, LORA_UNCONFIRMED_MSG))
+    if (lrw_send(_at.port, param->txt, param->length, LRW_UNCONFIRMED_MSG))
     {
         atci_print("+OK");
     }
@@ -251,7 +251,7 @@ static void cmd_putx(atci_param_t *param)
 
 static void cmd_pctx_data(atci_param_t *param)
 {
-    if (lora_send(_at.port, param->txt, param->length, LORA_CONFIRMED_MSG))
+    if (lrw_send(_at.port, param->txt, param->length, LRW_CONFIRMED_MSG))
     {
         atci_print("+OK");
     }
@@ -290,14 +290,14 @@ static void cmd_pctx(atci_param_t *param)
 
 static void cmd_chmask_get(void)
 {
-    lora_channel_list_t list = lora_get_channel_list();
+    lrw_channel_list_t list = lrw_get_channel_list();
     atci_print("+OK=");
     atci_print_buffer_as_hex(list.chmask, list.chmask_length * sizeof(uint16_t));
 }
 
 static void cmd_chmask_set(atci_param_t *param)
 {
-    uint16_t chmask[LORA_CHMASK_LENGTH];
+    uint16_t chmask[LRW_CHMASK_LENGTH];
     memset(chmask, 0, sizeof(chmask));
 
     size_t length = atci_param_get_buffer_from_hex(param, chmask, sizeof(chmask));
@@ -307,8 +307,8 @@ static void cmd_chmask_set(atci_param_t *param)
         return;
     }
 
-    if (lora_chmask_set(chmask)) {
-        lora_save_config();
+    if (lrw_chmask_set(chmask)) {
+        lrw_save_config();
         atci_print("+OK");
     } else {
         atci_print("+ERR=-2");
@@ -317,15 +317,15 @@ static void cmd_chmask_set(atci_param_t *param)
 
 static void cmd_rep_get(void)
 {
-    atci_printf("+OK=%d", lora_unconfirmed_message_repeats_get());
+    atci_printf("+OK=%d", lrw_unconfirmed_message_repeats_get());
 }
 
 static void cmd_rep_set(atci_param_t *param)
 {
     uint32_t value;
-    if (atci_param_get_uint(param, &value) && lora_unconfirmed_message_repeats_set(value))
+    if (atci_param_get_uint(param, &value) && lrw_unconfirmed_message_repeats_set(value))
     {
-        lora_save_config();
+        lrw_save_config();
         atci_print("+OK");
         return;
     }
@@ -342,7 +342,7 @@ static void cmd_facnew(atci_param_t *param)
 
 static void cmd_channels_get(void)
 {
-    lora_channel_list_t list = lora_get_channel_list();
+    lrw_channel_list_t list = lrw_get_channel_list();
 
     // log_debug("%d %d", list.length, list.chmask_length);
     // log_dump(list.chmask, list.chmask_length * 2, "masks");
