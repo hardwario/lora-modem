@@ -160,7 +160,7 @@ static void _system_init_flash(void)
 static void _system_init_gpio(void)
 {
     //Configure all GPIO's to Analog input to reduce the power consumption
-    GPIO_InitTypeDef GPIO_InitStruct = {0};
+    // GPIO_InitTypeDef GPIO_InitStruct = {0};
 
     /* Configure all GPIO as analog to reduce current consumption on non used IOs */
     /* Enable GPIOs clock */
@@ -169,17 +169,49 @@ static void _system_init_gpio(void)
     __HAL_RCC_GPIOC_CLK_ENABLE();
     __HAL_RCC_GPIOH_CLK_ENABLE();
 
-    GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
-    /* All GPIOs except debug pins (SWCLK and SWD) */
-    GPIO_InitStruct.Pin = GPIO_PIN_All & (~(GPIO_PIN_13 | GPIO_PIN_14));
-    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+    // GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+    // GPIO_InitStruct.Pull = GPIO_NOPULL;
+    // /* All GPIOs except debug pins (SWCLK and SWD) */
+    // GPIO_InitStruct.Pin = GPIO_PIN_All & (~(GPIO_PIN_13 | GPIO_PIN_14));
+    // HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-    /* All GPIOs */
-    GPIO_InitStruct.Pin = GPIO_PIN_All;
-    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-    HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
-    HAL_GPIO_Init(GPIOH, &GPIO_InitStruct);
+    // /* All GPIOs */
+    // GPIO_InitStruct.Pin = GPIO_PIN_All;
+    // HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+    // HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+    // HAL_GPIO_Init(GPIOH, &GPIO_InitStruct);
+
+    GPIOA->PUPDR   = 0x24002040;
+    GPIOA->AFR[0]  = 0x00006600;
+    GPIOA->AFR[1]  = 0x00000040;
+    GPIOA->OTYPER  = 0x00000000;
+    GPIOA->OSPEEDR = 0xcc0cc0f0;
+    GPIOA->ODR     = 0x00008000;
+    GPIOA->MODER   = 0x69fbafaf;
+
+    GPIOB->PUPDR   = 0x00000000;
+    GPIOB->AFR[0]  = 0x00000000;
+    GPIOB->AFR[1]  = 0x00000000;
+    GPIOB->OTYPER  = 0x00000000;
+    GPIOB->OSPEEDR = 0x000000c0;
+    GPIOB->ODR     = 0x00000000;
+    GPIOB->MODER   = 0xffffffbf;
+
+    GPIOC->PUPDR   = 0x00000000;
+    GPIOC->AFR[0]  = 0x00000000;
+    GPIOC->AFR[1]  = 0x00000000;
+    GPIOC->OTYPER  = 0x00000000;
+    GPIOC->OSPEEDR = 0x00000000;
+    GPIOC->ODR     = 0x00000000;
+    GPIOC->MODER   = 0xffffffd5;
+
+    GPIOH->PUPDR   = 0x00000000;
+    GPIOH->AFR[0]  = 0x00000000;
+    GPIOH->AFR[1]  = 0x00000000;
+    GPIOH->OTYPER  = 0x00000000;
+    GPIOH->OSPEEDR = 0x00000000;
+    GPIOH->ODR     = 0x00000000;
+    GPIOH->MODER   = 0x003c000f;
 
     /* Disable GPIOs clock */
     __HAL_RCC_GPIOA_CLK_DISABLE();
