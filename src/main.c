@@ -140,7 +140,7 @@ static float lrw_get_temperature(void)
 
 static void lrw_on_rx_data(uint8_t port, uint8_t *buffer, uint8_t length, lrw_rx_params_t *params)
 {
-    atci_printf('+RECV=%d,%d\r\n\r\n', port, length);
+    atci_printf("+RECV=%d,%d\r\n\r\n", port, length);
     atci_write(buffer, length);
     // atci_print_buffer_as_hex(buffer, length);
 }
