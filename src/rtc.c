@@ -175,7 +175,7 @@ TimerTime_t rtc_tick2ms(uint32_t tick)
 void rtc_set_alarm(uint32_t timeout)
 {
     /* we don't go in Low Power mode for timeout below MIN_ALARM_DELAY */
-    if ((MIN_ALARM_DELAY + McuWakeUpTimeCal) < ((timeout - rtc_get_timer_elapsed_time())))
+    if ((MIN_ALARM_DELAY + (uint32_t) McuWakeUpTimeCal) < ((timeout - rtc_get_timer_elapsed_time())))
     {
         // LPM_SetStopMode(LPM_RTC_Id, LPM_Enable);
         system_stop_mode_enable(SYSTEM_MASK_RTC);

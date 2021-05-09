@@ -1,5 +1,6 @@
 #include "lpuart.h"
 #include "io.h"
+#include "error.h"
 
 static UART_HandleTypeDef UartHandle;
 
@@ -44,7 +45,8 @@ void lpuart_async_write(uint8_t *buffer, size_t length)
 
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *UartHandle)
 {
-    /* buffer transmission complete*/
+    (void) UartHandle;
+    // buffer transmission complete
     if (NULL != TxCpltCallback)
     {
         TxCpltCallback();
@@ -138,7 +140,8 @@ void HAL_UART_MspInit(UART_HandleTypeDef *huart)
 
 void HAL_UART_MspDeInit(UART_HandleTypeDef *huart)
 {
-    vcom_IoDeInit();
+    lpuart_io_deinit();
+
     /*##-1- Reset peripherals ##################################################*/
     __LPUART1_FORCE_RESET();
     __LPUART1_RELEASE_RESET();

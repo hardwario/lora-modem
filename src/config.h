@@ -12,7 +12,7 @@
 //! @param[in] size Size of the configuration structure
 //! @param[in] init_config Pointer to default configoration or null
 
-void config_init(void *config, size_t size, void *init_config);
+void config_init(void *config, size_t size, const void *init_config);
 
 //! @brief Reset EEPROM configuration to zeros or init_config
 

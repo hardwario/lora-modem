@@ -15,7 +15,7 @@ typedef struct
 {
     void *config;
     size_t size;
-    void *init_config;
+    const void *init_config;
 
 } config_t;
 
@@ -36,7 +36,7 @@ typedef struct
 static void _config_eeprom_read(uint32_t address, void *buffer, size_t length);
 static void _config_eeprom_write(uint32_t address, const void *buffer, size_t length);
 
-void config_init(void *config, size_t size, void *init_config)
+void config_init(void *config, size_t size, const void *init_config)
 {
     if (size > CONFIG_BANK_SIZE)
     {

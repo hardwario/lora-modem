@@ -2,6 +2,7 @@
 #include "timeServer.h"
 #include "utilities.h"
 #include "LoRaMac.h"
+#include "LoRaMacTest.h"
 #include "log.h"
 
 static struct
@@ -17,7 +18,7 @@ static struct
 
 static void mcps_confirm(McpsConfirm_t *param)
 {
-    log_debug("mcps_confirm: McpsRequest: %d, Channel: %d AckReceived: %d", param->McpsRequest, param->Channel, param->AckReceived);
+    log_debug("mcps_confirm: McpsRequest: %d, Channel: %ld AckReceived: %d", param->McpsRequest, param->Channel, param->AckReceived);
 
     lora.tx_params.is_mcps_confirm = 1;
     lora.tx_params.status = param->Status;
@@ -33,7 +34,7 @@ static void mcps_confirm(McpsConfirm_t *param)
 
 static void mcps_indication(McpsIndication_t *param)
 {
-    log_debug("mcps_indication: status: %s rssi: %d", param->Status, param->Rssi);
+    log_debug("mcps_indication: status: %d rssi: %d", param->Status, param->Rssi);
 
     lora.rx_params.is_mcps_indication = 1;
     lora.rx_params.status = param->Status;
@@ -71,9 +72,7 @@ static void mlme_confirm(MlmeConfirm_t *param)
     lora.tx_params.is_mcps_confirm = 0;
     lora.tx_params.status = param->Status;
 
-    switch (param->MlmeRequest)
-    {
-    case MLME_JOIN:
+    if (param->MlmeRequest == MLME_JOIN)
     {
         lora.mib_req.Type = MIB_DEV_ADDR;
         LoRaMacMibGetRequestConfirm(&lora.mib_req);
@@ -94,17 +93,17 @@ static void mlme_confirm(MlmeConfirm_t *param)
         {
             lora.callbacks->join_status(false);
         }
-        break;
     }
-    case MLME_LINK_CHECK:
-    {
-        // Check DemodMargin
-        // Check NbGateways
-        break;
-    }
-    default:
-        break;
-    }
+
+    // case MLME_LINK_CHECK:
+    // {
+    //     // Check DemodMargin
+    //     // Check NbGateways
+    //     break;
+    // }
+    // default:
+    //     break;
+    // }
 }
 
 static void mlme_indication(MlmeIndication_t *param)
@@ -114,16 +113,12 @@ static void mlme_indication(MlmeIndication_t *param)
     lora.rx_params.is_mcps_indication = 0;
     lora.rx_params.status = param->Status;
 
-    switch (param->MlmeIndication)
-    {
-    case MLME_SCHEDULE_UPLINK:
+    if (param->MlmeIndication == MLME_SCHEDULE_UPLINK)
     {
         if (lora.callbacks->tx_needed != NULL)
+        {
             lora.callbacks->tx_needed();
-        break;
-    }
-    default:
-        break;
+        }
     }
 }
 
@@ -320,7 +315,6 @@ bool lrw_class_change(DeviceClass_t new_class)
 
     if (new_class == lora.mib_req.Param.Class)
         return true;
-
 
     lora.mib_req.Param.Class = new_class;
     return LoRaMacMibSetRequestConfirm(&lora.mib_req) == LORAMAC_STATUS_OK;
@@ -537,7 +531,7 @@ uint8_t lrw_get_chmask_length(void)
     if ((lora.config->region == LORAMAC_REGION_AU915) ||
         (lora.config->region == LORAMAC_REGION_US915) ||
         (lora.config->region == LORAMAC_REGION_CN470))
-            return 6;
+        return 6;
     return 1;
 }
 

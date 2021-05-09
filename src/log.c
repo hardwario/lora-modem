@@ -1,5 +1,5 @@
 #include "log.h"
-#include "timer.h"
+#include "rtc.h"
 #include "system.h"
 #include "console.h"
 #include "usart.h"
@@ -12,7 +12,7 @@ typedef struct
     bool initialized;
     log_level_t level;
     log_timestamp_t timestamp;
-    TimerTime_t tick_last;
+    uint32_t tick_last;
     char buffer[LOG_BUFFER_SIZE];
 
 } log_t;
@@ -193,7 +193,7 @@ static void _log_message(log_level_t level, char id, const char *format, va_list
 
     if (_log.timestamp == LOG_TIMESTAMP_ABS)
     {
-        TimerTime_t tick_now = rtc_get_timer_value();
+        uint32_t tick_now = rtc_get_timer_value();
 
         uint32_t timestamp_abs = tick_now / 10;
 
@@ -201,7 +201,7 @@ static void _log_message(log_level_t level, char id, const char *format, va_list
     }
     else if (_log.timestamp == LOG_TIMESTAMP_REL)
     {
-        TimerTime_t tick_now = rtc_get_timer_value();
+        uint32_t tick_now = rtc_get_timer_value();
 
         uint32_t timestamp_rel = (tick_now - _log.tick_last) / 10;
 

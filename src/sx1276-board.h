@@ -51,9 +51,8 @@ extern "C"
 // Radio hardware and global parameters
 extern SX1276_t SX1276;
 
-void GpioWrite(Gpio_t *obj, uint32_t value );
+void GpioWrite(Gpio_t *obj, uint32_t value);
 
-uint16_t SpiInOut(Spi_t *obj, uint16_t outData );
-
+uint16_t SpiInOut(Spi_t *obj, uint16_t outData);
 
 #endif // _SX1276_BOARD_H

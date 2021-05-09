@@ -1,6 +1,10 @@
 #include "common.h"
 #include "stm32l0xx_hal.h"
 #include "timeServer.h"
+#include "error.h"
+#include "rtc.h"
+#include "gpio.h"
+
 /* when fast wake up is enabled, the mcu wakes up in ~20us  * and
  * does not wait for the VREFINT to be settled. THis is ok for
  * most of the case except when adc must be used in this case before
@@ -15,7 +19,7 @@
   */
 HAL_StatusTypeDef HAL_InitTick(uint32_t TickPriority)
 {
-    /* Return function status */
+    (void) TickPriority;
     return HAL_OK;
 }
 
@@ -77,6 +81,7 @@ void HAL_MspInit(void)
   */
 void HAL_RTC_MspInit(RTC_HandleTypeDef *hrtc)
 {
+    (void) hrtc;
     RCC_OscInitTypeDef RCC_OscInitStruct = {0};
     RCC_PeriphCLKInitTypeDef PeriphClkInitStruct = {0};
 
@@ -116,6 +121,7 @@ void HAL_RTC_MspInit(RTC_HandleTypeDef *hrtc)
   */
 void HAL_RTC_MspDeInit(RTC_HandleTypeDef *hrtc)
 {
+    (void) hrtc;
     /* Reset peripherals */
     __HAL_RCC_RTC_DISABLE();
 }
@@ -127,6 +133,7 @@ void HAL_RTC_MspDeInit(RTC_HandleTypeDef *hrtc)
   */
 void HAL_RTC_AlarmAEventCallback(RTC_HandleTypeDef *hrtc)
 {
+    (void) hrtc;
     TimerIrqHandler();
 }
 
