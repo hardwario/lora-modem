@@ -40,7 +40,9 @@ static void cmd_dutycycle_set(atci_param_t *param)
         lrw_duty_cycle_set(enable);
         lrw_save_config();
         atci_print("+OK");
-    } else {
+    }
+    else
+    {
         atci_print("+ERR=-3");
     }
 }
@@ -53,12 +55,14 @@ static void cmd_dr_get(void)
 static void cmd_dr_set(atci_param_t *param)
 {
     uint32_t value;
-    if (atci_param_get_uint(param, &value) && (value <=15))
+    if (atci_param_get_uint(param, &value) && (value <= 15))
     {
         lrw_tx_datarate_set(value);
         lrw_save_config();
         atci_print("+OK");
-    } else {
+    }
+    else
+    {
         atci_print("+ERR=-3");
     }
 }
@@ -107,6 +111,19 @@ static void cmd_devaddr_set(atci_param_t *param)
 static void cmd_class_get(void)
 {
     atci_printf("+OK=%d", lrw_class_get());
+}
+
+static void cmd_class_set(atci_param_t *param)
+{
+    uint32_t value;
+
+    if (atci_param_get_uint(param, &value) && lrw_class_change(value))
+    {
+        lrw_save_config();
+        atci_print("+OK");
+        return;
+    }
+    atci_print("+ERR=-2");
 }
 
 static void cmd_band_get(void)
@@ -184,7 +201,9 @@ static void cmd_nwk_set(atci_param_t *param)
         lrw_public_network_set(enable);
         lrw_save_config();
         atci_print("+OK");
-    } else {
+    }
+    else
+    {
         atci_print("+ERR=-3");
     }
 }
@@ -199,7 +218,7 @@ static void cmd_join(atci_param_t *param)
         {
             atci_print("+OK");
         }
-        else 
+        else
         {
             atci_print("+ERR=-18");
         }
@@ -301,16 +320,20 @@ static void cmd_chmask_set(atci_param_t *param)
     memset(chmask, 0, sizeof(chmask));
 
     size_t length = atci_param_get_buffer_from_hex(param, chmask, sizeof(chmask));
-    
-    if (length == 0) {
+
+    if (length == 0)
+    {
         atci_print("+ERR=-2");
         return;
     }
 
-    if (lrw_chmask_set(chmask)) {
+    if (lrw_chmask_set(chmask))
+    {
         lrw_save_config();
         atci_print("+OK");
-    } else {
+    }
+    else
+    {
         atci_print("+ERR=-2");
     }
 }
@@ -334,7 +357,7 @@ static void cmd_rep_set(atci_param_t *param)
 
 static void cmd_facnew(atci_param_t *param)
 {
-    (void) param;
+    (void)param;
     config_reset();
     config_save();
     atci_print("+OK");
@@ -350,30 +373,31 @@ static void cmd_channels_get(void)
 
     for (uint8_t i = 0; i < list.length; i++)
     {
-        if (list.channels[i].Frequency == 0) continue;
+        if (list.channels[i].Frequency == 0)
+            continue;
 
         uint8_t is_enable = (i / 16) < list.chmask_length ? (list.chmask[i / 16] >> (i % 16)) & 0x01 : 0;
 
-        atci_printf("$CHANNELS: %d,%d,%d,%d,%d,%d\r\n", 
-        is_enable,
-        list.channels[i].Frequency, 
-        list.channels[i].Rx1Frequency, 
-        list.channels[i].DrRange.Fields.Min, 
-        list.channels[i].DrRange.Fields.Max, 
-        list.channels[i].Band);
+        atci_printf("$CHANNELS: %d,%d,%d,%d,%d,%d\r\n",
+                    is_enable,
+                    list.channels[i].Frequency,
+                    list.channels[i].Rx1Frequency,
+                    list.channels[i].DrRange.Fields.Min,
+                    list.channels[i].DrRange.Fields.Max,
+                    list.channels[i].Band);
     }
-     atci_print("+OK");
+    atci_print("+OK");
 }
 
 static void cmd_reboot(atci_param_t *param)
 {
-    (void) param;
+    (void)param;
     system_reset();
 }
 
 static void cmd_dbg(atci_param_t *param)
 {
-    (void) param;
+    (void)param;
     // RF_IDLE = 0,   //!< The radio is idle
     // RF_RX_RUNNING, //!< The radio is in reception state
     // RF_TX_RUNNING, //!< The radio is in transmission state
@@ -384,7 +408,7 @@ static void cmd_dbg(atci_param_t *param)
 }
 
 static const atci_command_t _cmd_commands[] = {
-    {"+CLASS", NULL, NULL, cmd_class_get, NULL, "Class mode"},
+    {"+CLASS", NULL, cmd_class_set, cmd_class_get, NULL, "Class mode"},
     {"+BAND", NULL, cmd_band_set, cmd_band_get, NULL, "Radio band"},
     {"+NWK", NULL, cmd_nwk_set, cmd_nwk_get, NULL, "Public network"},
     {"+MODE", NULL, NULL, cmd_mode_get, NULL, "Activation mode 1:OTTA 0:ABP"},

@@ -80,7 +80,13 @@ static void mlme_confirm(MlmeConfirm_t *param)
 
         if (param->Status == LORAMAC_EVENT_INFO_STATUS_OK)
         {
-            lrw_class_change(lora.config->class);
+            // Set class after join
+            lora.mib_req.Type = MIB_DEVICE_CLASS;
+            LoRaMacMibGetRequestConfirm(&lora.mib_req);
+            if (lora.config->class != lora.mib_req.Param.Class) {
+                lora.mib_req.Param.Class = lora.config->class;
+                LoRaMacMibSetRequestConfirm(&lora.mib_req);
+            }
 
             // overwrites the channel mask of the obtained connection to confirm
             lora.mib_req.Type = MIB_CHANNELS_MASK;
@@ -214,7 +220,7 @@ void lrw_init(lrw_configuration_t *config, lrw_callback_t *callbacks)
     LoRaMacMibSetRequestConfirm(&lora.mib_req);
 
     lora.mib_req.Type = MIB_DEVICE_CLASS;
-    lora.mib_req.Param.Class = CLASS_A;
+    lora.mib_req.Param.Class = lora.config->class;
     LoRaMacMibSetRequestConfirm(&lora.mib_req);
 
     LoRaMacTestSetDutyCycleOn(lora.config->duty_cycle);
@@ -310,22 +316,25 @@ bool lrw_send(uint8_t port, void *buffer, uint8_t length, bool confirmed)
 
 bool lrw_class_change(DeviceClass_t new_class)
 {
-    lora.mib_req.Type = MIB_DEVICE_CLASS;
-    LoRaMacMibGetRequestConfirm(&lora.mib_req);
+    if ((new_class != 0) && (new_class != 2)) {
+        return false;
+    }
 
-    if (new_class == lora.mib_req.Param.Class)
+    if (new_class == lora.config->class)
         return true;
 
+    lora.mib_req.Type = MIB_DEVICE_CLASS;
     lora.mib_req.Param.Class = new_class;
-    return LoRaMacMibSetRequestConfirm(&lora.mib_req) == LORAMAC_STATUS_OK;
+    if (LoRaMacMibSetRequestConfirm(&lora.mib_req) == LORAMAC_STATUS_OK) {
+        lora.config->class = new_class;
+        return true;
+    }
+    return false;
 }
 
 uint8_t lrw_class_get(void)
 {
-    lora.mib_req.Type = MIB_DEVICE_CLASS;
-    LoRaMacMibGetRequestConfirm(&lora.mib_req);
-
-    return lora.mib_req.Param.Class;
+    return lora.config->class;
 }
 
 void lrw_otaa_set(LoraState_t otaa)
