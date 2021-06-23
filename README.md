@@ -1,41 +1,23 @@
-
-
-
-
+# LoRaWAN firmware
 
 picocom -b 9600 --echo /dev/ttyUSB0
 
-
-
-
-AT
-
-AT+DUTYCYCLE=0
-
-AT+DEVADDR?<\r>
-
-AT+DEVEUI?<\r>
-
-AT+APPEUI?<\r>
-
-AT+NWKSKEY?<\r>
-
-AT+APPSKEY?<\r>
-
-AT+APPKEY?<\r>
-
-AT+BAND?<\r>
-
-AT+MODE?<\r>
-
-AT+CLASS?<\r>
-
-AT+RX2?<\r>
-
-AT+NWK?<\r>
-
-AT+DR?<\r>
-
-AT+MODE=0<\r>
-
-AT+CLASS=0<\r>
+```
+AT+CLASS Class mode
+AT+BAND Radio band
+AT+NWK Public network
+AT+MODE Activation mode 1:OTTA 0:ABP
+AT+DUTYCYCLE Dutycycle
+AT+DR Data rate
+AT+RFQ RF parameter of last received message
+AT+DEVEUI Device identifier
+AT+APPEUI Application identifier
+AT+APPKEY Application key
+AT+DEVADDR Device address
+AT+JOIN Send OTAA Join packet
+AT+PUTX Send string frame with port
+AT+PCTX Send string frame with port
+AT+REBOOT Reboot
+AT+CLAC
+AT$HELP This help
+```

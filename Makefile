@@ -159,7 +159,6 @@ CFLAGS += -pedantic
 CFLAGS += -Wextra
 CFLAGS += -Wmissing-include-dirs
 CFLAGS += -Wswitch-default
-CFLAGS += -Wswitch-enum
 CFLAGS += -D'__weak=__attribute__((weak))'
 CFLAGS += -D'__packed=__attribute__((__packed__))'
 CFLAGS += -D'STM32L072xx'
