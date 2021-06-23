@@ -358,9 +358,12 @@ static void cmd_rep_set(atci_param_t *param)
 static void cmd_facnew(atci_param_t *param)
 {
     (void)param;
+    atci_print("+OK\r\n\r\n");
     config_reset();
     config_save();
-    atci_print("+OK");
+    cmd_event(0,1);
+    rtc_delay_ms(40);
+    system_reset();
 }
 
 static void cmd_channels_get(void)
