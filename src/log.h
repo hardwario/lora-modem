@@ -7,6 +7,14 @@
 #define LOG_BUFFER_SIZE 256
 #endif
 
+#ifndef LOG_TO_USART
+#define LOG_TO_USART 1
+#endif
+
+#ifndef LOG_TO_RTT
+#define LOG_TO_RTT 0
+#endif
+
 #define LOG_DUMP_WIDTH 8
 
 //! @brief Log level

@@ -5,8 +5,6 @@
 #include "usart.h"
 #include <segger_rtt.h>
 
-#define LOG_WRITE usart_write
-
 typedef struct
 {
     bool initialized;
@@ -34,12 +32,21 @@ void log_init(log_level_t level, log_timestamp_t timestamp)
     _log.timestamp = timestamp;
     _log.initialized = true;
 
-    // SEGGER_RTT_Init();
+    #if LOG_TO_USART != 0
     usart_init();
+    #endif
+
+    #if LOG_TO_RTT != 0
+    SEGGER_RTT_Init();
+    #endif
 }
 
 void log_dump(const void *buffer, size_t length, const char *format, ...)
 {
+    #if LOG_TO_USART == 0 && LOG_TO_RTT == 0
+    return;
+    #endif
+
     va_list ap;
 
     if (_log.level > LOG_LEVEL_DUMP)
@@ -136,7 +143,13 @@ void log_dump(const void *buffer, size_t length, const char *format, ...)
             _log.buffer[offset++] = '\r';
             _log.buffer[offset++] = '\n';
 
-            LOG_WRITE(_log.buffer, offset);
+            #if LOG_TO_USART != 0
+            usart_write(_log.buffer, offset);
+            #endif
+
+            #if LOG_TO_RTT != 0
+            SEGGER_RTT_Write(0, _log.buffer, offset);
+            #endif
         }
     }
 }
@@ -179,6 +192,10 @@ void log_error(const char *format, ...)
 
 static void _log_message(log_level_t level, char id, const char *format, va_list ap)
 {
+    #if LOG_TO_USART == 0 && LOG_TO_RTT == 0
+    return;
+    #endif
+
     if (!_log.initialized)
     {
         return;
@@ -231,5 +248,11 @@ static void _log_message(log_level_t level, char id, const char *format, va_list
     _log.buffer[offset++] = '\r';
     _log.buffer[offset++] = '\n';
 
-    LOG_WRITE(_log.buffer, offset);
+    #if LOG_TO_USART != 0
+    usart_write(_log.buffer, offset);
+    #endif
+
+    #if LOG_TO_RTT != 0
+    SEGGER_RTT_Write(0, _log.buffer, offset);
+    #endif
 }
