@@ -6,6 +6,14 @@
 #include "utilities.h"
 #include "error.h"
 
+#include <stm32l0xx_ll_bus.h>
+#include <stm32l0xx_ll_cortex.h>
+#include <stm32l0xx_ll_iwdg.h>
+#include <stm32l0xx_ll_pwr.h>
+#include <stm32l0xx_ll_rcc.h>
+#include <stm32l0xx_ll_system.h>
+#include <stm32l0xx_ll_utils.h>
+
 // Unique Devices IDs register set ( STM32L0xxx )
 #define _SYSTEM_ID1 (0x1FF80050)
 #define _SYSTEM_ID2 (0x1FF80054)
@@ -219,16 +227,40 @@ static void _system_init_gpio(void)
     __HAL_RCC_GPIOC_CLK_DISABLE();
     __HAL_RCC_GPIOH_CLK_DISABLE();
 }
+/*
+static void _system_init_debug(void)
+{
+    #ifdef DEBUG
+
+    LL_APB2_GRP1_EnableClock(LL_APB2_GRP1_PERIPH_DBGMCU);
+
+    LL_DBGMCU_EnableDBGSleepMode();
+    LL_DBGMCU_EnableDBGStopMode();
+    LL_DBGMCU_EnableDBGStandbyMode();
+
+    LL_DBGMCU_APB1_GRP1_FreezePeriph(LL_DBGMCU_APB1_GRP1_IWDG_STOP);
+    LL_DBGMCU_APB1_GRP1_FreezePeriph(LL_DBGMCU_APB1_GRP1_LPTIM1_STOP);
+
+    #else
+
+    LL_PWR_EnableFastWakeUp();
+    LL_PWR_EnableUltraLowPower();
+    LL_PWR_SetRegulModeLP(LL_PWR_REGU_LPMODES_LOW_POWER);
+    LL_LPM_EnableDeepSleep();
+
+    #endif
+}
+*/
 
 static void _system_init_debug(void)
 {
 #ifdef DEBUG
     GPIO_InitTypeDef gpioinitstruct = {0};
 
-    /* Enable the GPIO_B Clock */
+    // Enable the GPIO_B Clock
     __HAL_RCC_GPIOB_CLK_ENABLE();
 
-    /* Configure the GPIO pin */
+    // Configure the GPIO pin
     gpioinitstruct.Mode = GPIO_MODE_OUTPUT_PP;
     gpioinitstruct.Pull = GPIO_PULLUP;
     gpioinitstruct.Speed = GPIO_SPEED_HIGH;
@@ -236,7 +268,7 @@ static void _system_init_debug(void)
     gpioinitstruct.Pin = (GPIO_PIN_12 | GPIO_PIN_13 | GPIO_PIN_14 | GPIO_PIN_15);
     HAL_GPIO_Init(GPIOB, &gpioinitstruct);
 
-    /* Reset debug Pins */
+    // Reset debug Pins
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_RESET);
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_13, GPIO_PIN_RESET);
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_RESET);
@@ -248,8 +280,8 @@ static void _system_init_debug(void)
     HAL_DBGMCU_EnableDBGStopMode();
     HAL_DBGMCU_EnableDBGStandbyMode();
 
-#else /* DEBUG */
-    /* sw interface off*/
+#else
+    // sw interface off
     GPIO_InitTypeDef GPIO_InitStructure = {0};
 
     GPIO_InitStructure.Mode = GPIO_MODE_ANALOG;
@@ -264,6 +296,7 @@ static void _system_init_debug(void)
     HAL_DBGMCU_DisableDBGStopMode();
     HAL_DBGMCU_DisableDBGStandbyMode();
     __HAL_RCC_DBGMCU_CLK_DISABLE();
+
 #endif
 }
 

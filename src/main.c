@@ -68,13 +68,39 @@ static const configuration_t configuration_default = {
 
 configuration_t configuration;
 
+void gpio_dump(char name, GPIO_TypeDef *port)
+{
+    // log_debug("GPIO%c->MODER: 0x%08lX", name, port->MODER);
+    // log_debug("GPIO%c->OTYPER: 0x%08lX", name, port->OTYPER);
+    // log_debug("GPIO%c->OSPEEDR: 0x%08lX", name, port->OSPEEDR);
+    // log_debug("GPIO%c->PUPDR: 0x%08lX", name, port->PUPDR);
+    // log_debug("GPIO%c->ODR: 0x%08lX", name, port->ODR);
+    // log_debug("GPIO%c->AFRL: 0x%08lX", name, port->AFR[0]);
+    // log_debug("GPIO%c->AFRH: 0x%08lX", name, port->AFR[1]);
+
+    log_debug("%c 0x%08lX 0x%08lX 0x%08lX 0x%08lX 0x%08lX 0x%08lX 0x%08lX",
+              name,
+              port->MODER,
+              port->OTYPER,
+              port->OSPEEDR,
+              port->PUPDR,
+              port->ODR,
+              port->AFR[0],
+              port->AFR[1]
+    );
+}
+
 int main(void)
 {
     system_init();
 
     log_init(LOG_LEVEL_DUMP, LOG_TIMESTAMP_ABS);
 
-    log_debug("configuration %d", sizeof(configuration));
+    // log_info("######## BOOT ###############");
+    // gpio_dump('A', GPIOA);
+    // gpio_dump('B', GPIOB);
+    // gpio_dump('C', GPIOC);
+    // gpio_dump('H', GPIOH);
 
     config_init(&configuration, sizeof(configuration), &configuration_default);
 
@@ -85,10 +111,16 @@ int main(void)
     sx1276io_init();
 
     lrw_init(&configuration.lora, &lrw_callbacks);
-    
-    cmd_init();
 
+    cmd_init();
     cmd_event(0, 0);
+
+    // while (1)
+    // {
+    //     irq_disable();
+    //     system_low_power();
+    //     irq_enable();
+    // }
 
     while (1)
     {
@@ -157,13 +189,13 @@ void system_on_enter_stop_mode(void)
     spi_io_deinit();
     sx1276io_deinit();
     adc_deinit();
-    usart_io_deinit();
+    // usart_io_deinit();
 }
 
 void system_on_exit_stop_mode(void)
 {
     spi_io_init();
     sx1276io_init();
-    lpuart_io_init();
-    usart_io_init();
+    // lpuart_io_init();
+    // usart_io_init();
 }

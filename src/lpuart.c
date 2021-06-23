@@ -180,6 +180,7 @@ void lpuart_io_init(void)
     /* UART RX GPIO pin configuration  */
     GPIO_InitStruct.Pin = LPUART_RX_PIN;
     GPIO_InitStruct.Alternate = LPUART_RX_AF;
+    GPIO_InitStruct.Pull = GPIO_PULLUP;
 
     HAL_GPIO_Init(LPUART_RX_GPIO_PORT, &GPIO_InitStruct);
 }

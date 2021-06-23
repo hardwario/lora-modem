@@ -21,7 +21,7 @@
 #define LRW_ADR_OFF                             0
 #define LRW_UNCONFIRMED_MSG false
 #define LRW_CONFIRMED_MSG true
-#define LRW_CHMASK_LENGTH 6 
+#define LRW_CHMASK_LENGTH 6
 
 //! @brief Application Data structure
 
@@ -56,9 +56,9 @@ typedef struct
     uint8_t appskey[16];      // Application Session Key
     uint8_t fnwksIntkey[16];  // Application Session Key
     uint8_t snwksintkey[16];  // Application Session Key
-    uint16_t chmask[LRW_CHMASK_LENGTH]; 
+    uint16_t chmask[LRW_CHMASK_LENGTH];
     uint8_t tx_datarate;      // TX datarate
-    uint8_t tx_repeats;       // unconfirmed messages only 
+    uint8_t tx_repeats;       // unconfirmed messages only
 } lrw_configuration_t;
 #pragma pack(pop)
 
@@ -158,7 +158,7 @@ void lrw_init(lrw_configuration_t *config, lrw_callback_t *callbacks);
 void lrw_process(void);
 
 //! @brief Indicates if the lora is busy
- 
+
 bool lrw_is_busy(void);
 
 //! @brief Join a Lora Network only for OTTA
@@ -285,7 +285,7 @@ LoRaMacRegion_t lrw_region_get(void);
 
 //! @brief Set LoRaMac region
 //! @note  Change default duty cycle for region
-//! @param[in] region 
+//! @param[in] region
 
 bool lrw_region_set(LoRaMacRegion_t region);
 
