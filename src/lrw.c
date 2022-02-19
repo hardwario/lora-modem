@@ -58,7 +58,7 @@ static void mcps_indication(McpsIndication_t *param)
         }
     }
 
-    if (param->FramePending == true)
+    if (param->IsUplinkTxPending == true)
     {
         if (lora.callbacks->tx_needed != NULL)
             lora.callbacks->tx_needed();
@@ -118,14 +118,6 @@ static void mlme_indication(MlmeIndication_t *param)
 
     lora.rx_params.is_mcps_indication = 0;
     lora.rx_params.status = param->Status;
-
-    if (param->MlmeIndication == MLME_SCHEDULE_UPLINK)
-    {
-        if (lora.callbacks->tx_needed != NULL)
-        {
-            lora.callbacks->tx_needed();
-        }
-    }
 }
 
 void lrw_init(lrw_configuration_t *config, lrw_callback_t *callbacks)
@@ -303,7 +295,6 @@ bool lrw_send(uint8_t port, void *buffer, uint8_t length, bool confirmed)
             mcpsReq.Req.Confirmed.fPort = port;
             mcpsReq.Req.Confirmed.fBufferSize = length;
             mcpsReq.Req.Confirmed.fBuffer = buffer;
-            mcpsReq.Req.Confirmed.NbTrials = 8;
             mcpsReq.Req.Confirmed.Datarate = lrw_tx_datarate_get();
         }
     }
