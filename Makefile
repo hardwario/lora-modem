@@ -13,87 +13,41 @@ ELF ?= $(OUT_DIR)/$(TYPE)/$(OUT).elf
 MAP ?= $(OUT_DIR)/$(TYPE)/$(OUT).map
 BIN ?= $(OUT_DIR)/$(TYPE)/$(OUT).bin
 
+# Include only the following selected sources from the STM HAL
+STM_HAL_SRC =                \
+	stm32l0xx_hal.c          \
+	stm32l0xx_hal_adc.c      \
+	stm32l0xx_hal_adc_ex.c   \
+	stm32l0xx_hal_cortex.c   \
+	stm32l0xx_hal_dma.c      \
+	stm32l0xx_hal_flash.c    \
+	stm32l0xx_hal_flash_ex.c \
+	stm32l0xx_hal_gpio.c     \
+	stm32l0xx_hal_pwr.c      \
+	stm32l0xx_hal_pwr_ex.c   \
+	stm32l0xx_hal_rcc.c      \
+	stm32l0xx_hal_rcc_ex.c   \
+	stm32l0xx_hal_rtc.c      \
+	stm32l0xx_hal_rtc_ex.c   \
+	stm32l0xx_hal_spi.c      \
+	stm32l0xx_hal_uart.c     \
+	stm32l0xx_hal_uart_ex.c  \
+	stm32l0xx_hal_usart.c    \
+	stm32l0xx_ll_dma.c
+
 ################################################################################
 # Source files                                                                 #
 ################################################################################
 SRC_FILES += \
-	$(SRC_DIR)/radio.c \
-	$(SRC_DIR)/adc.c \
-	$(SRC_DIR)/atci.c \
-	$(SRC_DIR)/board.c \
-	$(SRC_DIR)/cmd.c \
-	$(SRC_DIR)/config.c \
-	$(SRC_DIR)/console.c \
-	$(SRC_DIR)/eeprom.c \
-	$(SRC_DIR)/error.c \
-	$(SRC_DIR)/fifo.c \
-	$(SRC_DIR)/gpio.c \
-	$(SRC_DIR)/irq.c \
-	$(SRC_DIR)/log.c \
-	$(SRC_DIR)/lrw.c \
-	$(SRC_DIR)/lpuart.c \
-	$(SRC_DIR)/main.c \
-	$(SRC_DIR)/mlm32l0xx_hal_msp.c \
-	$(SRC_DIR)/sx1276io.c \
-	$(SRC_DIR)/sx1276-board.c \
-	$(SRC_DIR)/rtc.c \
-	$(SRC_DIR)/spi.c \
-	$(SRC_DIR)/system.c \
-	$(SRC_DIR)/usart.c \
-	\
-	$(LIB_DIR)/rtt/segger_rtt.c \
-	\
-	$(LIB_DIR)/loramac-node/src/peripherals/soft-se/aes.c \
-	$(LIB_DIR)/loramac-node/src/peripherals/soft-se/cmac.c \
-	$(LIB_DIR)/loramac-node/src/peripherals/soft-se/soft-se.c \
-    $(LIB_DIR)/loramac-node/src/peripherals/soft-se/soft-se-hal.c \
-	$(LIB_DIR)/loramac-node/src/mac/region/Region.c \
-	$(LIB_DIR)/loramac-node/src/mac/region/RegionCommon.c \
-	$(LIB_DIR)/loramac-node/src/mac/region/RegionBaseUS.c \
-	$(LIB_DIR)/loramac-node/src/mac/region/RegionAS923.c \
-	$(LIB_DIR)/loramac-node/src/mac/region/RegionAU915.c \
-	$(LIB_DIR)/loramac-node/src/mac/region/RegionEU868.c \
-	$(LIB_DIR)/loramac-node/src/mac/region/RegionCN779.c \
-	$(LIB_DIR)/loramac-node/src/mac/region/RegionCN470.c \
-	$(LIB_DIR)/loramac-node/src/mac/region/RegionEU433.c \
-	$(LIB_DIR)/loramac-node/src/mac/region/RegionIN865.c \
-	$(LIB_DIR)/loramac-node/src/mac/region/RegionKR920.c \
-	$(LIB_DIR)/loramac-node/src/mac/region/RegionRU864.c \
-	$(LIB_DIR)/loramac-node/src/mac/region/RegionUS915.c \
-	$(LIB_DIR)/loramac-node/src/mac/LoRaMac.c \
-	$(LIB_DIR)/loramac-node/src/mac/LoRaMacAdr.c \
-	$(LIB_DIR)/loramac-node/src/mac/LoRaMacClassB.c \
-	$(LIB_DIR)/loramac-node/src/mac/LoRaMacCommands.c \
-	$(LIB_DIR)/loramac-node/src/mac/LoRaMacConfirmQueue.c \
-	$(LIB_DIR)/loramac-node/src/mac/LoRaMacCrypto.c \
-	$(LIB_DIR)/loramac-node/src/mac/LoRaMacParser.c \
-	$(LIB_DIR)/loramac-node/src/mac/LoRaMacSerializer.c \
-	$(LIB_DIR)/loramac-node/src/radio/sx1276/sx1276.c \
-	$(LIB_DIR)/LoRaWAN/Utilities/systime.c \
-	$(LIB_DIR)/LoRaWAN/Utilities/timeServer.c \
-	$(LIB_DIR)/LoRaWAN/Utilities/utilities.c \
-	\
-	$(LIB_DIR)/stm/src/system_stm32l0xx.c \
-	$(LIB_DIR)/stm/STM32L0xx_HAL_Driver/Src/stm32l0xx_hal.c \
-	$(LIB_DIR)/stm/STM32L0xx_HAL_Driver/Src/stm32l0xx_hal_adc.c \
-	$(LIB_DIR)/stm/STM32L0xx_HAL_Driver/Src/stm32l0xx_hal_adc_ex.c \
-	$(LIB_DIR)/stm/STM32L0xx_HAL_Driver/Src/stm32l0xx_hal_cortex.c \
-	$(LIB_DIR)/stm/STM32L0xx_HAL_Driver/Src/stm32l0xx_hal_dma.c \
-	$(LIB_DIR)/stm/STM32L0xx_HAL_Driver/Src/stm32l0xx_hal_flash.c \
-	$(LIB_DIR)/stm/STM32L0xx_HAL_Driver/Src/stm32l0xx_hal_flash_ex.c \
-	$(LIB_DIR)/stm/STM32L0xx_HAL_Driver/Src/stm32l0xx_hal_gpio.c \
-	$(LIB_DIR)/stm/STM32L0xx_HAL_Driver/Src/stm32l0xx_hal_pwr.c \
-	$(LIB_DIR)/stm/STM32L0xx_HAL_Driver/Src/stm32l0xx_hal_pwr_ex.c \
-	$(LIB_DIR)/stm/STM32L0xx_HAL_Driver/Src/stm32l0xx_hal_rcc.c \
-	$(LIB_DIR)/stm/STM32L0xx_HAL_Driver/Src/stm32l0xx_hal_rcc_ex.c \
-	$(LIB_DIR)/stm/STM32L0xx_HAL_Driver/Src/stm32l0xx_hal_rtc.c \
-	$(LIB_DIR)/stm/STM32L0xx_HAL_Driver/Src/stm32l0xx_hal_rtc_ex.c \
-	$(LIB_DIR)/stm/STM32L0xx_HAL_Driver/Src/stm32l0xx_hal_spi.c \
-	$(LIB_DIR)/stm/STM32L0xx_HAL_Driver/Src/stm32l0xx_hal_uart.c \
-	$(LIB_DIR)/stm/STM32L0xx_HAL_Driver/Src/stm32l0xx_hal_uart_ex.c \
-	$(LIB_DIR)/stm/STM32L0xx_HAL_Driver/Src/stm32l0xx_hal_usart.c \
-	$(LIB_DIR)/stm/STM32L0xx_HAL_Driver/Src/stm32l0xx_ll_dma.c \
-	\
+	$(wildcard $(SRC_DIR)/*.c) \
+	$(wildcard $(LIB_DIR)/rtt/*.c) \
+	$(wildcard $(LIB_DIR)/loramac-node/src/peripherals/soft-se/*.c) \
+	$(wildcard $(LIB_DIR)/loramac-node/src/mac/region/*.c) \
+	$(wildcard $(LIB_DIR)/loramac-node/src/mac/*.c) \
+	$(wildcard $(LIB_DIR)/loramac-node/src/radio/sx1276/*.c) \
+	$(wildcard $(LIB_DIR)/LoRaWAN/Utilities/*.c) \
+	$(wildcard $(LIB_DIR)/stm/src/*.c) \
+	$(patsubst %.c,$(LIB_DIR)/stm/STM32L0xx_HAL_Driver/Src/%.c,$(STM_HAL_SRC)) \
 
 ################################################################################
 # Include directories                                                          #
