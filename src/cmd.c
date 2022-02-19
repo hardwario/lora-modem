@@ -410,6 +410,11 @@ static void cmd_dbg(atci_param_t *param)
     atci_print("OK");
 }
 
+static void cmd_version_get(void)
+{
+    atci_printf("+OK=%s [LoRaMac %s],%s", VERSION, LORAMAC_VERSION, BUILD_DATE);
+}
+
 static const atci_command_t _cmd_commands[] = {
     {"+CLASS", NULL, cmd_class_set, cmd_class_get, NULL, "Class mode"},
     {"+BAND", NULL, cmd_band_set, cmd_band_get, NULL, "Radio band"},
@@ -428,6 +433,7 @@ static const atci_command_t _cmd_commands[] = {
     {"+CHMASK", NULL, cmd_chmask_set, cmd_chmask_get, NULL, "Channels mask"},
     {"+REP", NULL, cmd_rep_set, cmd_rep_get, NULL, "Unconfirmed message repeats [1..15]"},
     {"+FACNEW", cmd_facnew, NULL, NULL, NULL, "Restore modem to factory"},
+    {"+VER", NULL, NULL, cmd_version_get, NULL, "Firmware version and build time"},
     {"$CHANNELS", NULL, NULL, cmd_channels_get, NULL, ""},
     {"+REBOOT", cmd_reboot, NULL, NULL, NULL, "Reboot"},
     {"$DBG", cmd_dbg, NULL, NULL, NULL, ""},
