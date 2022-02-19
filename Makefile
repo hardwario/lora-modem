@@ -9,61 +9,87 @@ OUT ?= firmware
 TYPE ?= debug
 BAUDRATE ?= 9600
 
+# Select the regional parameter files that you wish to have included in the
+# firmware. By default the full set is included. Please note that the full set
+# may not fit into the flash memory in the debug mode (it does fit in the
+# release mode).
+ENABLE_REGIONS ?= AS923 AU915 CN470 CN779 EU433 EU868 IN865 KR920 RU864 US915
+
 ELF ?= $(OUT_DIR)/$(TYPE)/$(OUT).elf
 MAP ?= $(OUT_DIR)/$(TYPE)/$(OUT).map
 BIN ?= $(OUT_DIR)/$(TYPE)/$(OUT).bin
 
-# Include only the following selected sources from the STM HAL
-STM_HAL_SRC =                \
-	stm32l0xx_hal.c          \
-	stm32l0xx_hal_adc.c      \
-	stm32l0xx_hal_adc_ex.c   \
-	stm32l0xx_hal_cortex.c   \
-	stm32l0xx_hal_dma.c      \
-	stm32l0xx_hal_flash.c    \
-	stm32l0xx_hal_flash_ex.c \
-	stm32l0xx_hal_gpio.c     \
-	stm32l0xx_hal_pwr.c      \
-	stm32l0xx_hal_pwr_ex.c   \
-	stm32l0xx_hal_rcc.c      \
-	stm32l0xx_hal_rcc_ex.c   \
-	stm32l0xx_hal_rtc.c      \
-	stm32l0xx_hal_rtc_ex.c   \
-	stm32l0xx_hal_spi.c      \
-	stm32l0xx_hal_uart.c     \
-	stm32l0xx_hal_uart_ex.c  \
-	stm32l0xx_hal_usart.c    \
-	stm32l0xx_ll_dma.c
 
 ################################################################################
 # Source files                                                                 #
 ################################################################################
+
+# Include only the following selected sources from the STM HAL and everything
+# from stm/src
+stm_hal = \
+	stm32l0xx_hal.c \
+	stm32l0xx_hal_adc.c \
+	stm32l0xx_hal_adc_ex.c \
+	stm32l0xx_hal_cortex.c \
+	stm32l0xx_hal_dma.c \
+	stm32l0xx_hal_flash.c \
+	stm32l0xx_hal_flash_ex.c \
+	stm32l0xx_hal_gpio.c \
+	stm32l0xx_hal_pwr.c \
+	stm32l0xx_hal_pwr_ex.c \
+	stm32l0xx_hal_rcc.c \
+	stm32l0xx_hal_rcc_ex.c \
+	stm32l0xx_hal_rtc.c \
+	stm32l0xx_hal_rtc_ex.c \
+	stm32l0xx_hal_spi.c \
+	stm32l0xx_hal_uart.c \
+	stm32l0xx_hal_uart_ex.c \
+	stm32l0xx_hal_usart.c \
+	stm32l0xx_ll_dma.c
+SRC_FILES += $(patsubst %.c,$(LIB_DIR)/stm/STM32L0xx_HAL_Driver/Src/%.c,$(stm_hal))
+SRC_DIR += $(LIB_DIR)/stm/src
+
+# Include all source code from rtt, LoRaWAN
+SRC_DIR += $(LIB_DIR)/rtt
+SRC_DIR += $(LIB_DIR)/LoRaWAN/Utilities
+
+# Include the core LoRa MAC stack with only the base regional files
+SRC_DIR += \
+	$(LIB_DIR)/loramac-node/src/peripherals/soft-se \
+	$(LIB_DIR)/loramac-node/src/radio/sx1276 \
+	$(LIB_DIR)/loramac-node/src/mac
 SRC_FILES += \
-	$(wildcard $(SRC_DIR)/*.c) \
-	$(wildcard $(LIB_DIR)/rtt/*.c) \
-	$(wildcard $(LIB_DIR)/loramac-node/src/peripherals/soft-se/*.c) \
-	$(wildcard $(LIB_DIR)/loramac-node/src/mac/region/*.c) \
-	$(wildcard $(LIB_DIR)/loramac-node/src/mac/*.c) \
-	$(wildcard $(LIB_DIR)/loramac-node/src/radio/sx1276/*.c) \
-	$(wildcard $(LIB_DIR)/LoRaWAN/Utilities/*.c) \
-	$(wildcard $(LIB_DIR)/stm/src/*.c) \
-	$(patsubst %.c,$(LIB_DIR)/stm/STM32L0xx_HAL_Driver/Src/%.c,$(STM_HAL_SRC)) \
+	$(LIB_DIR)/loramac-node/src/mac/region/Region.c \
+	$(LIB_DIR)/loramac-node/src/mac/region/RegionCommon.c
+
+# Activate the regional parameter files explicitly enabled by the developer in
+# the variable ENABLE_REGIONS.
+SRC_FILES += $(foreach reg,$(ENABLE_REGIONS),$(wildcard $(LIB_DIR)/loramac-node/src/mac/region/*$(reg)*.c))
+CFLAGS += $(foreach reg,$(ENABLE_REGIONS),-DREGION_$(reg))
+
+# The US915 regional file depends on RegionBaseUS which will not be matched by
+# the wildcard pattern above, so we need to include it explicitly if the region
+# is enabled.
+ifneq (,$(findstring US,$(ENABLE_REGIONS)))
+	SRC_FILES += $(LIB_DIR)/loramac-node/src/mac/region/RegionBaseUS.c
+endif
 
 ################################################################################
 # Include directories                                                          #
 ################################################################################
+
 INC_DIR += \
 	$(SRC_DIR) \
 	$(CFG_DIR) \
-	$(LIB_DIR)/loramac-node/src/peripherals/soft-se \
-	$(LIB_DIR)/loramac-node/src/mac/region \
-	$(LIB_DIR)/loramac-node/src/mac \
-	$(LIB_DIR)/loramac-node/src/radio\
-	$(LIB_DIR)/loramac-node/src/radio/sx1276 \
-	$(LIB_DIR)/LoRaWAN/Utilities \
-	$(LIB_DIR)/stm/include \
 	$(LIB_DIR)/stm/STM32L0xx_HAL_Driver/Inc \
 	$(LIB_DIR)/rtt \
+	$(LIB_DIR)/LoRaWAN/Utilities \
+	$(LIB_DIR)/stm/include \
+	$(LIB_DIR)/loramac-node/src/peripherals/soft-se \
+	$(LIB_DIR)/loramac-node/src/radio \
+	$(LIB_DIR)/loramac-node/src/radio/sx1276 \
+	$(LIB_DIR)/loramac-node/src/mac \
+	$(LIB_DIR)/loramac-node/src/mac/region
 
 ################################################################################
 # ASM sources                                                                  #
@@ -133,18 +159,6 @@ CFLAGS += -DSOFT_SE
 #CFLAGS += -DSECURE_ELEMENT_PRE_PROVISIONED
 CFLAGS += -DLORAMAC_CLASSB_ENABLED
 
-# Enable all regions and for selected regions select the corresponding default
-# channel plans. These have been copied from lorawan-node/src/mac/CMakelists.txt
-CFLAGS += -DREGION_AS923
-CFLAGS += -DREGION_AU915
-CFLAGS += -DREGION_CN470
-CFLAGS += -DREGION_CN779
-CFLAGS += -DREGION_EU443
-CFLAGS += -DREGION_EU868
-CFLAGS += -DREGION_IN865
-CFLAGS += -DREGION_KR920
-CFLAGS += -DREGION_RU864
-CFLAGS += -DREGION_US915
 CFLAGS += -DREGION_AS923_DEFAULT_CHANNEL_PLAN=CHANNEL_PLAN_GROUP_AS923_1
 CFLAGS += -DREGION_CN470_DEFAULT_CHANNEL_PLAN=CHANNEL_PLAN_20MHZ_TYPE_A
 
@@ -182,11 +196,26 @@ LDFLAGS += --specs=nosys.specs
 # Create list of object files and their dependencies                           #
 ################################################################################
 
+SRC_FILES += $(foreach dir,$(SRC_DIR),$(wildcard $(dir)/*.c))
 OBJ_C = $(SRC_FILES:%.c=$(OBJ_DIR)/$(TYPE)/%.o)
 OBJ_S = $(ASM_SOURCES:%.s=$(OBJ_DIR)/$(TYPE)/%.o)
 OBJ = $(OBJ_C) $(OBJ_S)
 DEP = $(OBJ:%.o=%.d)
 ALLDEP = $(MAKEFILE_LIST)
+
+# A list of make targets for which dependency files should not be generated.
+# That's generally any target that does not build firmware.
+NODEPS = clean doc gdb ozone code flash jlink-flash jlink-gdbserver jlink
+
+# We only need to generate dependency files if the make target is empty or
+#if it is not one of the targets in NODEPS
+ifeq (,$(MAKECMDGOALS))
+        need_deps=1
+else
+ifneq (,$(filter-out $(NODEPS),$(MAKECMDGOALS)))
+        need_deps=1
+endif
+endif
 
 ################################################################################
 # Debug target                                                                 #
@@ -335,3 +364,11 @@ $(OBJ_DIR)/$(TYPE)/%.o: %.s $(ALLDEP)
 	$(Q)$(ECHO) "Compiling: $<"
 	$(Q)mkdir -p $(@D)
 	$(Q)$(CC) -MMD -MP -MT "$@ $(@:.o=.d)" -c $(ASFLAGS) $< -o $@
+
+################################################################################
+# Include dependencies                                                         #
+################################################################################
+
+ifeq (1,$(need_deps))
+-include $(DEP)
+endif
