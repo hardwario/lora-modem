@@ -16,8 +16,6 @@ BIN ?= $(OUT_DIR)/$(TYPE)/$(OUT).bin
 ################################################################################
 # Source files                                                                 #
 ################################################################################
-	# $(LIB_DIR)/loramac-node/src/mac/region/RegionUS915.c
-	# $(LIB_DIR)/loramac-node/src/mac/region/RegionAU915.c
 SRC_FILES += \
 	$(SRC_DIR)/radio.c \
 	$(SRC_DIR)/adc.c \
@@ -56,10 +54,12 @@ SRC_FILES += \
 	$(LIB_DIR)/loramac-node/src/mac/region/RegionAU915.c \
 	$(LIB_DIR)/loramac-node/src/mac/region/RegionEU868.c \
 	$(LIB_DIR)/loramac-node/src/mac/region/RegionCN779.c \
+	$(LIB_DIR)/loramac-node/src/mac/region/RegionCN470.c \
 	$(LIB_DIR)/loramac-node/src/mac/region/RegionEU433.c \
 	$(LIB_DIR)/loramac-node/src/mac/region/RegionIN865.c \
 	$(LIB_DIR)/loramac-node/src/mac/region/RegionKR920.c \
 	$(LIB_DIR)/loramac-node/src/mac/region/RegionRU864.c \
+	$(LIB_DIR)/loramac-node/src/mac/region/RegionUS915.c \
 	$(LIB_DIR)/loramac-node/src/mac/LoRaMac.c \
 	$(LIB_DIR)/loramac-node/src/mac/LoRaMacAdr.c \
 	$(LIB_DIR)/loramac-node/src/mac/LoRaMacClassB.c \
@@ -175,9 +175,16 @@ CFLAGS_RELEASE += -D'RELEASE'
 CFLAGS_RELEASE += -D'UART_BAUDRATE=${BAUDRATE}'
 # CFLAGS += -D'USE_HAL_DRIVER'
 CFLAGS += -DUSE_FULL_LL_DRIVER
-CFLAGS += -DREGION_EU868
-CFLAGS += -DREGION_AU915
 CFLAGS += -DREGION_AS923
+CFLAGS += -DREGION_AU915
+CFLAGS += -DREGION_EU868
+CFLAGS += -DREGION_CN779
+CFLAGS += -DREGION_CN470
+CFLAGS += -DREGION_EU443
+CFLAGS += -DREGION_IN865
+CFLAGS += -DREGION_US915
+CFLAGS += -DREGION_RU864
+CFLAGS += -DREGION_KR920
 CFLAGS += -D'REGION_AS923_DEFAULT_CHANNEL_PLAN=CHANNEL_PLAN_GROUP_AS923_1'
 CFLAGS += -DSOFT_SE
 
