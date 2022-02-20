@@ -1,6 +1,6 @@
 #include "sx1276io.h"
-#include "radio.h"
-#include "sx1276.h"
+#include <loramac-node/src/radio/radio.h>
+#include <loramac-node/src/radio/sx1276/sx1276.h>
 #include "gpio.h"
 #include "io.h"
 #include "rtc.h"
@@ -91,7 +91,7 @@ void sx1276io_set_tcxo(bool state)
     {
         // if TCXO OFF power it up.
         if (gpio_read(RADIO_TCXO_VCC_PORT, RADIO_TCXO_VCC_PIN) == 0)
-        {   
+        {
             // Power ON the TCXO
             gpio_write(RADIO_TCXO_VCC_PORT, RADIO_TCXO_VCC_PIN, 1);
             DelayMs( SX1276IO_TCXO_WAKEUP_TIME );
@@ -205,7 +205,7 @@ void sx1276io_ant_set_sw_low_power(bool status)
         else
         {
             system_stop_mode_enable(SYSTEM_MASK_RADIO);
-            
+
             initStruct.Mode = GPIO_MODE_ANALOG;
             initStruct.Pull = GPIO_NOPULL;
             initStruct.Speed = GPIO_SPEED_HIGH;

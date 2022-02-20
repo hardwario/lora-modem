@@ -1,10 +1,10 @@
 #include "rtc.h"
 #include <math.h>
 #include <time.h>
-#include "systime.h"
+#include <LoRaWAN/Utilities/systime.h>
+#include <LoRaWAN/Utilities/utilities.h>
+#include <stm/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_rtc.h>
 #include "system.h"
-#include "utilities.h"
-#include "stm32l0xx_ll_rtc.h"
 
 typedef struct
 {

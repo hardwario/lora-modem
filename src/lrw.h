@@ -1,8 +1,8 @@
 #ifndef _LRW_H
 #define _LRW_H
 
-#include "LoRaMac.h"
-#include "region/Region.h"
+#include <loramac-node/src/mac/LoRaMac.h>
+#include <loramac-node/src/mac/region/Region.h>
 
 #define LRW_DEVICE_EUI      { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }
 #define LRW_CLASS           CLASS_A

@@ -1,8 +1,11 @@
 #include "lrw.h"
-#include "timeServer.h"
-#include "utilities.h"
-#include "LoRaMac.h"
-#include "LoRaMacTest.h"
+#include <LoRaWAN/Utilities/timeServer.h>
+#include <LoRaWAN/Utilities/utilities.h>
+#include <loramac-node/src/mac/LoRaMac.h>
+#include <loramac-node/src/mac/LoRaMacTest.h>
+#include "adc.h"
+#include "cmd.h"
+#include "system.h"
 #include "log.h"
 
 static struct

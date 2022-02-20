@@ -1,9 +1,9 @@
 #include "log.h"
+#include <rtt/segger_rtt.h>
 #include "rtc.h"
 #include "system.h"
 #include "console.h"
 #include "usart.h"
-#include <segger_rtt.h>
 
 typedef struct
 {

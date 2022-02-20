@@ -1,9 +1,9 @@
 #ifndef _HW_RTC_H
 #define _HW_RTC_H
 
+#include <LoRaWAN/Utilities/timer.h>
+#include <stm/STM32L0xx_HAL_Driver/Inc/stm32l0xx_hal.h>
 #include "common.h"
-#include "timer.h"
-#include "stm32l0xx_hal.h"
 
 //! @param Temperature coefficient of the clock source
 

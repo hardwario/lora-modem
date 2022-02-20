@@ -1,18 +1,18 @@
 #include "system.h"
-#include "stm32l0xx_hal.h"
+#include <stm/STM32L0xx_HAL_Driver/Inc/stm32l0xx_hal.h>
+#include <LoRaWAN/Utilities/utilities.h>
 #include "rtc.h"
 #include "irq.h"
 #include "io.h"
-#include "utilities.h"
 #include "error.h"
 
-#include <stm32l0xx_ll_bus.h>
-#include <stm32l0xx_ll_cortex.h>
-#include <stm32l0xx_ll_iwdg.h>
-#include <stm32l0xx_ll_pwr.h>
-#include <stm32l0xx_ll_rcc.h>
-#include <stm32l0xx_ll_system.h>
-#include <stm32l0xx_ll_utils.h>
+#include <stm/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_bus.h>
+#include <stm/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_cortex.h>
+#include <stm/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_iwdg.h>
+#include <stm/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_pwr.h>
+#include <stm/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_rcc.h>
+#include <stm/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_system.h>
+#include <stm/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_utils.h>
 
 // Unique Devices IDs register set ( STM32L0xxx )
 #define _SYSTEM_ID1 (0x1FF80050)

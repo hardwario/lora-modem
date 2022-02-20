@@ -23,6 +23,9 @@ BIN ?= $(OUT_DIR)/$(TYPE)/$(OUT).bin
 # Source files                                                                 #
 ################################################################################
 
+# Add all the application files to the list of directories to scan.
+SRC_DIRS = $(SRC_DIR)
+
 # Include only the following selected sources from the STM HAL and everything
 # from stm/src
 stm_hal = \
@@ -46,14 +49,14 @@ stm_hal = \
 	stm32l0xx_hal_usart.c \
 	stm32l0xx_ll_dma.c
 SRC_FILES += $(patsubst %.c,$(LIB_DIR)/stm/STM32L0xx_HAL_Driver/Src/%.c,$(stm_hal))
-SRC_DIR += $(LIB_DIR)/stm/src
+SRC_DIRS += $(LIB_DIR)/stm/src
 
-# Include all source code from rtt, LoRaWAN
-SRC_DIR += $(LIB_DIR)/rtt
-SRC_DIR += $(LIB_DIR)/LoRaWAN/Utilities
+# Include all source code from rtt and LoRaWAN lib subdirectories
+SRC_DIRS += $(LIB_DIR)/rtt
+SRC_DIRS += $(LIB_DIR)/LoRaWAN/Utilities
 
 # Include the core LoRa MAC stack with only the base regional files
-SRC_DIR += \
+SRC_DIRS += \
 	$(LIB_DIR)/loramac-node/src/peripherals/soft-se \
 	$(LIB_DIR)/loramac-node/src/radio/sx1276 \
 	$(LIB_DIR)/loramac-node/src/mac
@@ -72,21 +75,6 @@ CFLAGS += $(foreach reg,$(ENABLE_REGIONS),-DREGION_$(reg))
 ifneq (,$(findstring US,$(ENABLE_REGIONS)))
 SRC_FILES += $(LIB_DIR)/loramac-node/src/mac/region/RegionBaseUS.c
 endif
-
-################################################################################
-# Include directories                                                          #
-################################################################################
-
-INC_DIR += $(SRC_DIR) $(CFG_DIR)
-
-SYS_INC_DIR += \
-	$(LIB_DIR)/rtt \
-	$(LIB_DIR)/stm/STM32L0xx_HAL_Driver/Inc \
-	$(LIB_DIR)/stm/include \
-	$(LIB_DIR)/LoRaWAN/Utilities \
-	$(LIB_DIR)/loramac-node/src/mac/region \
-	$(LIB_DIR)/loramac-node/src/radio \
-	$(LIB_DIR)/loramac-node/src
 
 ################################################################################
 # ASM sources                                                                  #
@@ -279,7 +267,7 @@ LDFLAGS += --specs=nosys.specs
 # Create list of object files and their dependencies                           #
 ################################################################################
 
-SRC_FILES += $(foreach dir,$(SRC_DIR),$(wildcard $(dir)/*.c))
+SRC_FILES += $(foreach dir,$(SRC_DIRS),$(wildcard $(dir)/*.c))
 OBJ_C = $(SRC_FILES:%.c=$(OBJ_DIR)/$(TYPE)/%.o)
 OBJ_S = $(ASM_SOURCES:%.s=$(OBJ_DIR)/$(TYPE)/%.o)
 OBJ = $(OBJ_C) $(OBJ_S)
@@ -422,14 +410,57 @@ $(BIN): $(ELF) $(ALLDEP)
 define compile
 $(Q)$(ECHO) "Compiling: $<"
 $(Q)mkdir -p $(@D)
-$(Q)$(CC) -MMD -MP -MT "$@ $(@:.o=.d)" -c $(1) $(foreach d,$(INC_DIR),-I $d) $(foreach d,$(SYS_INC_DIR),-isystem $d) $< -o $@
+$(Q)$(CC) -MMD -MP -MT "$@ $(@:.o=.d)" -c $(CFLAGS) $(1) -isystem $(LIB_DIR) $< -o $@
 endef
 
-$(OBJ_DIR)/$(TYPE)/%.o: %.c $(ALLDEP)
-	$(call compile,$(CFLAGS))
+$(OBJ_DIR)/$(TYPE)/src/%.o: src/%.c $(ALLDEP)
+	$(call compile,\
+		-I $(SRC_DIR) \
+		-I $(CFG_DIR) \
+		-isystem $(LIB_DIR)/loramac-node/src/mac \
+		-isystem $(LIB_DIR)/loramac-node/src/mac/region \
+		-isystem $(LIB_DIR)/loramac-node/src/radio \
+		-isystem $(LIB_DIR)/LoRaWAN/Utilities \
+		-isystem $(LIB_DIR)/stm/STM32L0xx_HAL_Driver/Inc \
+		-isystem $(LIB_DIR)/stm/include \
+	)
 
-$(OBJ_DIR)/$(TYPE)/lib/%.o: lib/%.c $(ALLDEP)
-	$(call compile,$(CFLAGS) $(CFLAGS_LIBS))
+$(OBJ_DIR)/$(TYPE)/lib/LoRaWAN/%.o: lib/LoRaWAN/%.c $(ALLDEP)
+	$(call compile,\
+		-I $(SRC_DIR) \
+		-I $(CFG_DIR) \
+		-isystem $(LIB_DIR)/stm/STM32L0xx_HAL_Driver/Inc \
+		-isystem $(LIB_DIR)/stm/include \
+	)
+
+$(OBJ_DIR)/$(TYPE)/lib/stm/%.o: lib/stm/%.c $(ALLDEP)
+	$(call compile,\
+		-Wno-unused-parameter \
+		-I $(LIB_DIR)/stm/STM32L0xx_HAL_Driver/Inc \
+		-I $(LIB_DIR)/stm/include \
+		-isystem $(CFG_DIR) \
+	)
+
+$(OBJ_DIR)/$(TYPE)/lib/rtt/%.o: lib/rtt/%.c $(ALLDEP)
+	$(call compile)
+
+$(OBJ_DIR)/$(TYPE)/lib/loramac-node/%.o: lib/loramac-node/%.c $(ALLDEP)
+	$(call compile,\
+		-Wno-int-conversion \
+		-Wno-unused-parameter \
+		-Wno-switch-default \
+		-I $(LIB_DIR)/loramac-node/src/mac \
+		-I $(LIB_DIR)/loramac-node/src/radio \
+		-I $(LIB_DIR)/loramac-node/src/mac/region \
+		-isystem $(LIB_DIR)/LoRaWAN/Utilities \
+		-isystem $(LIB_DIR)/stm/STM32L0xx_HAL_Driver/Inc \
+		-isystem $(LIB_DIR)/stm/include \
+		-isystem $(SRC_DIR) \
+		-isystem $(CFG_DIR) \
+	)
+
+$(OBJ_DIR)/$(TYPE)/cfg/%.o: cfg/%.c $(ALLDEP)
+	$(call compile,-isystem $(LIB_DIR)/stm/STM32L0xx_HAL_Driver/Inc)
 
 ################################################################################
 # Compile "s" files                                                            #

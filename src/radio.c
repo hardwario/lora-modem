@@ -1,5 +1,5 @@
-#include "radio.h"
-#include "sx1276.h"
+#include <loramac-node/src/radio/radio.h>
+#include <loramac-node/src/radio/sx1276/sx1276.h>
 #include "sx1276io.h"
 #include "log.h"
 
@@ -82,6 +82,6 @@ const struct Radio_s Radio =
     .GetWakeupTime = SX1276GetWakeupTime,
     .IrqProcess = NULL,
     .RxBoosted = NULL,
-    .SetRxDutyCycle = NULL        
+    .SetRxDutyCycle = NULL
 };
 

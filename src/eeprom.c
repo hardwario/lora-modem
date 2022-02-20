@@ -1,7 +1,7 @@
 #include "eeprom.h"
+#include <LoRaWAN/Utilities/timeServer.h>
+#include <stm/STM32L0xx_HAL_Driver/Inc/stm32l0xx_hal_flash.h>
 #include "irq.h"
-#include "timeServer.h"
-#include <stm32l0xx_hal_flash.h>
 
 #define _EEPROM_BASE DATA_EEPROM_BASE
 #define _EEPROM_END  DATA_EEPROM_BANK2_END

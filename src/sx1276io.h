@@ -1,8 +1,8 @@
 #ifndef _SX1276IO_H
 #define _SX1276IO_H
 
+#include <loramac-node/src/radio/sx1276/sx1276.h>
 #include "common.h"
-#include "sx1276.h"
 
 //! @brief Initializes the radio I/Os pins interface
 

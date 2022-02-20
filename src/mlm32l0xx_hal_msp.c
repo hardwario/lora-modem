@@ -1,6 +1,6 @@
+#include <stm/STM32L0xx_HAL_Driver/Inc/stm32l0xx_hal.h>
+#include <LoRaWAN/Utilities/timeServer.h>
 #include "common.h"
-#include "stm32l0xx_hal.h"
-#include "timeServer.h"
 #include "error.h"
 #include "rtc.h"
 #include "gpio.h"

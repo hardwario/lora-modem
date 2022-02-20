@@ -1,7 +1,7 @@
 
 #include "config.h"
+#include <LoRaWAN/Utilities/utilities.h>
 #include "eeprom.h"
-#include "utilities.h"
 #include "error.h"
 #include "log.h"
 

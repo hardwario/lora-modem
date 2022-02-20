@@ -1,7 +1,7 @@
 #ifndef _IO_H
 #define _IO_H
 
-#include "stm32l0xx_hal.h"
+#include <stm/STM32L0xx_HAL_Driver/Inc/stm32l0xx_hal.h>
 
 #define RADIO_RESET_PORT                          GPIOC
 #define RADIO_RESET_PIN                           GPIO_PIN_0

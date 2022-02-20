@@ -1,3 +1,5 @@
+#include <LoRaWAN/Utilities/timeServer.h>
+#include <loramac-node/src/radio/radio.h>
 #include "atci.h"
 #include "cmd.h"
 #include "adc.h"
@@ -6,14 +8,13 @@
 #include "io.h"
 #include "lrw.h"
 #include "system.h"
-#include "timeServer.h"
 #include "log.h"
 #include "lpuart.h"
 #include "spi.h"
 #include "gpio.h"
+#include "rtc.h"
 #include "usart.h"
 #include "irq.h"
-#include "radio.h"
 
 static void lrw_join_status(bool status);
 static void tx_needed(void);

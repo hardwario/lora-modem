@@ -8,7 +8,7 @@ extern "C"
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "sx1276.h"
+#include <loramac-node/src/radio/sx1276/sx1276.h>
 #include "gpio.h"
 #include "spi.h"
 #include "sx1276io.h"

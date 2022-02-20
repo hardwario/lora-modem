@@ -1,9 +1,9 @@
 #include "cmd.h"
+#include <loramac-node/src/radio/radio.h>
+#include <loramac-node/src/radio/sx1276/sx1276.h>
 #include "lrw.h"
 #include "system.h"
-#include "radio.h"
 #include "config.h"
-#include "sx1276.h"
 #include "gpio.h"
 #include "log.h"
 #include "rtc.h"

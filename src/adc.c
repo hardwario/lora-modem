@@ -1,5 +1,5 @@
 #include "adc.h"
-#include "stm32l0xx_hal.h"
+#include <stm/STM32L0xx_HAL_Driver/Inc/stm32l0xx_hal.h>
 #include "log.h"
 
 #define VDDA_VREFINT_CAL ((uint32_t)3000)
