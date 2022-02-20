@@ -77,18 +77,16 @@ endif
 # Include directories                                                          #
 ################################################################################
 
-INC_DIR += \
-	$(SRC_DIR) \
-	$(CFG_DIR) \
-	$(LIB_DIR)/stm/STM32L0xx_HAL_Driver/Inc \
+INC_DIR += $(SRC_DIR) $(CFG_DIR)
+
+SYS_INC_DIR += \
 	$(LIB_DIR)/rtt \
-	$(LIB_DIR)/LoRaWAN/Utilities \
+	$(LIB_DIR)/stm/STM32L0xx_HAL_Driver/Inc \
 	$(LIB_DIR)/stm/include \
-	$(LIB_DIR)/loramac-node/src/peripherals/soft-se \
+	$(LIB_DIR)/LoRaWAN/Utilities \
+	$(LIB_DIR)/loramac-node/src/mac/region \
 	$(LIB_DIR)/loramac-node/src/radio \
-	$(LIB_DIR)/loramac-node/src/radio/sx1276 \
-	$(LIB_DIR)/loramac-node/src/mac \
-	$(LIB_DIR)/loramac-node/src/mac/region
+	$(LIB_DIR)/loramac-node/src
 
 ################################################################################
 # ASM sources                                                                  #
@@ -424,7 +422,7 @@ $(BIN): $(ELF) $(ALLDEP)
 define compile
 $(Q)$(ECHO) "Compiling: $<"
 $(Q)mkdir -p $(@D)
-$(Q)$(CC) -MMD -MP -MT "$@ $(@:.o=.d)" -c $(1) $(foreach d,$(INC_DIR),-I$d) $< -o $@
+$(Q)$(CC) -MMD -MP -MT "$@ $(@:.o=.d)" -c $(1) $(foreach d,$(INC_DIR),-I $d) $(foreach d,$(SYS_INC_DIR),-isystem $d) $< -o $@
 endef
 
 $(OBJ_DIR)/$(TYPE)/%.o: %.c $(ALLDEP)
