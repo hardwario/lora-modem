@@ -287,7 +287,7 @@ LoRaMacRegion_t lrw_region_get(void);
 //! @note  Change default duty cycle for region
 //! @param[in] region
 
-bool lrw_region_set(LoRaMacRegion_t region);
+int lrw_region_set(LoRaMacRegion_t region);
 
 //! @brief Get channel list
 

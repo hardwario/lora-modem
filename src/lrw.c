@@ -496,11 +496,14 @@ LoRaMacRegion_t lrw_region_get(void)
     return lora.config->region;
 }
 
-bool lrw_region_set(LoRaMacRegion_t region)
+int lrw_region_set(LoRaMacRegion_t region)
 {
     // test is region build
     if (!RegionIsActive(region))
-        return false;
+        return -1;
+
+    if (lora.config->region == region)
+        return 0;
 
     lora.config->region = region;
 
@@ -522,7 +525,7 @@ bool lrw_region_set(LoRaMacRegion_t region)
     // RegionCommonChanMaskCopy(lora.config->channels_mask, respm.ChannelsMask, lrw_get_channels_mask_length());
     // log_dump(lora.config->channels_mask, lrw_get_channels_mask_length() * 2, "lora.config->channels_mask");
 
-    return true;
+    return 1;
 }
 
 uint8_t lrw_get_chmask_length(void)

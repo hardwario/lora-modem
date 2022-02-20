@@ -133,13 +133,28 @@ static void cmd_band_get(void)
 
 static void cmd_band_set(atci_param_t *param)
 {
+    int rc;
     uint32_t value;
 
-    if (atci_param_get_uint(param, &value) && lrw_region_set(value))
+    if (atci_param_get_uint(param, &value))
     {
-        lrw_save_config();
-        atci_print("+OK");
-        return;
+        rc = lrw_region_set(value);
+        if (rc >= 0) {
+            lrw_save_config();
+            atci_print("+OK");
+
+            // If the region changed, LoRaMac needs to be re-initialized. Since
+            // we don't have the functionality to re-initialize the MAC yet,
+            // let's simply reboot the modem.
+            if (rc > 0)
+            {
+                atci_print("\r\n");
+                rtc_delay_ms(40);
+                system_reset();
+            }
+
+            return;
+        }
     }
     atci_print("+ERR=-2");
 }
