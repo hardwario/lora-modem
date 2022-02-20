@@ -1,4 +1,3 @@
-
 SRC_DIR := src
 LIB_DIR := lib
 CFG_DIR := cfg
@@ -201,6 +200,7 @@ endif
 # Compiler flags for "c" files                                                 #
 ################################################################################
 
+CFLAGS += -std=c11
 CFLAGS += -mcpu=cortex-m0plus
 CFLAGS += -mthumb
 CFLAGS += -mlittle-endian
@@ -209,24 +209,33 @@ CFLAGS += -pedantic
 CFLAGS += -Wextra
 CFLAGS += -Wmissing-include-dirs
 CFLAGS += -Wswitch-default
-CFLAGS += -D'__weak=__attribute__((weak))'
-CFLAGS += -D'__packed=__attribute__((__packed__))'
-CFLAGS += -D'STM32L072xx'
-CFLAGS += -D'HAL_IWDG_MODULE_ENABLED'
+CFLAGS += -Wno-old-style-declaration
 CFLAGS += -ffunction-sections
 CFLAGS += -fdata-sections
-CFLAGS += -std=c11
+
+CFLAGS += -D'__weak=__attribute__((weak))'
+CFLAGS += -D'__packed=__attribute__((__packed__))'
+CFLAGS += -DSTM32L072xx
+CFLAGS += -DHAL_IWDG_MODULE_ENABLED
+CFLAGS += -DUSE_FULL_LL_DRIVER
+
+# Extra flags to be only applied when we compile the souce files from the lib
+# subdirectory. Since that sub-directory contains third-party code, disable some
+# of the warnings.
+CFLAGS_LIBS += -Wno-unused-parameter
+CFLAGS_LIBS += -Wno-switch-default
+CFLAGS_LIBS += -Wno-int-conversion
+
 CFLAGS_DEBUG += -g3
 CFLAGS_DEBUG += -Og
-CFLAGS_DEBUG += -D'DEBUG'
-CFLAGS_RELEASE += -Os
-CFLAGS_RELEASE += -D'RELEASE'
+CFLAGS_DEBUG += -DDEBUG
 
-CFLAGS_RELEASE += -D'UART_BAUDRATE=${BAUDRATE}'
-# CFLAGS += -D'USE_HAL_DRIVER'
-CFLAGS += -DUSE_FULL_LL_DRIVER
+CFLAGS_RELEASE += -Os
+CFLAGS_RELEASE += -DRELEASE
+CFLAGS_RELEASE += -DUART_BAUDRATE=${BAUDRATE}
+
 CFLAGS += -DSOFT_SE
-#CFLAGS += -DSECURE_ELEMENT_PRE_PROVISIONED
+CFLAGS += -DSECURE_ELEMENT_PRE_PROVISIONED
 CFLAGS += -DLORAMAC_CLASSB_ENABLED
 
 CFLAGS += -DREGION_AS923_DEFAULT_CHANNEL_PLAN=CHANNEL_PLAN_GROUP_AS923_1
@@ -245,8 +254,10 @@ ASFLAGS += --specs=nano.specs
 ASFLAGS += -mfloat-abi=soft
 ASFLAGS += -mthumb
 ASFLAGS += -mlittle-endian
+
 ASFLAGS_DEBUG += -g3
 ASFLAGS_DEBUG += -Og
+
 ASFLAGS_RELEASE += -Os
 
 ################################################################################
@@ -321,7 +332,7 @@ clean: $(ALLDEP)
 	$(Q)rm -f "$(ELF)" "$(MAP)" "$(BIN)"
 
 ################################################################################
-# J-Link                                          #
+# J-Link                                                                       #
 ################################################################################
 
 .PHONY: flash
@@ -410,10 +421,17 @@ $(BIN): $(ELF) $(ALLDEP)
 # Compile "c" files                                                            #
 ################################################################################
 
+define compile
+$(Q)$(ECHO) "Compiling: $<"
+$(Q)mkdir -p $(@D)
+$(Q)$(CC) -MMD -MP -MT "$@ $(@:.o=.d)" -c $(1) $(foreach d,$(INC_DIR),-I$d) $< -o $@
+endef
+
 $(OBJ_DIR)/$(TYPE)/%.o: %.c $(ALLDEP)
-	$(Q)$(ECHO) "Compiling: $<"
-	$(Q)mkdir -p $(@D)
-	$(Q)$(CC) -MMD -MP -MT "$@ $(@:.o=.d)" -c $(CFLAGS) $(foreach d,$(INC_DIR),-I$d) $< -o $@
+	$(call compile,$(CFLAGS))
+
+$(OBJ_DIR)/$(TYPE)/lib/%.o: lib/%.c $(ALLDEP)
+	$(call compile,$(CFLAGS) $(CFLAGS_LIBS))
 
 ################################################################################
 # Compile "s" files                                                            #
