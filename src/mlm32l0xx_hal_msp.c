@@ -1,7 +1,7 @@
 #include <stm/STM32L0xx_HAL_Driver/Inc/stm32l0xx_hal.h>
 #include <LoRaWAN/Utilities/timeServer.h>
 #include "common.h"
-#include "error.h"
+#include "halt.h"
 #include "rtc.h"
 #include "gpio.h"
 
@@ -92,7 +92,7 @@ void HAL_RTC_MspInit(RTC_HandleTypeDef *hrtc)
     RCC_OscInitStruct.LSEState = RCC_LSE_ON;
     if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
     {
-        error_handler();
+        halt("Error while initializing oscillator");
     }
 
     /* -b- Select LSI as RTC clock source */
@@ -100,7 +100,7 @@ void HAL_RTC_MspInit(RTC_HandleTypeDef *hrtc)
     PeriphClkInitStruct.RTCClockSelection = RCC_RTCCLKSOURCE_LSE;
     if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct) != HAL_OK)
     {
-        error_handler();
+        halt("Error while initializing clock source");
     }
 
     /*##-2- Enable the RTC peripheral Clock ####################################*/

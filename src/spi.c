@@ -1,6 +1,6 @@
 #include "spi.h"
 #include "gpio.h"
-#include "error.h"
+#include "halt.h"
 #include "io.h"
 
 static SPI_HandleTypeDef hspi;
@@ -26,7 +26,7 @@ void spi_init(uint32_t speed)
 
     if (HAL_SPI_Init(&hspi) != HAL_OK)
     {
-        error_handler();
+        halt("Error while initializing SPI subsystem");
     }
 
     spi_io_init();

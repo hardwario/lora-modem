@@ -4,7 +4,7 @@
 #include "rtc.h"
 #include "irq.h"
 #include "io.h"
-#include "error.h"
+#include "halt.h"
 
 #include <stm/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_bus.h>
 #include <stm/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_cortex.h>
@@ -333,7 +333,7 @@ static void _system_init_clock(void)
 
     if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
     {
-        error_handler();
+        halt("Error while initializing oscillator");
     }
 
     /* Set Voltage scale1 as MCU will run at 32MHz */
@@ -354,7 +354,7 @@ static void _system_init_clock(void)
     RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
     if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_1) != HAL_OK)
     {
-        error_handler();
+        halt("Error while initializing system clock");
     }
 }
 

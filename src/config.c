@@ -2,7 +2,7 @@
 #include "config.h"
 #include <LoRaWAN/Utilities/utilities.h>
 #include "eeprom.h"
-#include "error.h"
+#include "halt.h"
 #include "log.h"
 
 #define _CONFIG_BANK_A (CONFIG_ADDRESS_START)
@@ -40,7 +40,7 @@ void config_init(void *config, size_t size, const void *init_config)
 {
     if (size > CONFIG_BANK_SIZE)
     {
-        error_handler();
+        halt("Configuration too big for EEPROM");
     }
 
     _config.config = config;
@@ -118,7 +118,7 @@ static void _config_eeprom_read(uint32_t address, void *buffer, size_t length)
             !eeprom_read(_CONFIG_BANK_D + address + i, &d, 1) ||
             !eeprom_read(_CONFIG_BANK_E + address + i, &e, 1))
         {
-            error_handler();
+            halt("Error while reading EEPROM");
         }
 
         *p++ = (a & b) | (a & c) | (a & d) | (a & e) |
@@ -136,6 +136,6 @@ static void _config_eeprom_write(uint32_t address, const void *buffer, size_t le
         !eeprom_write(_CONFIG_BANK_D + address, buffer, length) ||
         !eeprom_write(_CONFIG_BANK_E + address, buffer, length))
     {
-        error_handler();
+        halt("Error while writing EEPROM");
     }
 }

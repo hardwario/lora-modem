@@ -1,6 +1,6 @@
 #include "lpuart.h"
 #include "io.h"
-#include "error.h"
+#include "halt.h"
 
 static UART_HandleTypeDef UartHandle;
 
@@ -34,7 +34,7 @@ void lpuart_init(void (*TxCb)(void))
     if (HAL_UART_Init(&UartHandle) != HAL_OK)
     {
         /* Initialization Error */
-        error_handler();
+        halt("Error while initializing UART");
     }
 }
 
