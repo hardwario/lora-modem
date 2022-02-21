@@ -171,14 +171,14 @@ ALLDEP += $(OBJ_DIR)/version
 
 tmp := $(shell \
 	mkdir -p $(OBJ_DIR); \
-	f=$(OBJ_DIR)/loramac_version; \
+	f=$(OBJ_DIR)/lib_version; \
 	cur=`(cd lib/loramac-node; $(git_describe) 2>/dev/null)`; \
 	[ -r $$f ] && prev=`cat $$f`; \
 	[ -n "$$prev" -a "$$prev" = "$$cur" ] && exit 0; \
 	echo "$$cur" > $$f)
-loramac_version := $(strip $(shell cat $(OBJ_DIR)/loramac_version))
+lib_version := $(strip $(shell cat $(OBJ_DIR)/lib_version))
 
-ALLDEP += $(OBJ_DIR)/loramac_version
+ALLDEP += $(OBJ_DIR)/lib_version
 
 endif
 
@@ -229,7 +229,7 @@ CFLAGS += -DREGION_CN470_DEFAULT_CHANNEL_PLAN=CHANNEL_PLAN_20MHZ_TYPE_A
 
 CFLAGS += -DBUILD_DATE='"$(build_date)"'
 CFLAGS += -DVERSION='"$(version)"'
-CFLAGS += -DLORAMAC_VERSION='"$(loramac_version)"'
+CFLAGS += -DLIB_VERSION='"$(lib_version)"'
 
 ################################################################################
 # Compiler flags for "s" files                                                 #

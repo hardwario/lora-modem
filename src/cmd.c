@@ -427,7 +427,8 @@ static void cmd_dbg(atci_param_t *param)
 
 static void cmd_version_get(void)
 {
-    atci_printf("+OK=%s [LoRaMac %s],%s", VERSION, LORAMAC_VERSION, BUILD_DATE);
+    atci_printf("+OK=%s [LoRaMac %s],%s", VERSION, LIB_VERSION, BUILD_DATE);
+}
 }
 
 static const atci_command_t _cmd_commands[] = {

@@ -94,14 +94,15 @@ void gpio_dump(char name, GPIO_TypeDef *port)
 int main(void)
 {
     system_init();
-
     log_init(LOG_LEVEL_DUMP, LOG_TIMESTAMP_ABS);
 
-    // log_info("######## BOOT ###############");
-    // gpio_dump('A', GPIOA);
-    // gpio_dump('B', GPIOB);
-    // gpio_dump('C', GPIOC);
-    // gpio_dump('H', GPIOH);
+#ifdef DEBUG
+    // If we are in debugging mode, delay initialization a bit so that we won't
+    // miss any debugging or warning messages sent to the UART interface by the
+    // initialization code that follow.
+    rtc_delay_ms(1000);
+    log_info("LoRa Module %s [LoRaMac %s] built on %s", VERSION, LIB_VERSION, BUILD_DATE);
+#endif
 
     config_init(&configuration, sizeof(configuration), &configuration_default);
 
