@@ -14,6 +14,10 @@ BAUDRATE ?= 9600
 # release mode).
 ENABLE_REGIONS ?= AS923 AU915 CN470 CN779 EU433 EU868 IN865 KR920 RU864 US915
 
+# Select the LoRaWAN MAC version: 0x01010100 for 1.1.0, 0x01000400 for 1.0.4.
+# The default (if undefined) is 1.1.0 in LoRaMac v4.6.0.
+LORAMAC_VERSION ?= 0x01000400
+
 ELF ?= $(OUT_DIR)/$(TYPE)/$(OUT).elf
 MAP ?= $(OUT_DIR)/$(TYPE)/$(OUT).map
 BIN ?= $(OUT_DIR)/$(TYPE)/$(OUT).bin
@@ -230,6 +234,10 @@ CFLAGS += -DREGION_CN470_DEFAULT_CHANNEL_PLAN=CHANNEL_PLAN_20MHZ_TYPE_A
 CFLAGS += -DBUILD_DATE='"$(build_date)"'
 CFLAGS += -DVERSION='"$(version)"'
 CFLAGS += -DLIB_VERSION='"$(lib_version)"'
+
+ifneq (,$(LORAMAC_VERSION))
+CFLAGS += -DLORAMAC_VERSION=$(LORAMAC_VERSION)
+endif
 
 ################################################################################
 # Compiler flags for "s" files                                                 #
