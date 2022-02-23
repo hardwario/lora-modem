@@ -1,6 +1,8 @@
 #include "cmd.h"
 #include <loramac-node/src/radio/radio.h>
 #include <loramac-node/src/radio/sx1276/sx1276.h>
+#include <loramac-node/src/mac/secure-element-nvm.h>
+#include <loramac-node/src/mac/LoRaMacTest.h>
 #include "lrw.h"
 #include "system.h"
 #include "config.h"
@@ -8,412 +10,889 @@
 #include "log.h"
 #include "rtc.h"
 
-static bool _cmd_param_parse_is_enable(atci_param_t *param, bool *enable);
 
-static struct
-{
-    uint8_t port;
-} _at;
+typedef enum cmd_errno {
+    ERR_UNKNOWN_CMD   =  -1,  // Unknown command
+    ERR_PARAM_NO      =  -2,  // Invalid number of parameters
+    ERR_PARAM         =  -3,  // Invalid parameter value(s)
+    ERR_FACNEW_FAILED =  -4,  // Factory reset failed
+    ERR_NO_JOIN       =  -5,  // Device has not joined LoRaWAN yet
+    ERR_JOINED        =  -6,  // Device has already joined LoRaWAN
+    ERR_BUSY          =  -7,  // Resource unavailable: LoRa MAC is transmitting
+    ERR_VERSION       =  -8,  // New firmware version must be different
+    ERR_MISSING_INFO  =  -9,  // Missing firmware information
+    ERR_FLASH_ERROR   = -10,  // Flash read/write error
+    ERR_UPDATE_FAILED = -11,  // Firmware update failed
+    ERR_PAYLOAD_LONG  = -12,  // Payload is too long
+    ERR_NO_ABP        = -13,  // Only supported in ABP activation mode
+    ERR_NO_OTAA       = -14,  // Only supported in OTAA activation mode
+    ERR_BAND          = -15,  // RF band is not supported
+    ERR_POWER         = -16,  // Power value too high
+    ERR_UNSUPPORTED   = -17,  // Not supported in the current band
+    ERR_DUTYCYCLE     = -18,  // Cannot transmit due to duty cycling
+    ERR_NO_CHANNEL    = -19,  // Channel unavailable due to LBT or error
+    ERR_TOO_MANY      = -20   // Too many link check requests
+} cmd_errno_t;
 
-static void cmd_mode_get(void)
-{
-    atci_print("+OK=1");
-}
 
-static void cmd_deveui_get(void)
-{
-    uint8_t *data = lrw_deveui_get();
-    atci_print("+OK=");
-    atci_print_buffer_as_hex(data, 8);
-}
+static uint8_t port;
 
-static void cmd_dutycycle_get(void)
-{
-    atci_printf("+OK=%d", lrw_duty_cycle_get());
-}
 
-static void cmd_dutycycle_set(atci_param_t *param)
-{
-    bool enable;
-    if (_cmd_param_parse_is_enable(param, &enable))
-    {
-        lrw_duty_cycle_set(enable);
-        lrw_save_config();
-        atci_print("+OK");
-    }
-    else
-    {
-        atci_print("+ERR=-3");
-    }
-}
+#define abort(num) do {            \
+    atci_printf("+ERR=%d", (num)); \
+    return;                        \
+} while (0)
 
-static void cmd_dr_get(void)
-{
-    atci_printf("+OK=%d", lrw_tx_datarate_get());
-}
 
-static void cmd_dr_set(atci_param_t *param)
+#define OK(...) atci_printf("+OK=" __VA_ARGS__)
+#define OK_() atci_printf("+OK")
+
+
+static int parse_enabled(atci_param_t *param)
 {
-    uint32_t value;
-    if (atci_param_get_uint(param, &value) && (value <= 15))
-    {
-        lrw_tx_datarate_set(value);
-        lrw_save_config();
-        atci_print("+OK");
-    }
-    else
-    {
-        atci_print("+ERR=-3");
+    if (param->length != 1) return -1;
+
+    switch (param->txt[0]) {
+        case '0': return 0;
+        case '1': return 1;
+        default : return -1;
     }
 }
 
-static void cmd_rfq_get()
+
+static void get_uart(void)
 {
-    atci_printf("+OK=%d,%d", lrw_rssi_get(), lrw_snr_get());
+    OK("%d,%d,%d,%d,%d", 9600, 8, 1, 0, 0);
 }
 
-static void cmd_deveui_set(atci_param_t *param)
-{
-    uint8_t deveui[8];
-    if (atci_param_get_buffer_from_hex(param, deveui, 8) == 8)
-    {
-        lrw_deveui_set(deveui);
-        lrw_save_config();
-        atci_print("+OK");
-    }
-    else
-    {
-        atci_print("+ERR=-3");
-    }
-}
 
-static void cmd_devaddr_get(void)
-{
-    uint32_t devaddr = lrw_devaddr_get();
-    atci_printf("+OK=%08X", devaddr);
-}
-
-static void cmd_devaddr_set(atci_param_t *param)
-{
-    uint32_t devaddr;
-    if (atci_param_get_buffer_from_hex(param, &devaddr, 4) == 4)
-    {
-        lrw_devaddr_set(devaddr);
-        lrw_save_config();
-        atci_print("+OK");
-    }
-    else
-    {
-        atci_print("+ERR=-3");
-    }
-}
-
-static void cmd_class_get(void)
-{
-    atci_printf("+OK=%d", lrw_class_get());
-}
-
-static void cmd_class_set(atci_param_t *param)
-{
-    uint32_t value;
-
-    if (atci_param_get_uint(param, &value) && lrw_class_change(value))
-    {
-        lrw_save_config();
-        atci_print("+OK");
-        return;
-    }
-    atci_print("+ERR=-2");
-}
-
-static void cmd_band_get(void)
-{
-    atci_printf("+OK=%d", lrw_region_get());
-}
-
-static void cmd_band_set(atci_param_t *param)
-{
-    int rc;
-    uint32_t value;
-
-    if (atci_param_get_uint(param, &value))
-    {
-        rc = lrw_region_set(value);
-        if (rc >= 0) {
-            lrw_save_config();
-            atci_print("+OK");
-
-            // If the region changed, LoRaMac needs to be re-initialized. Since
-            // we don't have the functionality to re-initialize the MAC yet,
-            // let's simply reboot the modem.
-            if (rc > 0)
-            {
-                atci_print("\r\n");
-                rtc_delay_ms(40);
-                system_reset();
-            }
-
-            return;
-        }
-    }
-    atci_print("+ERR=-2");
-}
-
-static void cmd_appui_get(void)
-{
-    uint8_t *data = lrw_appeui_get();
-    atci_print("+OK=");
-    atci_print_buffer_as_hex(data, 8);
-}
-
-static void cmd_appui_set(atci_param_t *param)
-{
-    uint8_t appeui[8];
-    if (atci_param_get_buffer_from_hex(param, appeui, 8) == 8)
-    {
-        lrw_appeui_set(appeui);
-        lrw_save_config();
-        atci_print("+OK");
-    }
-    else
-    {
-        atci_print("+ERR=-3");
-    }
-}
-
-static void cmd_appkey_get(void)
-{
-    uint8_t *data = lrw_appkey_get();
-    atci_print("+OK=");
-    atci_print_buffer_as_hex(data, 16);
-}
-
-static void cmd_appkey_set(atci_param_t *param)
-{
-    uint8_t appkey[16];
-    if (atci_param_get_buffer_from_hex(param, appkey, 16) == 16)
-    {
-        lrw_appkey_set(appkey);
-        lrw_save_config();
-        atci_print("+OK");
-    }
-    else
-    {
-        atci_print("+ERR=-3");
-    }
-}
-
-static void cmd_nwk_get(void)
-{
-    atci_printf("+OK=%d", lrw_public_network_get());
-}
-
-static void cmd_nwk_set(atci_param_t *param)
-{
-    bool enable;
-    if (_cmd_param_parse_is_enable(param, &enable))
-    {
-        lrw_public_network_set(enable);
-        lrw_save_config();
-        atci_print("+OK");
-    }
-    else
-    {
-        atci_print("+ERR=-3");
-    }
-}
-
-static void cmd_join(atci_param_t *param)
+static void set_uart(atci_param_t *param)
 {
     (void)param;
-
-    if (lrw_otaa_get())
-    {
-        if (lrw_join())
-        {
-            atci_print("+OK");
-        }
-        else
-        {
-            atci_print("+ERR=-18");
-        }
-    }
-    else
-    {
-        atci_print("+ERR=-14");
-    }
+    abort(ERR_UNKNOWN_CMD);
 }
 
-static void cmd_putx_data(atci_param_t *param)
+
+static void get_version(void)
 {
-    if (lrw_send(_at.port, param->txt, param->length, LRW_UNCONFIRMED_MSG))
-    {
-        atci_print("+OK");
-    }
-    else
-    {
-        atci_print("+ERR=-18"); // TODO
-    }
+    OK("%s [LoRaMac %s],%s", VERSION, LIB_VERSION, BUILD_DATE);
 }
 
-static void cmd_putx(atci_param_t *param)
+
+static void get_model(void)
 {
-    uint32_t value;
-
-    if (!atci_param_get_uint(param, &value) || value > 255)
-    {
-        atci_print("+ERR=-2");
-        return;
-    }
-
-    if (!atci_param_is_comma(param))
-    {
-        atci_print("+ERR=-2");
-        return;
-    }
-
-    _at.port = value;
-
-    if (!atci_param_get_uint(param, &value) || value > 255)
-    {
-        atci_print("+ERR=-2");
-        return;
-    }
-
-    atci_set_read_next_data(value, cmd_putx_data);
+    OK("ABZ");
 }
 
-static void cmd_pctx_data(atci_param_t *param)
-{
-    if (lrw_send(_at.port, param->txt, param->length, LRW_CONFIRMED_MSG))
-    {
-        atci_print("+OK");
-    }
-    else
-    {
-        atci_print("+ERR=-18"); // TODO
-    }
-}
 
-static void cmd_pctx(atci_param_t *param)
-{
-    uint32_t value;
-
-    if (!atci_param_get_uint(param, &value) || value > 255)
-    {
-        atci_print("+ERR=-2");
-        return;
-    }
-
-    if (!atci_param_is_comma(param))
-    {
-        atci_print("+ERR=-2");
-        return;
-    }
-
-    _at.port = value;
-
-    if (!atci_param_get_uint(param, &value) || value > 255)
-    {
-        atci_print("+ERR=-2");
-        return;
-    }
-
-    atci_set_read_next_data(value, cmd_pctx_data);
-}
-
-static void cmd_chmask_get(void)
-{
-    lrw_channel_list_t list = lrw_get_channel_list();
-    atci_print("+OK=");
-    atci_print_buffer_as_hex(list.chmask, list.chmask_length * sizeof(uint16_t));
-}
-
-static void cmd_chmask_set(atci_param_t *param)
-{
-    uint16_t chmask[LRW_CHMASK_LENGTH];
-    memset(chmask, 0, sizeof(chmask));
-
-    size_t length = atci_param_get_buffer_from_hex(param, chmask, sizeof(chmask));
-
-    if (length == 0)
-    {
-        atci_print("+ERR=-2");
-        return;
-    }
-
-    if (lrw_chmask_set(chmask))
-    {
-        lrw_save_config();
-        atci_print("+OK");
-    }
-    else
-    {
-        atci_print("+ERR=-2");
-    }
-}
-
-static void cmd_rep_get(void)
-{
-    atci_printf("+OK=%d", lrw_unconfirmed_message_repeats_get());
-}
-
-static void cmd_rep_set(atci_param_t *param)
-{
-    uint32_t value;
-    if (atci_param_get_uint(param, &value) && lrw_unconfirmed_message_repeats_set(value))
-    {
-        lrw_save_config();
-        atci_print("+OK");
-        return;
-    }
-    atci_print("+ERR=-2");
-}
-
-static void cmd_facnew(atci_param_t *param)
+static void reboot(atci_param_t *param)
 {
     (void)param;
-    atci_print("+OK\r\n\r\n");
+    OK_();
+    rtc_delay_ms(100); // FIXME: Find wait to wait for lpuart to flush the data
+    system_reset();
+}
+
+
+static void factory_reset(atci_param_t *param)
+{
+    (void)param;
+    OK_();
     config_reset();
     config_save();
-    cmd_event(0,1);
+    cmd_event(CMD_EVENT_MODULE, CMD_MODULE_FACNEW);
     rtc_delay_ms(40);
     system_reset();
 }
 
-static void cmd_channels_get(void)
+
+static void get_band(void)
 {
-    lrw_channel_list_t list = lrw_get_channel_list();
-
-    // log_debug("%d %d", list.length, list.chmask_length);
-    // log_dump(list.chmask, list.chmask_length * 2, "masks");
-    // log_dump(list.chmask_default, list.chmask_length * 2, "default_mask");
-
-    for (uint8_t i = 0; i < list.length; i++)
-    {
-        if (list.channels[i].Frequency == 0)
-            continue;
-
-        uint8_t is_enable = (i / 16) < list.chmask_length ? (list.chmask[i / 16] >> (i % 16)) & 0x01 : 0;
-
-        atci_printf("$CHANNELS: %d,%d,%d,%d,%d,%d\r\n",
-                    is_enable,
-                    list.channels[i].Frequency,
-                    list.channels[i].Rx1Frequency,
-                    list.channels[i].DrRange.Fields.Min,
-                    list.channels[i].DrRange.Fields.Max,
-                    list.channels[i].Band);
-    }
-    atci_print("+OK");
+    LoRaMacNvmData_t *state = lrw_get_state();
+    OK("%d", state->MacGroup2.Region);
 }
 
-static void cmd_reboot(atci_param_t *param)
+
+static void set_band(atci_param_t *param)
+{
+    uint32_t value;
+
+    if (!atci_param_get_uint(param, &value))
+        abort(ERR_PARAM);
+
+    if (!RegionIsActive(value))
+        abort(ERR_PARAM);
+
+    LoRaMacNvmData_t *state = lrw_get_state();
+    // FIXME: Check that the value is correct and that the region is active.
+    state->MacGroup2.Region = value;
+
+    config_save();
+    reboot(param);
+}
+
+
+static void get_class(void)
+{
+    MibRequestConfirm_t r = { .Type = MIB_DEVICE_CLASS };
+    LoRaMacMibGetRequestConfirm(&r);
+    OK("%d", r.Param.Class);
+}
+
+
+//! @brief Set LoRaWAN device class
+//! @attention can be calld only in LRW_ClassSwitchSlot or rx_data callbacks
+
+static void set_class(atci_param_t *param)
+{
+    uint32_t v;
+    if (!atci_param_get_uint(param, &v)) abort(ERR_PARAM);
+
+    if (v > 2) abort(ERR_PARAM);
+
+    MibRequestConfirm_t r = { .Type = MIB_DEVICE_CLASS };
+    LoRaMacMibGetRequestConfirm(&r);
+    if (r.Param.Class == v) {
+        OK_();
+        return;
+    }
+
+    r.Param.Class = v;
+    if (LoRaMacMibSetRequestConfirm(&r) != LORAMAC_STATUS_OK)
+        abort(ERR_PARAM);
+
+    OK_();
+}
+
+
+static void get_mode(void)
+{
+    OK("%d", lrw_get_mode());
+}
+
+
+static void set_mode(atci_param_t *param)
+{
+    uint32_t v;
+    if (!atci_param_get_uint(param, &v)) abort(ERR_PARAM);
+    if (v > 1) abort(ERR_PARAM);
+
+    lrw_set_mode(v);
+    OK_();
+}
+
+
+static void get_devaddr(void)
+{
+    MibRequestConfirm_t r = { .Type = MIB_DEV_ADDR };
+    LoRaMacMibGetRequestConfirm(&r);
+    OK("%08X", r.Param.DevAddr);
+}
+
+
+static void set_devaddr(atci_param_t *param)
+{
+    // FIXME: endianness?
+    uint32_t addr;
+    if (atci_param_get_buffer_from_hex(param, &addr, sizeof(addr)) != sizeof(addr))
+        abort(ERR_PARAM);
+
+    MibRequestConfirm_t r = {
+        .Type  = MIB_DEV_ADDR,
+        .Param = { .DevAddr = addr }
+    };
+    if (LoRaMacMibSetRequestConfirm(&r) != LORAMAC_STATUS_OK)
+        abort(ERR_PARAM);
+
+    OK_();
+}
+
+
+static void get_deveui(void)
+{
+    MibRequestConfirm_t r = { .Type = MIB_DEV_EUI };
+    LoRaMacMibGetRequestConfirm(&r);
+    atci_print("+OK=");
+    atci_print_buffer_as_hex(r.Param.DevEui, SE_EUI_SIZE);
+}
+
+
+static void set_deveui(atci_param_t *param)
+{
+    uint8_t eui[SE_EUI_SIZE];
+    if (atci_param_get_buffer_from_hex(param, eui, SE_EUI_SIZE) != SE_EUI_SIZE)
+        abort(ERR_PARAM);
+
+    MibRequestConfirm_t r = {
+        .Type  = MIB_DEV_EUI,
+        .Param = { .DevEui = eui }
+    };
+
+    if (LoRaMacMibSetRequestConfirm(&r) != LORAMAC_STATUS_OK)
+        abort(ERR_PARAM);
+
+    OK_();
+}
+
+
+static void get_joineui(void)
+{
+    MibRequestConfirm_t r = { .Type = MIB_JOIN_EUI };
+    LoRaMacMibGetRequestConfirm(&r);
+    atci_print("+OK=");
+    atci_print_buffer_as_hex(r.Param.JoinEui, SE_EUI_SIZE);
+}
+
+
+static void set_joineui(atci_param_t *param)
+{
+    uint8_t eui[SE_EUI_SIZE];
+    if (atci_param_get_buffer_from_hex(param, eui, SE_EUI_SIZE) != SE_EUI_SIZE)
+        abort(ERR_PARAM);
+
+    MibRequestConfirm_t r = {
+        .Type  = MIB_JOIN_EUI,
+        .Param = { .JoinEui = eui }
+    };
+
+    if (LoRaMacMibSetRequestConfirm(&r) != LORAMAC_STATUS_OK)
+        abort(ERR_PARAM);
+
+    OK_();
+}
+
+
+static void get_nwkskey(void)
+{
+    LoRaMacNvmData_t *state = lrw_get_state();
+    atci_print("+OK=");
+    atci_print_buffer_as_hex(&state->SecureElement.KeyList[NWK_S_ENC_KEY].KeyValue, SE_KEY_SIZE);
+}
+
+
+static void set_nwkskey(atci_param_t *param)
+{
+    uint8_t key[SE_KEY_SIZE];
+
+    if (atci_param_get_buffer_from_hex(param, key, SE_KEY_SIZE) != SE_KEY_SIZE)
+        abort(ERR_PARAM);
+
+    MibRequestConfirm_t r = {
+        .Type  = MIB_NWK_S_ENC_KEY,
+        .Param = { .NwkSEncKey = key }
+    };
+    LoRaMacMibSetRequestConfirm(&r);
+
+    if (LoRaMacMibSetRequestConfirm(&r) != LORAMAC_STATUS_OK)
+        abort(ERR_PARAM);
+
+    OK_();
+}
+
+
+static void get_appskey(void)
+{
+    LoRaMacNvmData_t *state = lrw_get_state();
+    atci_print("+OK=");
+    atci_print_buffer_as_hex(&state->SecureElement.KeyList[APP_S_KEY].KeyValue, SE_KEY_SIZE);
+}
+
+
+static void set_appskey(atci_param_t *param)
+{
+    uint8_t key[SE_KEY_SIZE];
+
+    if (atci_param_get_buffer_from_hex(param, key, SE_KEY_SIZE) != SE_KEY_SIZE)
+        abort(ERR_PARAM);
+
+    MibRequestConfirm_t r = {
+        .Type  = MIB_APP_S_KEY,
+        .Param = { .AppSKey = key }
+    };
+    LoRaMacMibSetRequestConfirm(&r);
+
+    if (LoRaMacMibSetRequestConfirm(&r) != LORAMAC_STATUS_OK)
+        abort(ERR_PARAM);
+
+    OK_();
+}
+
+
+static void get_appkey(void)
+{
+    LoRaMacNvmData_t *state = lrw_get_state();
+    atci_print("+OK=");
+    atci_print_buffer_as_hex(&state->SecureElement.KeyList[APP_KEY].KeyValue, SE_KEY_SIZE);
+}
+
+
+static void set_appkey(atci_param_t *param)
+{
+    uint8_t key[SE_KEY_SIZE];
+
+    if (atci_param_get_buffer_from_hex(param, key, SE_KEY_SIZE) != SE_KEY_SIZE)
+        abort(ERR_PARAM);
+
+    MibRequestConfirm_t r = {
+        .Type  = MIB_APP_KEY,
+        .Param = { .AppKey = key }
+    };
+    LoRaMacMibSetRequestConfirm(&r);
+
+    if (LoRaMacMibSetRequestConfirm(&r) != LORAMAC_STATUS_OK)
+        abort(ERR_PARAM);
+
+    r.Type = MIB_NWK_KEY;
+    r.Param.NwkKey = key;
+    LoRaMacMibSetRequestConfirm(&r);
+
+    if (LoRaMacMibSetRequestConfirm(&r) != LORAMAC_STATUS_OK)
+        abort(ERR_PARAM);
+
+    OK_();
+}
+
+
+static void join(atci_param_t *param)
 {
     (void)param;
-    system_reset();
+
+    if (true)
+    {
+        if (lrw_activate() == 0) {
+            atci_print("+OK");
+        } else {
+            atci_print("+ERR=-18");
+        }
+    } else {
+        atci_print("+ERR=-14");
+    }
 }
 
-static void cmd_dbg(atci_param_t *param)
+
+// static void get_joindc(void)
+// {
+//     abort(ERR_UNKNOWN_CMD);
+// }
+
+
+// static void set_joindc(atci_param_t *param)
+// {
+//     (void)param;
+//     abort(ERR_UNKNOWN_CMD);
+// }
+
+
+// static void link_check(atci_p[aram_t *param])
+// {
+//     (void)param;
+//     abort(ERR_UNKNOWN_CMD);
+// }
+
+
+// static void get_rfparam(void)
+// {
+//     abort(ERR_UNKNOWN_CMD);
+// }
+
+
+// static void set_rfparam(atci_param_t *param)
+// {
+//     (void)param;
+//     abort(ERR_UNKNOWN_CMD);
+// }
+
+
+// static void get_rfpower(void)
+// {
+//     abort(ERR_UNKNOWN_CMD);
+// }
+
+
+// static void set_rfpower(atci_param_t *param)
+// {
+//     (void)param;
+//     abort(ERR_UNKNOWN_CMD);
+// }
+
+
+static void get_nwk(void)
+{
+    MibRequestConfirm_t r = { .Type = MIB_PUBLIC_NETWORK };
+    LoRaMacMibGetRequestConfirm(&r);
+    OK("%d", r.Param.EnablePublicNetwork);
+}
+
+
+static void set_nwk(atci_param_t *param)
+{
+    int enabled = parse_enabled(param);
+    if (enabled == -1) abort(ERR_PARAM);
+
+    MibRequestConfirm_t r = {
+        .Type  = MIB_PUBLIC_NETWORK,
+        .Param = { .EnablePublicNetwork = enabled }
+    };
+
+    if (LoRaMacMibSetRequestConfirm(&r) != LORAMAC_STATUS_OK)
+        abort(ERR_PARAM);
+
+    OK_();
+}
+
+
+static void get_adr(void)
+{
+    MibRequestConfirm_t r = { .Type = MIB_ADR };
+    LoRaMacMibGetRequestConfirm(&r);
+    OK("%d", r.Param.AdrEnable);
+}
+
+
+static void set_adr(atci_param_t *param)
+{
+    int enabled = parse_enabled(param);
+    if (enabled == -1) abort(ERR_PARAM);
+
+    MibRequestConfirm_t r = {
+        .Type  = MIB_ADR,
+        .Param = { .AdrEnable = enabled }
+    };
+    if (LoRaMacMibSetRequestConfirm(&r) != LORAMAC_STATUS_OK)
+        abort(ERR_PARAM);
+
+    OK_();
+}
+
+
+static void get_dr(void)
+{
+    MibRequestConfirm_t r = { .Type = MIB_CHANNELS_DATARATE };
+    LoRaMacMibGetRequestConfirm(&r);
+    OK("%d", r.Param.ChannelsDatarate);
+}
+
+
+static void set_dr(atci_param_t *param)
+{
+    uint32_t val;
+    if (!atci_param_get_uint(param, &val)) abort(ERR_PARAM);
+    if (val > 15) abort(ERR_PARAM);
+
+    MibRequestConfirm_t r = {
+        .Type  = MIB_CHANNELS_DATARATE,
+        .Param = { .ChannelsDatarate = val }
+    };
+    if (LoRaMacMibSetRequestConfirm(&r) != LORAMAC_STATUS_OK)
+        abort(ERR_PARAM);
+
+    OK_();
+}
+
+
+// static void get_delay(void)
+// {
+//     abort(ERR_UNKNOWN_CMD);
+// }
+
+
+// static void set_delay(atci_param_t *param)
+// {
+//     (void)param;
+//     abort(ERR_UNKNOWN_CMD);
+// }
+
+
+// static void get_adrack(void)
+// {
+//     abort(ERR_UNKNOWN_CMD);
+// }
+
+
+// static void set_adrack(atci_param_t *param)
+// {
+//     (void)param;
+//     abort(ERR_UNKNOWN_CMD);
+// }
+
+
+// static void get_rx2(void)
+// {
+//     abort(ERR_UNKNOWN_CMD);
+// }
+
+
+// static void set_rx2(atci_param_t *param)
+// {
+//     (void)param;
+//     abort(ERR_UNKNOWN_CMD);
+// }
+
+
+static void get_dutycycle(void)
+{
+    LoRaMacNvmData_t *state = lrw_get_state();
+    OK("%d", state->MacGroup2.DutyCycleOn);
+}
+
+
+static void set_dutycycle(atci_param_t *param)
+{
+    int enabled = parse_enabled(param);
+    if (enabled == -1) abort(ERR_PARAM);
+
+    LoRaMacTestSetDutyCycleOn(enabled);
+    OK_();
+}
+
+
+// static void get_sleep(void)
+// {
+//     abort(ERR_UNKNOWN_CMD);
+// }
+
+
+// static void set_sleep(atci_param_t *param)
+// {
+//     (void)param;
+//     abort(ERR_UNKNOWN_CMD);
+// }
+
+
+// static void get_port(void)
+// {
+//     abort(ERR_UNKNOWN_CMD);
+// }
+
+
+// static void set_port(atci_param_t *param)
+// {
+//     (void)param;
+//     abort(ERR_UNKNOWN_CMD);
+// }
+
+
+static void get_rep(void)
+{
+    MibRequestConfirm_t r = { .Type = MIB_CHANNELS_NB_TRANS };
+    LoRaMacMibGetRequestConfirm(&r);
+    OK("%d", r.Param.ChannelsNbTrans);
+}
+
+
+static void set_rep(atci_param_t *param)
+{
+    uint32_t v;
+    if (!atci_param_get_uint(param, &v)) abort(ERR_PARAM);
+
+    if (v > 15) abort(ERR_PARAM);
+
+    MibRequestConfirm_t r = {
+        .Type  = MIB_CHANNELS_NB_TRANS,
+        .Param = { .ChannelsNbTrans = v }
+    };
+    if (LoRaMacMibSetRequestConfirm(&r) != LORAMAC_STATUS_OK)
+        abort(ERR_PARAM);
+
+    OK_();
+}
+
+
+// static void get_dformat(void)
+// {
+//     abort(ERR_UNKNOWN_CMD);
+// }
+
+
+// static void set_dformat(atci_param_t *param)
+// {
+//     (void)param;
+//     abort(ERR_UNKNOWN_CMD);
+// }
+
+
+// static void get_to(void)
+// {
+//     abort(ERR_UNKNOWN_CMD);
+// }
+
+
+// static void set_to(atci_param_t *param)
+// {
+//     (void)param;
+//     abort(ERR_UNKNOWN_CMD);
+// }
+
+
+// static void utx(atci_param_t *param)
+// {
+//     (void)param;
+//     abort(ERR_UNKNOWN_CMD);
+// }
+
+
+// static void ctx(atci_param_t *param)
+// {
+//     (void)param;
+//     abort(ERR_UNKNOWN_CMD);
+// }
+
+
+// static void get_mcast(void)
+// {
+//     abort(ERR_UNKNOWN_CMD);
+// }
+
+
+// static void set_mcast(atci_param_t *param)
+// {
+//     (void)param;
+//     abort(ERR_UNKNOWN_CMD);
+// }
+
+
+static void putx_data(atci_param_t *param)
+{
+    if (lrw_send(port, param->txt, param->length, false))
+    {
+        atci_print("+OK");
+    }
+    else
+    {
+        atci_print("+ERR=-18"); // TODO
+    }
+}
+
+
+static void putx(atci_param_t *param)
+{
+    uint32_t value;
+
+    if (!atci_param_get_uint(param, &value) || value > 255)
+    {
+        atci_print("+ERR=-2");
+        return;
+    }
+
+    if (!atci_param_is_comma(param))
+    {
+        atci_print("+ERR=-2");
+        return;
+    }
+
+    port = value;
+
+    if (!atci_param_get_uint(param, &value) || value > 255)
+    {
+        atci_print("+ERR=-2");
+        return;
+    }
+
+    atci_set_read_next_data(value, putx_data);
+}
+
+
+static void pctx_data(atci_param_t *param)
+{
+    if (lrw_send(port, param->txt, param->length, true))
+    {
+        atci_print("+OK");
+    }
+    else
+    {
+        atci_print("+ERR=-18"); // TODO
+    }
+}
+
+
+static void pctx(atci_param_t *param)
+{
+    uint32_t value;
+
+    if (!atci_param_get_uint(param, &value) || value > 255)
+    {
+        atci_print("+ERR=-2");
+        return;
+    }
+
+    if (!atci_param_is_comma(param))
+    {
+        atci_print("+ERR=-2");
+        return;
+    }
+
+    port = value;
+
+    if (!atci_param_get_uint(param, &value) || value > 255)
+    {
+        atci_print("+ERR=-2");
+        return;
+    }
+
+    atci_set_read_next_data(value, pctx_data);
+}
+
+
+// static void get_frmcnt(void)
+// {
+//     abort(ERR_UNKNOWN_CMD);
+// }
+
+
+// static void get_msize(void)
+// {
+//     abort(ERR_UNKNOWN_CMD);
+// }
+
+
+// static void get_rfq(void)
+// {
+//     abort(ERR_UNKNOWN_CMD);
+// }
+
+
+// static void get_dwell(void)
+// {
+//     abort(ERR_UNKNOWN_CMD);
+// }
+
+
+// static void set_dwell(atci_param_t *param)
+// {
+//     (void)param;
+//     abort(ERR_UNKNOWN_CMD);
+// }
+
+
+// static void get_maxeirp(void)
+// {
+//     abort(ERR_UNKNOWN_CMD);
+// }
+
+
+// static void set_maxeirp(atci_param_t *param)
+// {
+//     (void)param;
+//     abort(ERR_UNKNOWN_CMD);
+// }
+
+
+// static void get_rssith(void)
+// {
+//     abort(ERR_UNKNOWN_CMD);
+// }
+
+
+// static void set_rssith(atci_param_t *param)
+// {
+//     (void)param;
+//     abort(ERR_UNKNOWN_CMD);
+// }
+
+
+// static void get_cst(void)
+// {
+//     abort(ERR_UNKNOWN_CMD);
+// }
+
+
+// static void set_cst(atci_param_t *param)
+// {
+//     (void)param;
+//     abort(ERR_UNKNOWN_CMD);
+// }
+
+
+// static void get_backoff(void)
+// {
+//     abort(ERR_UNKNOWN_CMD);
+// }
+
+
+// static void get_chmask(void)
+// {
+// }
+
+
+// static void set_chmask(atci_param_t *param)
+// {
+//     uint16_t chmask[LRW_CHMASK_LENGTH];
+//     memset(chmask, 0, sizeof(chmask));
+
+//     size_t length = atci_param_get_buffer_from_hex(param, chmask, sizeof(chmask));
+
+//     if (length == 0)
+//     {
+//         atci_print("+ERR=-2");
+//         return;
+//     }
+
+//     if (lrw_chmask_set(chmask))
+//     {
+//         config_save();
+//         atci_print("+OK");
+//     }
+//     else
+//     {
+//         atci_print("+ERR=-2");
+//     }
+// }
+
+
+// static void get_rtynum(void)
+// {
+//     abort(ERR_UNKNOWN_CMD);
+// }
+
+
+// static void set_rtynum(atci_param_t *param)
+// {
+//     (void)param;
+//     abort(ERR_UNKNOWN_CMD);
+// }
+
+
+// static void get_netid(void)
+// {
+//     abort(ERR_UNKNOWN_CMD);
+// }
+
+
+// static void set_netid(atci_param_t *param)
+// {
+//     (void)param;
+//     abort(ERR_UNKNOWN_CMD);
+// }
+
+
+// static void get_channels(void)
+// {
+//     lrw_channel_list_t list = lrw_get_channel_list();
+
+//     // log_debug("%d %d", list.length, list.chmask_length);
+//     // log_dump(list.chmask, list.chmask_length * 2, "masks");
+//     // log_dump(list.chmask_default, list.chmask_length * 2, "default_mask");
+
+//     for (uint8_t i = 0; i < list.length; i++)
+//     {
+//         if (list.channels[i].Frequency == 0)
+//             continue;
+
+//         uint8_t is_enable = (i / 16) < list.chmask_length ? (list.chmask[i / 16] >> (i % 16)) & 0x01 : 0;
+
+//         atci_printf("$CHANNELS: %d,%d,%d,%d,%d,%d\r\n",
+//                     is_enable,
+//                     list.channels[i].Frequency,
+//                     list.channels[i].Rx1Frequency,
+//                     list.channels[i].DrRange.Fields.Min,
+//                     list.channels[i].DrRange.Fields.Max,
+//                     list.channels[i].Band);
+//     }
+//     atci_print("+OK");
+// }
+
+
+static void dbg(atci_param_t *param)
 {
     (void)param;
     // RF_IDLE = 0,   //!< The radio is idle
@@ -425,63 +904,89 @@ static void cmd_dbg(atci_param_t *param)
     atci_print("OK");
 }
 
-static void cmd_version_get(void)
+
+static void ping(atci_param_t *param)
 {
-    atci_printf("+OK=%s [LoRaMac %s],%s", VERSION, LIB_VERSION, BUILD_DATE);
-}
+    (void)param;
+    if (lrw_send(2, "ping", 4, false)) {
+        atci_print("+OK");
+    } else {
+        atci_print("+ERR=-18"); // TODO
+    }
 }
 
-static const atci_command_t _cmd_commands[] = {
-    {"+CLASS", NULL, cmd_class_set, cmd_class_get, NULL, "Class mode"},
-    {"+BAND", NULL, cmd_band_set, cmd_band_get, NULL, "Radio band"},
-    {"+NWK", NULL, cmd_nwk_set, cmd_nwk_get, NULL, "Public network"},
-    {"+MODE", NULL, NULL, cmd_mode_get, NULL, "Activation mode 1:OTTA 0:ABP"},
-    {"+DUTYCYCLE", NULL, cmd_dutycycle_set, cmd_dutycycle_get, NULL, "Dutycycle"},
-    {"+DR", NULL, cmd_dr_set, cmd_dr_get, NULL, "Data rate"},
-    {"+RFQ", NULL, NULL, cmd_rfq_get, NULL, "RF parameter of last received message"},
-    {"+DEVEUI", NULL, cmd_deveui_set, cmd_deveui_get, NULL, "Device identifier"},
-    {"+APPEUI", NULL, cmd_appui_set, cmd_appui_get, NULL, "Application identifier"},
-    {"+APPKEY", NULL, cmd_appkey_set, cmd_appkey_get, NULL, "Application key"},
-    {"+DEVADDR", NULL, cmd_devaddr_set, cmd_devaddr_get, NULL, "Device address"},
-    {"+JOIN", cmd_join, NULL, NULL, NULL, "Send OTAA Join packet"},
-    {"+PUTX", cmd_putx, NULL, NULL, NULL, "Send string frame with port"},
-    {"+PCTX", cmd_pctx, NULL, NULL, NULL, "Send string frame with port"},
-    {"+CHMASK", NULL, cmd_chmask_set, cmd_chmask_get, NULL, "Channels mask"},
-    {"+REP", NULL, cmd_rep_set, cmd_rep_get, NULL, "Unconfirmed message repeats [1..15]"},
-    {"+FACNEW", cmd_facnew, NULL, NULL, NULL, "Restore modem to factory"},
-    {"+VER", NULL, NULL, cmd_version_get, NULL, "Firmware version and build time"},
-    {"$CHANNELS", NULL, NULL, cmd_channels_get, NULL, ""},
-    {"+REBOOT", cmd_reboot, NULL, NULL, NULL, "Reboot"},
-    {"$DBG", cmd_dbg, NULL, NULL, NULL, ""},
+
+static void activated(void)
+{
+    MibRequestConfirm_t r = { .Type = MIB_NETWORK_ACTIVATION };
+    LoRaMacMibGetRequestConfirm(&r);
+    OK("%d", r.Param.NetworkActivation);
+}
+
+
+static const atci_command_t cmds[] = {
+    {"+UART",      NULL,          set_uart,      get_uart,      NULL, "Configure UART interface"},
+    {"+VER",       NULL,          NULL,          get_version,   NULL, "Firmware version and build time"},
+    {"+DEV",       NULL,          NULL,          get_model,     NULL, "Device model"},
+    {"+REBOOT",    reboot,        NULL,          NULL,          NULL, "Reboot"},
+    {"+FACNEW",    factory_reset, NULL,          NULL,          NULL, "Restore modem to factory"},
+    {"+BAND",      NULL,          set_band,      get_band,      NULL, "Configure radio band (region)"},
+    {"+CLASS",     NULL,          set_class,     get_class,     NULL, "Configure LoRaWAN class"},
+    {"+MODE",      NULL,          set_mode,      get_mode,      NULL, "Configure activation mode (1:OTTA 0:ABP)"},
+    {"+DEVADDR",   NULL,          set_devaddr,   get_devaddr,   NULL, "Configure DevAddr"},
+    {"+DEVEUI",    NULL,          set_deveui,    get_deveui,    NULL, "Configure DevEUI"},
+    {"+APPEUI",    NULL,          set_joineui,   get_joineui,   NULL, "Configure JoinEUI (AppEUI)"},
+    {"+NWKSKEY",   NULL,          set_nwkskey,   get_nwkskey,   NULL, "Configure NwkSKey"},
+    {"+APPSKEY",   NULL,          set_appskey,   get_appskey,   NULL, "Configure AppSKey"},
+    {"+APPKEY",    NULL,          set_appkey,    get_appkey,    NULL, "Configure AppKey"},
+    {"+JOIN",      join,          NULL,          NULL,          NULL, "Send OTAA Join packet"},
+    // {"+JOINDC",    NULL,          set_joindc,    get_joindc,    NULL, "Configure OTAA Join duty cycling"},
+    // {"+LNCHECK",   link_check,    NULL,          NULL,          NULL, "Perform link check"},
+    // {"+RFPARAM",   NULL,          set_rfparam,   get_rfparam,   NULL, "Configure RF channel parameters"},
+    // {"+RFPOWER",   NULL,          set_rfpower,   get_rfpower,   NULL, "Configure RF power"},
+    {"+NWK",       NULL,          set_nwk,       get_nwk,       NULL, "Configure public/private LoRa network setting"},
+    {"+ADR",       NULL,          set_adr,       get_adr,       NULL, "Configure adaptive data rate (ADR)"},
+    {"+DR",        NULL,          set_dr,        get_dr,        NULL, "Configure data rate (DR)"},
+    // {"+DELAY",     NULL,          set_delay,     get_delay,     NULL, "Configure receive window offsets"},
+    // {"+ADRACK",    NULL,          set_adrack,    get_adrack,    NULL, "Configure ADR ACK parameters"},
+    // {"+RX2",       NULL,          set_rx2,       get_rx2,       NULL, "Configure RX2 window frequency and data rate"},
+    {"+DUTYCYCLE", NULL,          set_dutycycle, get_dutycycle, NULL, "Configure duty cycling in EU868"},
+    // {"+SLEEP",     NULL,          set_sleep,     get_sleep,     NULL, "Configure low power (sleep) mode"},
+    // {"+PORT",      NULL,          set_port,      get_port,      NULL, "Configure default port number for uplink messages"},
+    {"+REP",       NULL,          set_rep,       get_rep,       NULL, "Unconfirmed message repeats [1..15]"},
+    // {"+DFORMAT",   NULL,          set_dformat,   get_dformat,   NULL, "Configure payload format used by the modem"},
+    // {"+TO",        NULL,          set_to,        get_to,        NULL, "Configure UART port timeout"},
+    // {"+UTX",       utx,           NULL,          NULL,          NULL, "Send unconfirmed uplink message"},
+    // {"+CTX",       ctx,           NULL,          NULL,          NULL, "Send confirmed uplink message"},
+    // {"+MCAST",     NULL,          set_mcast,     get_mcast,     NULL, "Configure multicast addresses"},
+    {"+PUTX",      putx,          NULL,          NULL,          NULL, "Send unconfirmed uplink message to port"},
+    {"+PCTX",      pctx,          NULL,          NULL,          NULL, "Send confirmed uplink message to port"},
+    // {"+FRMCNT",    NULL,          NULL,          get_frmcnt,    NULL, "Return current values for uplink and downlink counters"},
+    // {"+MSIZE",     NULL,          NULL,          get_msize,     NULL, "Return maximum payload size for current data rate"},
+    // {"+RFQ",       NULL,          NULL,          get_rfq,       NULL, "Return RSSI and SNR of the last received message"},
+    // {"+DWELL",     NULL,          set_dwell,     get_dwell,     NULL, "Configure dwell setting for AS923"},
+    // {"+MAXEIRP",   NULL,          set_maxeirp,   get_maxeirp,   NULL, "Configure maximum EIRP"},
+    // {"+RSSITH",    NULL,          set_rssith,    get_rssith,    NULL, "Configure RSSI threshold for LBT"},
+    // {"+CST",       NULL,          set_cst,       get_cst,       NULL, "Configure carrie sensor time (CST) for LBT"},
+    // {"+BACKOFF",   NULL,          NULL,          get_backoff,   NULL, "Return duty cycle backoff time for EU868"},
+    // {"+CHMASK",    NULL,          set_chmask,    get_chmask,    NULL, "Configure channel mask"},
+    // {"+RTYNUM",    NULL,          set_rtynum,    get_rtynum,    NULL, "Configure number of confirmed uplink message retries"},
+    // {"+NETID",     NULL,          set_netid,     get_netid,     NULL, "Configure LoRaWAN network identifier"},
+    // {"$CHANNELS",  NULL,          NULL,          get_channels,  NULL, ""},
+    {"$DBG",       dbg,           NULL,          NULL,          NULL, ""},
+    {"$PING",      ping,          NULL,          NULL,          NULL, "Send ping message"},
+    {"$ACTIVATED", NULL,          NULL,          activated,     NULL, "Returns network activation status (0: not activate, >0: activated"},
     ATCI_COMMAND_CLAC,
     ATCI_COMMAND_HELP};
 
+
 void cmd_init()
 {
-    memset(&_at, 0, sizeof(_at));
-
-    atci_init(_cmd_commands, ATCI_COMMANDS_LENGTH(_cmd_commands));
+    atci_init(cmds, ATCI_COMMANDS_LENGTH(cmds));
 }
 
-void cmd_event(const uint8_t type, const uint8_t no)
-{
-    atci_printf("+EVENT=%d,%d\r\n\r\n", type, no);
-}
 
-static bool _cmd_param_parse_is_enable(atci_param_t *param, bool *enable)
+void cmd_event(unsigned int type, unsigned int subtype)
 {
-    if (param->length == 1)
-    {
-        if (param->txt[0] == '0')
-        {
-            *enable = false;
-            return true;
-        }
-        else if (param->txt[0] == '1')
-        {
-            *enable = true;
-            return true;
-        }
-    }
-    return false;
+    atci_printf("+EVENT=%d,%d\r\n\r\n", type, subtype);
 }

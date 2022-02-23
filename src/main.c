@@ -16,58 +16,9 @@
 #include "usart.h"
 #include "irq.h"
 
-static void lrw_join_status(bool status);
-static void tx_needed(void);
-static uint8_t get_battery_level(void);
-static float lrw_get_temperature(void);
-static void lrw_mac_process_notify(void);
-static void lrw_on_rx_data(uint8_t port, uint8_t *buffer, uint8_t length, lrw_rx_params_t *params);
-static void lrw_on_tx_data(lrw_tx_params_t *params);
 
-static lrw_callback_t lrw_callbacks = {
-    .config_save = config_save,
-    .get_battery_level = get_battery_level,
-    .get_temperature_level = lrw_get_temperature,
-    .get_unique_id = system_get_unique_id,
-    .get_random_seed = system_get_random_seed,
-    .join_status = lrw_join_status,
-    .tx_needed = tx_needed,
-    .mac_process_notify = lrw_mac_process_notify,
-    .on_rx_data = lrw_on_rx_data,
-    .on_tx_data = lrw_on_tx_data};
+static lrw_config_t config;
 
-bool lrw_process_request = false;
-
-#pragma pack(push, 4)
-typedef struct
-{
-    lrw_configuration_t lora;
-} configuration_t;
-#pragma pack(pop)
-
-static const configuration_t configuration_default = {
-    .lora = {
-        .region = LORAMAC_REGION_EU868,
-        .public_network = LRW_PUBLIC_NETWORK,
-        .otaa = LRW_ENABLE,
-        .duty_cycle = LRW_ENABLE, // Enable for EU868
-        .class = LRW_CLASS,
-        .devaddr = LRW_DEVICE_ADDRESS,
-        .deveui = LRW_DEVICE_EUI,
-        .appeui = LRW_JOIN_EUI,
-        .appkey = LRW_DEFAULT_KEY,
-        .nwkkey = LRW_DEFAULT_KEY,
-        .nwksenckey = LRW_DEFAULT_KEY,
-        .appskey = LRW_DEFAULT_KEY,
-        .fnwksIntkey = LRW_DEFAULT_KEY,
-        .snwksintkey = LRW_DEFAULT_KEY,
-        .chmask = {0xff, 0, 0, 0, 0, 0},
-        .tx_datarate = DR_0,
-        .adr = LRW_ADR_ON,
-        .tx_repeats = 1,
-    }};
-
-configuration_t configuration;
 
 void gpio_dump(char name, GPIO_TypeDef *port)
 {
@@ -104,7 +55,15 @@ int main(void)
     log_info("LoRa Module %s [LoRaMac %s] built on %s", VERSION, LIB_VERSION, BUILD_DATE);
 #endif
 
-    config_init(&configuration, sizeof(configuration), &configuration_default);
+    // Initialize the random number generator (used by LoRaMac) early. The
+    // generator is seeded from the unique number of the MCU board. This will
+    // yield pseudo-random DevAddr (when one is randomly generated) derived from
+    // the unique ID of the MCU.
+    srand1(system_get_random_seed());
+
+    // Load configuration from EEPROM. If no configuation is found, initialize
+    // the configuration from defaults.
+    //config_init(&config, sizeof(config), NULL);
 
     adc_init();
 
@@ -112,32 +71,22 @@ int main(void)
 
     sx1276io_init();
 
-    lrw_init(&configuration.lora, &lrw_callbacks);
+    lrw_init(&config, 8);
+
+    log_debug("LoRaMac: Starting");
+    LoRaMacStart();
 
     cmd_init();
-    cmd_event(0, 0);
+    cmd_event(CMD_EVENT_MODULE, CMD_MODULE_BOOT);
 
-    // while (1)
-    // {
-    //     irq_disable();
-    //     system_low_power();
-    //     irq_enable();
-    // }
-
-    while (1)
-    {
+    while (1) {
         cmd_process();
-
         lrw_process();
 
-        // low power section
         CRITICAL_SECTION_BEGIN();
-        if (lrw_process_request)
-        {
-            lrw_process_request = false; // reset notification flag
-        }
-        else
-        {
+        if (lrw_irq) {
+            lrw_irq = false;
+        } else {
 #ifndef LOW_POWER_DISABLE
             system_low_power();
 #endif
@@ -146,45 +95,6 @@ int main(void)
     }
 }
 
-void lrw_mac_process_notify(void)
-{
-    lrw_process_request = true;
-}
-
-static void lrw_join_status(bool status)
-{
-    cmd_event(1, status);
-}
-
-static void tx_needed(void)
-{
-    log_debug("tx_needed");
-}
-
-static uint8_t get_battery_level(void)
-{
-    // callback to get the battery level in % of full charge (254 full charge, 0 no charge)
-    return LRW_MAX_BAT;
-}
-
-static float lrw_get_temperature(void)
-{
-    return adc_get_temperature_celsius();
-}
-
-static void lrw_on_rx_data(uint8_t port, uint8_t *buffer, uint8_t length, lrw_rx_params_t *params)
-{
-    (void) params;
-    atci_printf("+RECV=%d,%d\r\n\r\n", port, length);
-    atci_write((char *) buffer, length);
-    // atci_print_buffer_as_hex(buffer, length);
-}
-
-static void lrw_on_tx_data(lrw_tx_params_t *params)
-{
-    if (params->ack_received)
-        cmd_print("+ACK\r\n\r\n");
-}
 
 void system_on_enter_stop_mode(void)
 {
@@ -193,6 +103,7 @@ void system_on_enter_stop_mode(void)
     adc_deinit();
     // usart_io_deinit();
 }
+
 
 void system_on_exit_stop_mode(void)
 {
