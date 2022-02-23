@@ -21,6 +21,16 @@ bool eeprom_write(uint32_t address, const void *buffer, size_t length);
 
 bool eeprom_read(uint32_t address, void *buffer, size_t length);
 
+
+//! @brief Return memory pointer for given EEPROM address
+//! @param[in] address EEPROM start address (starts at 0)
+//! @param[in] length Number of bytes to be read
+//! @return Pointer to corresponding memory address
+//! @return NULL On failure
+
+const void *eeprom_mmap(uint32_t address, size_t length);
+
+
 //! @brief Return size of EEPROM area
 //! @return Size of EEPROM area in bytes
 

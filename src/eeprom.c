@@ -51,7 +51,7 @@ bool eeprom_write(uint32_t address, const void *buffer, size_t length)
     return true;
 }
 
-bool eeprom_read(uint32_t address, void *buffer, size_t length)
+const void *eeprom_mmap(uint32_t address, size_t length)
 {
     // Add EEPROM base offset to address
     address += _EEPROM_BASE;
@@ -60,15 +60,28 @@ bool eeprom_read(uint32_t address, void *buffer, size_t length)
     if ((address + length) > (_EEPROM_END + 1))
     {
         // Indicate failure
+        return NULL;
+    }
+
+    return (const void *)address;
+}
+
+bool eeprom_read(uint32_t address, void *buffer, size_t length)
+{
+    const void *mem = eeprom_mmap(address, length);
+    if (mem == NULL)
+    {
+        // Indicate failure
         return false;
     }
 
     // Read from EEPROM memory to buffer
-    memcpy(buffer, (void *) address, length);
+    memcpy(buffer, mem, length);
 
     // Indicate success
     return true;
 }
+
 
 size_t eeprom_get_size(void)
 {
