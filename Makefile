@@ -18,6 +18,11 @@ ENABLE_REGIONS ?= AS923 AU915 CN470 CN779 EU433 EU868 IN865 KR920 RU864 US915
 # The default (if undefined) is 1.1.0 in LoRaMac v4.6.0.
 LORAMAC_VERSION ?= 0x01000400
 
+# Configure the LoRaWAN specification version to be used in ABP mode. Here we
+# may need to select 1.0.3 to enable the legacy mode.
+LORAMAC_ABP_VERSION ?= 0x01000300
+
+
 ELF ?= $(OUT_DIR)/$(TYPE)/$(OUT).elf
 MAP ?= $(OUT_DIR)/$(TYPE)/$(OUT).map
 BIN ?= $(OUT_DIR)/$(TYPE)/$(OUT).bin
@@ -237,6 +242,10 @@ CFLAGS += -DLIB_VERSION='"$(lib_version)"'
 
 ifneq (,$(LORAMAC_VERSION))
 CFLAGS += -DLORAMAC_VERSION=$(LORAMAC_VERSION)
+endif
+
+ifneq (,$(LORAMAC_ABP_VERSION))
+CFLAGS += -DLORAMAC_ABP_VERSION=$(LORAMAC_ABP_VERSION)
 endif
 
 ################################################################################
