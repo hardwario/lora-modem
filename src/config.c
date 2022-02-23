@@ -49,7 +49,7 @@ void config_init(void *config, size_t size, const void *init_config)
 
     if (!config_load())
     {
-        log_warning("Config reset");
+        log_warning("No config found in EEPROM, using defaults");
         config_reset();
     }
 
