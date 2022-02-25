@@ -85,7 +85,7 @@ int main(void)
         if (part_open_block(&nvm) != 0) halt("Could not open EEPROM");
     }
 
-    lrw_init(&config, &nvm, 8);
+    lrw_init(&nvm);
 
     log_debug("LoRaMac: Starting");
     LoRaMacStart();

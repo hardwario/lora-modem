@@ -6,18 +6,6 @@
 #include "part.h"
 
 
-//! @brief Lora configuration structure
-#pragma pack(push, 2)
-typedef struct
-{
-    uint8_t mode;             // Selected activation mode (0: ABP 1: OTAA)
-    bool duty_cycle;          // if duty cyle
-    uint8_t tx_datarate;      // TX datarate
-    uint8_t tx_repeats;       // unconfirmed messages only
-} lrw_config_t;
-#pragma pack(pop)
-
-
 typedef struct
 {
     ChannelParams_t *channels;
@@ -31,9 +19,7 @@ typedef struct
 extern bool lrw_irq;
 
 
-//! @brief LoRaWAN Initialisation
-//! @param[in] config Pointer to configuration structure
-void lrw_init(lrw_config_t *config, const part_block_t *nvm, LoRaMacRegion_t region);
+void lrw_init(const part_block_t *nvm);
 
 LoRaMacNvmData_t *lrw_get_state(void);
 
@@ -54,6 +40,8 @@ int lrw_isack_get(void);
 void lrw_process(void);
 
 int lrw_activate();
+
+int lrw_set_region(unsigned int region);
 
 int lrw_set_mode(unsigned int value);
 unsigned int lrw_get_mode(void);

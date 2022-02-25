@@ -120,15 +120,13 @@ static void set_band(atci_param_t *param)
     if (!atci_param_get_uint(param, &value))
         abort(ERR_PARAM);
 
-    if (!RegionIsActive(value))
+    if (lrw_set_region(value) != 0)
         abort(ERR_PARAM);
 
-    LoRaMacNvmData_t *state = lrw_get_state();
-    // FIXME: Check that the value is correct and that the region is active.
-    state->MacGroup2.Region = value;
+    OK_();
 
-    config_save();
-    reboot(param);
+    // FIXME: Schedule reboot here after data has been saved to NVM
+    //reboot(param);
 }
 
 

@@ -23,10 +23,23 @@ static McpsIndication_t rx_params;
 // variables does not need to be saved in NVM.
 unsigned int activation_mode = 0;
 
-static const char* region2str[] = {
-    "AS923", "AU915", "CN470", "CN779", "EU433",
-    "EU868", "KR920", "IN865", "US915", "RU864"
+
+static struct {
+    const char *name;
+    int id;
+} region_map[] = {
+    { "AS923", LORAMAC_REGION_AS923 },
+    { "AU915", LORAMAC_REGION_AU915 },
+    { "CN470", LORAMAC_REGION_CN470 },
+    { "CN779", LORAMAC_REGION_CN779 },
+    { "EU433", LORAMAC_REGION_EU433 },
+    { "EU868", LORAMAC_REGION_EU868 },
+    { "KR920", LORAMAC_REGION_KR920 },
+    { "IN865", LORAMAC_REGION_IN865 },
+    { "US915", LORAMAC_REGION_US915 },
+    { "RU864", LORAMAC_REGION_RU864 }
 };
+
 
 static uint16_t nvm_flags;
 static struct {
@@ -38,6 +51,25 @@ static struct {
     part_t region2;
     part_t classb;
 } nvm;
+
+
+static int region2id(const char *name)
+{
+    if (name == NULL) return -1;
+
+    for (unsigned int i = 0; i < sizeof(region_map) / sizeof(region_map[0]); i++)
+        if (!strcmp(region_map[i].name, name)) return region_map[i].id;
+    return -2;
+}
+
+
+static const char *region2str(int id)
+{
+    for (unsigned int i = 0; i < sizeof(region_map) / sizeof(region_map[0]); i++)
+        if (region_map[i].id == id ) return region_map[i].name;
+    return NULL;
+}
+
 
 
 static uint8_t get_battery_level(void)
@@ -164,6 +196,21 @@ static void restore_state(void)
         log_debug("Restoring ClassB state from NVM");
         memcpy(&s->ClassB, p, size);
     }
+}
+
+
+static int restore_region()
+{
+    size_t size;
+    LoRaMacNvmDataGroup2_t data;
+
+    const unsigned char *p = part_mmap(&size, &nvm.mac2);
+    if (p && Crc32((unsigned char *)p, size - 4) == *(uint32_t *)(p + size - 4)) {
+        memcpy(&data, p, size);
+        return data.Region;
+    }
+
+    return region2id(DEFAULT_ACTIVE_REGION);
 }
 
 
@@ -322,7 +369,7 @@ error:
 }
 
 
-void lrw_init(lrw_config_t *cfg, const part_block_t *nvm_block, LoRaMacRegion_t region)
+void lrw_init(const part_block_t *nvm_block)
 {
     static const uint8_t zero_eui[SE_EUI_SIZE];
     LoRaMacStatus_t rc;
@@ -330,12 +377,12 @@ void lrw_init(lrw_config_t *cfg, const part_block_t *nvm_block, LoRaMacRegion_t 
 
     memset(&tx_params, 0, sizeof(tx_params));
     memset(&rx_params, 0, sizeof(rx_params));
-    config = cfg;
 
     init_nvm(nvm_block);
+    LoRaMacRegion_t region = restore_region();
 
     log_debug("LoRaMac: Initializing for region %s, regional parameters RP%03d-%d.%d.%d",
-        region2str[region], REGION_VERSION >> 24, (REGION_VERSION >> 16) & 0xff,
+        region2str(region), REGION_VERSION >> 24, (REGION_VERSION >> 16) & 0xff,
         (REGION_VERSION >> 8) & 0xff, REGION_VERSION & 0xff);
     rc = LoRaMacInitialization(&primitives, &callbacks, region);
     switch(rc) {
@@ -347,7 +394,7 @@ void lrw_init(lrw_config_t *cfg, const part_block_t *nvm_block, LoRaMacRegion_t 
             break;
 
         case LORAMAC_STATUS_REGION_NOT_SUPPORTED:
-            log_error("LoRaMac: Unsupported region %s", region2str[region]);
+            log_error("LoRaMac: Unsupported region %s", region2str(region));
             return;
 
         default:
@@ -560,5 +607,27 @@ int lrw_set_mode(unsigned int mode)
 
     activation_mode = mode;
     if (mode == 0) lrw_activate();
+    return 0;
+}
+
+
+int lrw_set_region(unsigned int region)
+{
+    if (!RegionIsActive(region)) return -1;
+
+    // Store the new region id in the NVM state in group MacGroup2
+    LoRaMacNvmData_t *state = lrw_get_state();
+    state->MacGroup2.Region = region;
+
+    // Since we have potentially modified the state, we need to re-compute the
+    // CRC32 value and trigger the NVM change callback if necessary so that the
+    // update will be saved to NVM.
+
+    uint32_t crc = Crc32((uint8_t *)&state->MacGroup2, sizeof(state->MacGroup2) - sizeof(state->MacGroup2.Crc32));
+    if (crc != state->MacGroup2.Crc32) {
+        state->MacGroup2.Crc32 = crc;
+        nvm_data_change(LORAMAC_NVM_NOTIFY_FLAG_MAC_GROUP2);
+    }
+
     return 0;
 }
