@@ -595,22 +595,6 @@ int lrw_activate()
 }
 
 
-unsigned int lrw_get_mode(void)
-{
-    return activation_mode;
-}
-
-
-int lrw_set_mode(unsigned int mode)
-{
-    if (mode > 1) return -1;
-
-    activation_mode = mode;
-    if (mode == 0) lrw_activate();
-    return 0;
-}
-
-
 int lrw_set_region(unsigned int region)
 {
     if (!RegionIsActive(region)) return -1;
@@ -623,11 +607,11 @@ int lrw_set_region(unsigned int region)
     // CRC32 value and trigger the NVM change callback if necessary so that the
     // update will be saved to NVM.
 
-    uint32_t crc = Crc32((uint8_t *)&state->MacGroup2, sizeof(state->MacGroup2) - sizeof(state->MacGroup2.Crc32));
-    if (crc != state->MacGroup2.Crc32) {
-        state->MacGroup2.Crc32 = crc;
+    if (update_block_crc(&state->MacGroup2, sizeof(state->MacGroup2)))
         nvm_data_change(LORAMAC_NVM_NOTIFY_FLAG_MAC_GROUP2);
-    }
+
+    return 0;
+}
 
     return 0;
 }
