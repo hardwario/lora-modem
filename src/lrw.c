@@ -13,11 +13,15 @@
 
 #define MAX_BAT 254
 
+
 bool lrw_irq = false;
 
 static McpsConfirm_t tx_params;
 static McpsIndication_t rx_params;
-static lrw_config_t *config;
+
+// Remember activation mode in this variable. 0 means ABP, 1 means OTAA. This
+// variables does not need to be saved in NVM.
+unsigned int activation_mode = 0;
 
 static const char* region2str[] = {
     "AS923", "AU915", "CN470", "CN779", "EU433",
@@ -527,7 +531,7 @@ int lrw_activate()
     mlme.Type = MLME_JOIN;
     mlme.Req.Join.Datarate = DR_0; // LoRaParamInit->tx_datarate;
 
-    if (config->mode == 1) {
+    if (activation_mode == 1) {
         if (LoRaMacIsBusy()) return -1;
         mlme.Req.Join.NetworkActivation = ACTIVATION_TYPE_OTAA;
     } else {
@@ -544,14 +548,17 @@ int lrw_activate()
 }
 
 
-uint8_t lrw_get_mode(void)
+unsigned int lrw_get_mode(void)
 {
-    return config->mode;
+    return activation_mode;
 }
 
 
-void lrw_set_mode(uint8_t mode)
+int lrw_set_mode(unsigned int mode)
 {
-    config->mode = mode;
-    if (config->mode == 0) lrw_activate();
+    if (mode > 1) return -1;
+
+    activation_mode = mode;
+    if (mode == 0) lrw_activate();
+    return 0;
 }

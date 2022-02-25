@@ -177,7 +177,7 @@ static void set_mode(atci_param_t *param)
     if (!atci_param_get_uint(param, &v)) abort(ERR_PARAM);
     if (v > 1) abort(ERR_PARAM);
 
-    lrw_set_mode(v);
+    if (lrw_set_mode(v) != 0) abort(ERR_PARAM);
     OK_();
 }
 

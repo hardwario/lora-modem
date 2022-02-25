@@ -55,8 +55,7 @@ void lrw_process(void);
 
 int lrw_activate();
 
-void lrw_set_mode(uint8_t value);
-
-uint8_t lrw_get_mode(void);
+int lrw_set_mode(unsigned int value);
+unsigned int lrw_get_mode(void);
 
 #endif // _LRW_H
