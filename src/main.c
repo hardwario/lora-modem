@@ -18,31 +18,8 @@
 #include "part.h"
 #include "eeprom.h"
 #include "halt.h"
+#include "nvm.h"
 
-static lrw_config_t config;
-
-
-void gpio_dump(char name, GPIO_TypeDef *port)
-{
-    // log_debug("GPIO%c->MODER: 0x%08lX", name, port->MODER);
-    // log_debug("GPIO%c->OTYPER: 0x%08lX", name, port->OTYPER);
-    // log_debug("GPIO%c->OSPEEDR: 0x%08lX", name, port->OSPEEDR);
-    // log_debug("GPIO%c->PUPDR: 0x%08lX", name, port->PUPDR);
-    // log_debug("GPIO%c->ODR: 0x%08lX", name, port->ODR);
-    // log_debug("GPIO%c->AFRL: 0x%08lX", name, port->AFR[0]);
-    // log_debug("GPIO%c->AFRH: 0x%08lX", name, port->AFR[1]);
-
-    log_debug("%c 0x%08lX 0x%08lX 0x%08lX 0x%08lX 0x%08lX 0x%08lX 0x%08lX",
-              name,
-              port->MODER,
-              port->OTYPER,
-              port->OSPEEDR,
-              port->PUPDR,
-              port->ODR,
-              port->AFR[0],
-              port->AFR[1]
-    );
-}
 
 int main(void)
 {
@@ -68,34 +45,21 @@ int main(void)
     //config_init(&config, sizeof(config), NULL);
 
     adc_init();
-
     spi_init(10000000);
-
     sx1276io_init();
 
-    part_block_t nvm = {
-        .size = DATA_EEPROM_BANK2_END - DATA_EEPROM_BASE + 1,
-        .mmap = eeprom_mmap,
-        .write = eeprom_write
-    };
-
-    if (part_open_block(&nvm) != 0) {
-        log_debug("Formatting EEPROM");
-        if (part_format_block(&nvm, 8) != 0) halt("Could not format EEPROM");
-        if (part_open_block(&nvm) != 0) halt("Could not open EEPROM");
-    }
-
+    nvm_init();
     lrw_init(&nvm);
+    cmd_init(sysconf.uart_baudrate);
 
     log_debug("LoRaMac: Starting");
     LoRaMacStart();
-
-    cmd_init();
     cmd_event(CMD_EVENT_MODULE, CMD_MODULE_BOOT);
 
     while (1) {
         cmd_process();
         lrw_process();
+        sysconf_process();
 
         CRITICAL_SECTION_BEGIN();
         if (lrw_irq) {
