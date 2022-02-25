@@ -9,6 +9,7 @@
 #include "gpio.h"
 #include "log.h"
 #include "rtc.h"
+#include "nvm.h"
 
 
 typedef enum cmd_errno {
@@ -62,14 +63,27 @@ static int parse_enabled(atci_param_t *param)
 
 static void get_uart(void)
 {
-    OK("%d,%d,%d,%d,%d", 9600, 8, 1, 0, 0);
+    OK("%d,%d,%d,%d,%d", sysconf.uart_baudrate, 8, 1, 0, 0);
 }
 
 
 static void set_uart(atci_param_t *param)
 {
-    (void)param;
-    abort(ERR_UNKNOWN_CMD);
+    uint32_t v;
+    if (!atci_param_get_uint(param, &v)) abort(ERR_PARAM);
+
+    switch(v) {
+        case 4800:  break;
+        case 9600:  break;
+        case 19200: break;
+        case 38400: break;
+        default: abort(ERR_PARAM);
+    }
+
+    sysconf.uart_baudrate = v;
+    sysconf_modified = true;
+
+    OK_();
 }
 
 

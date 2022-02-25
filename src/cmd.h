@@ -31,7 +31,7 @@ enum cmd_event_net {
 };
 
 
-void cmd_init(void);
+void cmd_init(unsigned int baudrate);
 
 void cmd_event(unsigned int type, unsigned subtype);
 
