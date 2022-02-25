@@ -15,7 +15,9 @@
 #include "rtc.h"
 #include "usart.h"
 #include "irq.h"
-
+#include "part.h"
+#include "eeprom.h"
+#include "halt.h"
 
 static lrw_config_t config;
 
@@ -71,7 +73,19 @@ int main(void)
 
     sx1276io_init();
 
-    lrw_init(&config, 8);
+    part_block_t nvm = {
+        .size = DATA_EEPROM_BANK2_END - DATA_EEPROM_BASE + 1,
+        .mmap = eeprom_mmap,
+        .write = eeprom_write
+    };
+
+    if (part_open_block(&nvm) != 0) {
+        log_debug("Formatting EEPROM");
+        if (part_format_block(&nvm, 8) != 0) halt("Could not format EEPROM");
+        if (part_open_block(&nvm) != 0) halt("Could not open EEPROM");
+    }
+
+    lrw_init(&config, &nvm, 8);
 
     log_debug("LoRaMac: Starting");
     LoRaMacStart();

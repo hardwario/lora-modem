@@ -3,6 +3,7 @@
 
 #include <loramac-node/src/mac/LoRaMac.h>
 #include <loramac-node/src/mac/region/Region.h>
+#include "part.h"
 
 
 //! @brief Lora configuration structure
@@ -32,7 +33,7 @@ extern bool lrw_irq;
 
 //! @brief LoRaWAN Initialisation
 //! @param[in] config Pointer to configuration structure
-void lrw_init(lrw_config_t *config, LoRaMacRegion_t region);
+void lrw_init(lrw_config_t *config, const part_block_t *nvm, LoRaMacRegion_t region);
 
 LoRaMacNvmData_t *lrw_get_state(void);
 

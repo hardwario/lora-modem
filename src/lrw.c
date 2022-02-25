@@ -9,7 +9,7 @@
 #include "system.h"
 #include "halt.h"
 #include "log.h"
-#include "eeprom.h"
+#include "part.h"
 
 #define MAX_BAT 254
 
@@ -18,12 +18,22 @@ bool lrw_irq = false;
 static McpsConfirm_t tx_params;
 static McpsIndication_t rx_params;
 static lrw_config_t *config;
-static uint16_t nvm_flags;
 
 static const char* region2str[] = {
     "AS923", "AU915", "CN470", "CN779", "EU433",
     "EU868", "KR920", "IN865", "US915", "RU864"
 };
+
+static uint16_t nvm_flags;
+static struct {
+    part_t crypto;
+    part_t mac1;
+    part_t mac2;
+    part_t se;
+    part_t region1;
+    part_t region2;
+    part_t classb;
+} nvm;
 
 
 static uint8_t get_battery_level(void)
@@ -42,7 +52,6 @@ static void process_irq(void)
 
 static void save_state(void)
 {
-    size_t offset = 0;
     LoRaMacStatus_t rc;
     LoRaMacNvmData_t *s;
 
@@ -58,100 +67,99 @@ static void save_state(void)
     s = lrw_get_state();
 
     if (nvm_flags & LORAMAC_NVM_NOTIFY_FLAG_CRYPTO) {
-        log_debug("Saving Crypto state to EEPROM");
-        if (!eeprom_write(offset, &s->Crypto, sizeof(s->Crypto)))
-            log_error("Error while writing Crypto state to EEPROM");
+        log_debug("Saving Crypto state to NVM");
+        if (!part_write(&nvm.crypto, 0, &s->Crypto, sizeof(s->Crypto)))
+            log_error("Error while writing Crypto state to NVM");
     }
-    offset += sizeof(s->Crypto);
 
     if (nvm_flags & LORAMAC_NVM_NOTIFY_FLAG_MAC_GROUP1) {
-        log_debug("Saving MacGroup1 state to EEPROM");
-        if (!eeprom_write(offset, &s->MacGroup1, sizeof(s->MacGroup1)))
-            log_error("Error while writing MacGroup1 state to EEPROM");
+        log_debug("Saving MacGroup1 state to NVM");
+        if (!part_write(&nvm.mac1, 0, &s->MacGroup1, sizeof(s->MacGroup1)))
+            log_error("Error while writing MacGroup1 state to NVM");
     }
-    offset += sizeof(s->MacGroup1);
 
     if (nvm_flags & LORAMAC_NVM_NOTIFY_FLAG_MAC_GROUP2) {
-        log_debug("Saving MacGroup2 state to EEPROM");
-        if (!eeprom_write(offset, &s->MacGroup2, sizeof(s->MacGroup2)))
-            log_error("Error while writing MacGroup2 state to EEPROM");
+        log_debug("Saving MacGroup2 state to NVM");
+        if (!part_write(&nvm.mac2, 0, &s->MacGroup2, sizeof(s->MacGroup2)))
+            log_error("Error while writing MacGroup2 state to NVM");
     }
-    offset += sizeof(s->MacGroup2);
 
     if (nvm_flags & LORAMAC_NVM_NOTIFY_FLAG_SECURE_ELEMENT) {
-        log_debug("Saving SecureElement state to EEPROM");
-        if (!eeprom_write(offset, &s->SecureElement, sizeof(s->SecureElement)))
-            log_error("Error while writing SecureElement state to EEPROM");
+        log_debug("Saving SecureElement state to NVM");
+        if (!part_write(&nvm.se, 0, &s->SecureElement, sizeof(s->SecureElement)))
+            log_error("Error while writing SecureElement state to NVM");
     }
-    offset += sizeof(s->SecureElement);
 
     if (nvm_flags & LORAMAC_NVM_NOTIFY_FLAG_REGION_GROUP1) {
-        log_debug("Saving RegionGroup1 state to EEPROM");
-        if (!eeprom_write(offset, &s->RegionGroup1, sizeof(s->RegionGroup1)))
-            log_error("Error while writing RegionGroup1 state to EEPROM");
+        log_debug("Saving RegionGroup1 state to NVM");
+        if (!part_write(&nvm.region1, 0, &s->RegionGroup1, sizeof(s->RegionGroup1)))
+            log_error("Error while writing RegionGroup1 state to NVM");
     }
-    offset += sizeof(s->RegionGroup1);
 
     if (nvm_flags & LORAMAC_NVM_NOTIFY_FLAG_REGION_GROUP2) {
-        log_debug("Saving RegionGroup2 state to EEPROM");
-        if (!eeprom_write(offset, &s->RegionGroup2, sizeof(s->RegionGroup2)))
-            log_error("Error while writing RegionGroup2 state to EEPROM");
+        log_debug("Saving RegionGroup2 state to NVM");
+        if (!part_write(&nvm.region2, 0, &s->RegionGroup2, sizeof(s->RegionGroup2)))
+            log_error("Error while writing RegionGroup2 state to NVM");
     }
-    offset += sizeof(s->RegionGroup2);
 
     if (nvm_flags & LORAMAC_NVM_NOTIFY_FLAG_CLASS_B) {
-        log_debug("Saving ClassB state to EEPROM");
-        if (!eeprom_write(offset, &s->ClassB, sizeof(s->ClassB)))
-            log_error("Error while writing ClassB state to EEPROM");
+        log_debug("Saving ClassB state to NVM");
+        if (!part_write(&nvm.classb, 0, &s->ClassB, sizeof(s->ClassB)))
+            log_error("Error while writing ClassB state to NVM");
     }
-    offset += sizeof(s->ClassB);
 
     nvm_flags = LORAMAC_NVM_NOTIFY_FLAG_NONE;
     LoRaMacStart();
 }
 
 
-static void restore_part(void *dst, size_t offset, size_t len, const char *name)
-{
-    static uint8_t buffer[sizeof(LoRaMacNvmData_t)];
-
-    if (eeprom_read(offset, buffer, len)) {
-        if (Crc32(buffer, len - 4) == *(uint32_t *)(buffer + len - 4)) {
-            log_debug("Restoring %s state", name);
-            memcpy(dst, buffer, len);
-        }
-    } else {
-        log_error("Error while reading %s state from EEPROM", name);
-    }
-
-}
-
-
 static void restore_state(void)
 {
-    size_t offset = 0;
+    size_t size;
+    const unsigned char *p;
     LoRaMacNvmData_t *s = lrw_get_state();
 
-    restore_part(&s->Crypto, offset, sizeof(s->Crypto), "Crypto");
-    offset += sizeof(s->Crypto);
+    p = part_mmap(&size, &nvm.crypto);
+    if (p && Crc32((unsigned char *)p, size - 4) == *(uint32_t *)(p + size - 4)) {
+        log_debug("Restoring Crypto state from NVM");
+        memcpy(&s->Crypto, p, size);
+    }
 
-    restore_part(&s->MacGroup1, offset, sizeof(s->MacGroup1), "MacGroup1");
-    offset += sizeof(s->MacGroup1);
+    p = part_mmap(&size, &nvm.mac1);
+    if (p && Crc32((unsigned char *)p, size - 4) == *(uint32_t *)(p + size - 4)) {
+        log_debug("Restoring MacGroup1 state from NVM");
+        memcpy(&s->MacGroup1, p, size);
+    }
 
-    restore_part(&s->MacGroup2, offset, sizeof(s->MacGroup2), "MacGroup2");
-    offset += sizeof(s->MacGroup2);
+    p = part_mmap(&size, &nvm.mac2);
+    if (p && Crc32((unsigned char *)p, size - 4) == *(uint32_t *)(p + size - 4)) {
+        log_debug("Restoring MacGroup2 state from NVM");
+        memcpy(&s->MacGroup2, p, size);
+    }
 
-    restore_part(&s->SecureElement, offset, sizeof(s->SecureElement), "SecureElement");
-    offset += sizeof(s->SecureElement);
+    p = part_mmap(&size, &nvm.se);
+    if (p && Crc32((unsigned char *)p, size - 4) == *(uint32_t *)(p + size - 4)) {
+        log_debug("Restoring SecureElement state from NVM");
+        memcpy(&s->SecureElement, p, size);
+    }
 
-    restore_part(&s->RegionGroup1, offset, sizeof(s->RegionGroup1), "RegionGroup1");
-    offset += sizeof(s->RegionGroup1);
+    p = part_mmap(&size, &nvm.region1);
+    if (p && Crc32((unsigned char *)p, size - 4) == *(uint32_t* )(p + size - 4)) {
+        log_debug("Restoring RegionGroup1 state from NVM");
+        memcpy(&s->RegionGroup1, p, size);
+    }
 
-    restore_part(&s->RegionGroup2, offset, sizeof(s->RegionGroup2), "RegionGroup2");
-    offset += sizeof(s->RegionGroup2);
+    p = part_mmap(&size, &nvm.region2);
+    if (p && Crc32((unsigned char *)p, size - 4) == *(uint32_t *)(p + size - 4)) {
+        log_debug("Restoring RegionGroup2 state from NVM");
+        memcpy(&s->RegionGroup2, p, size);
+    }
 
-    restore_part(&s->ClassB, offset, sizeof(s->ClassB), "ClassB");
-    offset += sizeof(s->ClassB);
+    p = part_mmap(&size, &nvm.classb);
+    if (p && Crc32((unsigned char *)p, size - 4) == *(uint32_t *)(p + size - 4)) {
+        log_debug("Restoring ClassB state from NVM");
+        memcpy(&s->ClassB, p, size);
+    }
 }
 
 
@@ -274,7 +282,43 @@ static LoRaMacCallback_t callbacks = {
 };
 
 
-void lrw_init(lrw_config_t *cfg, LoRaMacRegion_t region)
+static void init_nvm(const part_block_t *nvm_block)
+{
+    if (part_find(&nvm.crypto, nvm_block, "crypto") &&
+        part_create(&nvm.crypto, nvm_block, "crypto", sizeof(LoRaMacCryptoNvmData_t)))
+        goto error;
+
+    if (part_find(&nvm.mac1, nvm_block, "mac1") &&
+        part_create(&nvm.mac1, nvm_block, "mac1", sizeof(LoRaMacNvmDataGroup1_t)))
+        goto error;
+
+    if (part_find(&nvm.mac2, nvm_block, "mac2") &&
+        part_create(&nvm.mac2, nvm_block, "mac2", sizeof(LoRaMacNvmDataGroup2_t)))
+        goto error;
+
+    if (part_find(&nvm.se, nvm_block, "se") &&
+        part_create(&nvm.se, nvm_block, "se", sizeof(SecureElementNvmData_t)))
+        goto error;
+
+    if (part_find(&nvm.region1, nvm_block, "region1") &&
+        part_create(&nvm.region1, nvm_block, "region1", sizeof(RegionNvmDataGroup1_t)))
+        goto error;
+
+    if (part_find(&nvm.region2, nvm_block, "region2") &&
+        part_create(&nvm.region2, nvm_block, "region2", sizeof(RegionNvmDataGroup2_t)))
+        goto error;
+
+    if (part_find(&nvm.classb, nvm_block, "classb") &&
+        part_create(&nvm.classb, nvm_block, "classb", sizeof(LoRaMacClassBNvmData_t)))
+        goto error;
+
+    return;
+error:
+    halt("Could not initialize NVM");
+}
+
+
+void lrw_init(lrw_config_t *cfg, const part_block_t *nvm_block, LoRaMacRegion_t region)
 {
     static const uint8_t zero_eui[SE_EUI_SIZE];
     LoRaMacStatus_t rc;
@@ -283,6 +327,8 @@ void lrw_init(lrw_config_t *cfg, LoRaMacRegion_t region)
     memset(&tx_params, 0, sizeof(tx_params));
     memset(&rx_params, 0, sizeof(rx_params));
     config = cfg;
+
+    init_nvm(nvm_block);
 
     log_debug("LoRaMac: Initializing for region %s, regional parameters RP%03d-%d.%d.%d",
         region2str[region], REGION_VERSION >> 24, (REGION_VERSION >> 16) & 0xff,
@@ -356,11 +402,11 @@ void lrw_init(lrw_config_t *cfg, LoRaMacRegion_t region)
     const int adr = r.Param.AdrEnable;
 
     r.Type = MIB_PUBLIC_NETWORK;
-    LoRaMacMibSetRequestConfirm(&r);
+    LoRaMacMibGetRequestConfirm(&r);
     const int public = r.Param.EnablePublicNetwork;
 
     r.Type = MIB_DEVICE_CLASS;
-    LoRaMacMibSetRequestConfirm(&r);
+    LoRaMacMibGetRequestConfirm(&r);
     const int class = r.Param.Class;
 
     log_debug("LoRaMac: DevEUI: %02X%02X%02X%02X%02X%02X%02X%02X DevAddr: %08lX ADR: %d public: %d, class: %c",
