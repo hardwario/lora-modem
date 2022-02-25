@@ -3,14 +3,11 @@
 
 #include "common.h"
 
-#ifndef UART_BAUDRATE
-#define UART_BAUDRATE 9600
-#endif
 
 //! @brief Init lpuart
 //! @param[in] callback when Tx buffer has been sent
 
-void lpuart_init(void (*Txcb)(void));
+void lpuart_init(unsigned int baudrate, void (*Txcb)(void));
 
 //! @brief Init receiver of lpuart
 //! @param[in] callback When Rx char is received

@@ -23,11 +23,11 @@ static struct
 
 } _atci;
 
-void atci_init(const atci_command_t *commands, int length)
+void atci_init(unsigned int baudrate, const atci_command_t *commands, int length)
 {
     memset(&_atci, 0, sizeof(_atci));
 
-    console_init();
+    console_init(baudrate);
 
     _atci.commands = commands;
     _atci.commands_length = length;

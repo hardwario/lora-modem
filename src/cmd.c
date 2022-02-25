@@ -978,9 +978,9 @@ static const atci_command_t cmds[] = {
     ATCI_COMMAND_HELP};
 
 
-void cmd_init()
+void cmd_init(unsigned int baudrate)
 {
-    atci_init(cmds, ATCI_COMMANDS_LENGTH(cmds));
+    atci_init(baudrate, cmds, ATCI_COMMANDS_LENGTH(cmds));
 }
 
 

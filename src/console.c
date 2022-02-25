@@ -20,7 +20,7 @@ typedef struct
 
 static console_t _console;
 
-void console_init(void)
+void console_init(unsigned int baudrate)
 {
     memset(&_console, 0, sizeof(_console));
 
@@ -29,7 +29,7 @@ void console_init(void)
     fifo_init(&_console.tx_fifo, _console.tx_buffer, sizeof(_console.tx_buffer));
     fifo_init(&_console.rx_fifo, _console.rx_buffer, sizeof(_console.rx_buffer));
 
-    lpuart_init(_console_vcom_tx_callback);
+    lpuart_init(baudrate, _console_vcom_tx_callback);
     lpuart_set_rx_callback(_console_vcom_rx_callback);
 }
 

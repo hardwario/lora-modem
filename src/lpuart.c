@@ -10,7 +10,7 @@ static void (*TxCpltCallback)(void);
 
 static void (*RxCpltCallback)(uint8_t *rxChar);
 
-void lpuart_init(void (*TxCb)(void))
+void lpuart_init(unsigned int baudrate, void (*TxCb)(void))
 {
     // Record Tx complete for DMA*/
     TxCpltCallback = TxCb;
@@ -24,7 +24,7 @@ void lpuart_init(void (*TxCb)(void))
       - Hardware flow control disabled (RTS and CTS signals) */
     UartHandle.Instance = LPUART1;
 
-    UartHandle.Init.BaudRate = UART_BAUDRATE;
+    UartHandle.Init.BaudRate = baudrate;
     UartHandle.Init.WordLength = UART_WORDLENGTH_8B;
     UartHandle.Init.StopBits = UART_STOPBITS_1;
     UartHandle.Init.Parity = UART_PARITY_NONE;

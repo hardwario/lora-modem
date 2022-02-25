@@ -5,7 +5,7 @@
 
 //! @brief Initialize
 
-void console_init(void);
+void console_init(unsigned int baudrate);
 
 //! @brief Write data to console
 //! @param[in] buffer Pointer to source buffer

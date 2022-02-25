@@ -32,10 +32,11 @@ typedef struct
 } atci_command_t;
 
 //! @brief Initialize
+//! @param[in] baudrate The baudrate to configure on the UART interface
 //! @param[in] commands
 //! @param[in] length Number of commands
 
-void atci_init(const atci_command_t *commands, int length);
+void atci_init(unsigned int baudrate, const atci_command_t *commands, int length);
 
 //! @brief
 
@@ -60,7 +61,7 @@ size_t atci_printf(const char *format, ...);
 
 size_t atci_print_buffer_as_hex(const void *buffer, size_t length);
 
-//! @brief Write data 
+//! @brief Write data
 //! @param[in] buffer Pointer to source buffer
 //! @param[in] length Number of bytes to be written
 //! @return Number of bytes written

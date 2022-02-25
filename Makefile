@@ -6,7 +6,11 @@ OUT_DIR ?= out
 
 OUT ?= firmware
 TYPE ?= debug
-BAUDRATE ?= 9600
+
+# The default speed (baudrate) of the AT UART interface. This value will be used
+# unless the system configuration stored in EEPROM provides an alternative
+# value.
+DEFAULT_UART_BAUDRATE ?= 9600
 
 # Select the regional parameter files that you wish to have included in the
 # firmware. By default the full set is included. Please note that the full set
@@ -218,6 +222,8 @@ CFLAGS += -DSTM32L072xx
 CFLAGS += -DHAL_IWDG_MODULE_ENABLED
 CFLAGS += -DUSE_FULL_LL_DRIVER
 
+CFLAGS += -DDEFAULT_UART_BAUDRATE=$(DEFAULT_UART_BAUDRATE)
+
 # Extra flags to be only applied when we compile the souce files from the lib
 # subdirectory. Since that sub-directory contains third-party code, disable some
 # of the warnings.
@@ -231,7 +237,6 @@ CFLAGS_DEBUG += -DDEBUG
 
 CFLAGS_RELEASE += -Os
 CFLAGS_RELEASE += -DRELEASE
-CFLAGS_RELEASE += -DUART_BAUDRATE=$(BAUDRATE)
 
 CFLAGS += -DSOFT_SE
 CFLAGS += -DSECURE_ELEMENT_PRE_PROVISIONED
