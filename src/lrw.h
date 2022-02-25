@@ -19,8 +19,12 @@ typedef struct
 extern bool lrw_irq;
 
 
+//! @brief Initialize LoRaMac stack
+//! @param[in] nvm NVM memory block to store persistent LoRaMac data
 void lrw_init(const part_block_t *nvm);
 
+//! @brief Return a pointer to the internal LoRaMac stack state
+//! @retval A pointer to the internal LoRaMac state
 LoRaMacNvmData_t *lrw_get_state(void);
 
 //! @brief Lora process
@@ -37,13 +41,22 @@ bool lrw_send(uint8_t port, void *buffer, uint8_t length, bool confirmed);
 //! @retval ENABLE if so, DISABLE otherwise
 int lrw_isack_get(void);
 
-void lrw_process(void);
-
+//! @brief Activate LoRaMac according to the selected mode (OTAA or ABP)
+//! @retval Negative number on error, 0 on success
 int lrw_activate();
 
+//! @brief Activate given LoRaWAN region
+//! @param[in] region LoRaWAN region identifier
+//! @retval Zero on success, negative number on error
 int lrw_set_region(unsigned int region);
 
-int lrw_set_mode(unsigned int value);
+//! @brief Return currently selected LoRaWAN activation mode
+//! @retval 1 for OTAA, 0 for ABP
 unsigned int lrw_get_mode(void);
+
+//! @brief Select a LoRaWAN activation mode
+//! @param[in] mode 1 for OTAA, 0 for ABP
+//! @retval 0 on success, negative number on error
+int lrw_set_mode(unsigned int mode);
 
 #endif // _LRW_H

@@ -10,6 +10,7 @@
 #include "halt.h"
 #include "log.h"
 #include "part.h"
+#include "utils.h"
 
 #define MAX_BAT 254
 
@@ -156,43 +157,43 @@ static void restore_state(void)
     LoRaMacNvmData_t *s = lrw_get_state();
 
     p = part_mmap(&size, &nvm.crypto);
-    if (p && Crc32((unsigned char *)p, size - 4) == *(uint32_t *)(p + size - 4)) {
+    if (check_block_crc(p, size)) {
         log_debug("Restoring Crypto state from NVM");
         memcpy(&s->Crypto, p, size);
     }
 
     p = part_mmap(&size, &nvm.mac1);
-    if (p && Crc32((unsigned char *)p, size - 4) == *(uint32_t *)(p + size - 4)) {
+    if (check_block_crc(p, size)) {
         log_debug("Restoring MacGroup1 state from NVM");
         memcpy(&s->MacGroup1, p, size);
     }
 
     p = part_mmap(&size, &nvm.mac2);
-    if (p && Crc32((unsigned char *)p, size - 4) == *(uint32_t *)(p + size - 4)) {
+    if (check_block_crc(p, size)) {
         log_debug("Restoring MacGroup2 state from NVM");
         memcpy(&s->MacGroup2, p, size);
     }
 
     p = part_mmap(&size, &nvm.se);
-    if (p && Crc32((unsigned char *)p, size - 4) == *(uint32_t *)(p + size - 4)) {
+    if (check_block_crc(p, size)) {
         log_debug("Restoring SecureElement state from NVM");
         memcpy(&s->SecureElement, p, size);
     }
 
     p = part_mmap(&size, &nvm.region1);
-    if (p && Crc32((unsigned char *)p, size - 4) == *(uint32_t* )(p + size - 4)) {
+    if (check_block_crc(p, size)) {
         log_debug("Restoring RegionGroup1 state from NVM");
         memcpy(&s->RegionGroup1, p, size);
     }
 
     p = part_mmap(&size, &nvm.region2);
-    if (p && Crc32((unsigned char *)p, size - 4) == *(uint32_t *)(p + size - 4)) {
+    if (check_block_crc(p, size)) {
         log_debug("Restoring RegionGroup2 state from NVM");
         memcpy(&s->RegionGroup2, p, size);
     }
 
     p = part_mmap(&size, &nvm.classb);
-    if (p && Crc32((unsigned char *)p, size - 4) == *(uint32_t *)(p + size - 4)) {
+    if (check_block_crc(p, size)) {
         log_debug("Restoring ClassB state from NVM");
         memcpy(&s->ClassB, p, size);
     }
@@ -613,5 +614,18 @@ int lrw_set_region(unsigned int region)
     return 0;
 }
 
+
+unsigned int lrw_get_mode(void)
+{
+    return activation_mode;
+}
+
+
+int lrw_set_mode(unsigned int mode)
+{
+    if (mode > 1) return -1;
+
+    activation_mode = mode;
+    if (mode == 0) lrw_activate();
     return 0;
 }
