@@ -198,6 +198,7 @@ void atci_clac_action(atci_param_t *param)
     {
         atci_printf("AT%s\r\n", _atci.commands[i].command);
     }
+    console_write("\r\n", 2);
 }
 
 void atci_help_action(atci_param_t *param)
@@ -207,6 +208,7 @@ void atci_help_action(atci_param_t *param)
     {
         atci_printf("AT%s %s\r\n", _atci.commands[i].command, _atci.commands[i].hint);
     }
+    console_write("\r\n", 2);
 }
 
 static void _atci_process_line(void)
@@ -220,7 +222,7 @@ static void _atci_process_line(void)
 
     if (_atci.rx_length == 2)
     {
-        console_write("+OK", 3);
+        console_write("+OK\r\n\r\n", 7);
         return;
     }
 
@@ -309,7 +311,7 @@ static void _atci_process_line(void)
         // break;
     }
 
-    console_write("+ERR=-1", 7);
+    console_write("+ERR=-1\r\n\r\n", 11);
 }
 
 static void _atci_process_character(char character)
@@ -335,8 +337,6 @@ static void _atci_process_character(char character)
 
             _atci.rx_length = 0;
             _atci.rx_error = false;
-
-            console_write("\r\n\r\n", 4);
         }
         return;
     }
@@ -345,17 +345,12 @@ static void _atci_process_character(char character)
     {
         if (_atci.rx_error)
         {
-            console_write("+ERR=-1", 7);
+            console_write("+ERR=-1\r\n\r\n", 11);
         }
         else if (_atci.rx_length > 0)
         {
             _atci.rx_buffer[_atci.rx_length] = 0;
             _atci_process_line();
-        }
-
-        if (_atci.read_next_data.length == 0)
-        {
-            console_write("\r\n\r\n", 4);
         }
 
         _atci.rx_length = 0;

@@ -39,14 +39,19 @@ typedef enum cmd_errno {
 static uint8_t port;
 
 
-#define abort(num) do {            \
-    atci_printf("+ERR=%d", (num)); \
-    return;                        \
+#define abort(num) do {                    \
+    atci_printf("+ERR=%d\r\n\r\n", (num)); \
+    return;                                \
 } while (0)
 
+#define EOL() atci_print("\r\n\n");
 
-#define OK(...) atci_printf("+OK=" __VA_ARGS__)
-#define OK_() atci_printf("+OK")
+#define OK(...) do {                 \
+    atci_printf("+OK=" __VA_ARGS__); \
+    EOL();                           \
+} while (0)
+
+#define OK_() atci_print("+OK\r\n\r\n")
 
 
 static int parse_enabled(atci_param_t *param)
@@ -232,6 +237,7 @@ static void get_deveui(void)
     LoRaMacMibGetRequestConfirm(&r);
     atci_print("+OK=");
     atci_print_buffer_as_hex(r.Param.DevEui, SE_EUI_SIZE);
+    EOL();
 }
 
 
@@ -259,6 +265,7 @@ static void get_joineui(void)
     LoRaMacMibGetRequestConfirm(&r);
     atci_print("+OK=");
     atci_print_buffer_as_hex(r.Param.JoinEui, SE_EUI_SIZE);
+    EOL();
 }
 
 
@@ -285,6 +292,7 @@ static void get_nwkskey(void)
     LoRaMacNvmData_t *state = lrw_get_state();
     atci_print("+OK=");
     atci_print_buffer_as_hex(&state->SecureElement.KeyList[NWK_S_ENC_KEY].KeyValue, SE_KEY_SIZE);
+    EOL();
 }
 
 
@@ -313,6 +321,7 @@ static void get_appskey(void)
     LoRaMacNvmData_t *state = lrw_get_state();
     atci_print("+OK=");
     atci_print_buffer_as_hex(&state->SecureElement.KeyList[APP_S_KEY].KeyValue, SE_KEY_SIZE);
+    EOL();
 }
 
 
@@ -341,6 +350,7 @@ static void get_appkey(void)
     LoRaMacNvmData_t *state = lrw_get_state();
     atci_print("+OK=");
     atci_print_buffer_as_hex(&state->SecureElement.KeyList[APP_KEY].KeyValue, SE_KEY_SIZE);
+    EOL();
 }
 
 
@@ -378,12 +388,12 @@ static void join(atci_param_t *param)
     if (true)
     {
         if (lrw_activate() == 0) {
-            atci_print("+OK");
+            OK_();
         } else {
-            atci_print("+ERR=-18");
+            abort(ERR_DUTYCYCLE);
         }
     } else {
-        atci_print("+ERR=-14");
+        abort(ERR_NO_OTAA);
     }
 }
 
@@ -673,11 +683,11 @@ static void putx_data(atci_param_t *param)
 {
     if (lrw_send(port, param->txt, param->length, false))
     {
-        atci_print("+OK");
+        OK_();
     }
     else
     {
-        atci_print("+ERR=-18"); // TODO
+        abort(ERR_DUTYCYCLE); // TODO
     }
 }
 
@@ -688,22 +698,19 @@ static void putx(atci_param_t *param)
 
     if (!atci_param_get_uint(param, &value) || value > 255)
     {
-        atci_print("+ERR=-2");
-        return;
+        abort(ERR_PARAM);
     }
 
     if (!atci_param_is_comma(param))
     {
-        atci_print("+ERR=-2");
-        return;
+        abort(ERR_PARAM);
     }
 
     port = value;
 
     if (!atci_param_get_uint(param, &value) || value > 255)
     {
-        atci_print("+ERR=-2");
-        return;
+        abort(ERR_PARAM);
     }
 
     atci_set_read_next_data(value, putx_data);
@@ -714,11 +721,11 @@ static void pctx_data(atci_param_t *param)
 {
     if (lrw_send(port, param->txt, param->length, true))
     {
-        atci_print("+OK");
+        OK_();
     }
     else
     {
-        atci_print("+ERR=-18"); // TODO
+        abort(ERR_DUTYCYCLE); // TODO
     }
 }
 
@@ -729,22 +736,19 @@ static void pctx(atci_param_t *param)
 
     if (!atci_param_get_uint(param, &value) || value > 255)
     {
-        atci_print("+ERR=-2");
-        return;
+        abort(ERR_PARAM);
     }
 
     if (!atci_param_is_comma(param))
     {
-        atci_print("+ERR=-2");
-        return;
+        abort(ERR_PARAM);
     }
 
     port = value;
 
     if (!atci_param_get_uint(param, &value) || value > 255)
     {
-        atci_print("+ERR=-2");
-        return;
+        abort(ERR_PARAM);
     }
 
     atci_set_read_next_data(value, pctx_data);
@@ -841,18 +845,18 @@ static void pctx(atci_param_t *param)
 
 //     if (length == 0)
 //     {
-//         atci_print("+ERR=-2");
+//         abort(ERR_PARAM);
 //         return;
 //     }
 
 //     if (lrw_chmask_set(chmask))
 //     {
 //         config_save();
-//         atci_print("+OK");
+//         OK_();
 //     }
 //     else
 //     {
-//         atci_print("+ERR=-2");
+//         abort(ERR_PARAM);
 //     }
 // }
 
@@ -906,7 +910,7 @@ static void pctx(atci_param_t *param)
 //                     list.channels[i].DrRange.Fields.Max,
 //                     list.channels[i].Band);
 //     }
-//     atci_print("+OK");
+//     OK_();
 // }
 
 
@@ -919,7 +923,7 @@ static void dbg(atci_param_t *param)
     // RF_CAD,        //!< The radio is doing channel activity detection
     atci_printf("$DBG: \"stop_mode_mask\",%d\r\n", system_get_stop_mode_mask());
     atci_printf("$DBG: \"radio_state\",%d\r\n", Radio.GetStatus());
-    atci_print("OK");
+    OK_();
 }
 
 
@@ -927,9 +931,9 @@ static void ping(atci_param_t *param)
 {
     (void)param;
     if (lrw_send(2, "ping", 4, false)) {
-        atci_print("+OK");
+        OK_();
     } else {
-        atci_print("+ERR=-18"); // TODO
+        abort(ERR_DUTYCYCLE); // TODO
     }
 }
 
