@@ -34,16 +34,6 @@ int main(void)
     log_info("LoRa Module %s [LoRaMac %s] built on %s", VERSION, LIB_VERSION, BUILD_DATE);
 #endif
 
-    // Initialize the random number generator (used by LoRaMac) early. The
-    // generator is seeded from the unique number of the MCU board. This will
-    // yield pseudo-random DevAddr (when one is randomly generated) derived from
-    // the unique ID of the MCU.
-    srand1(system_get_random_seed());
-
-    // Load configuration from EEPROM. If no configuation is found, initialize
-    // the configuration from defaults.
-    //config_init(&config, sizeof(config), NULL);
-
     adc_init();
     spi_init(10000000);
     sx1276io_init();
