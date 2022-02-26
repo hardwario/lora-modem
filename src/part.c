@@ -13,32 +13,37 @@
 
 #define MAX_PARTS(t) (((t)->size - FIXED_PART_TABLE_SIZE) / sizeof(part_dsc_t))
 
+#define BLOCK_CLOSED(b) ((b) == NULL || (b)->table == NULL || (b)->parts == NULL)
+
 
 int part_erase_block(part_block_t *block)
 {
-    if (block == NULL || block->size < FIXED_PART_TABLE_SIZE) return -1;
+    if (BLOCK_CLOSED(block)) return -1;
+
+    if (block->size < FIXED_PART_TABLE_SIZE || block->write == NULL) return -2;
 
     log_debug("part: Erasing block %p (%d B)", (void *)block, block->size);
     uint32_t sig = EMPTY;
     block->write(block->start, &sig, sizeof(sig));
 
     int rv = 1;
-
     part_t p;
     for (unsigned int i = 0; i < block->table->num_parts; i++) {
         p.block = block;
         p.dsc = block->parts + i;
         rv &= part_erase(&p);
     }
+    if (rv == 0) return -3;
 
-    return rv == 1;
+    return 0;
 }
 
 
 int part_format_block(part_block_t *block, unsigned int max_parts)
 {
-    if (block == NULL || block->mmap == NULL) return -1;
-    if (block->size < FIXED_PART_TABLE_SIZE) return -2;
+    if (!BLOCK_CLOSED(block)) return -1;
+
+    if (block->size < FIXED_PART_TABLE_SIZE || block->mmap == NULL) return -2;
 
     const part_table_t *t = block->mmap(block->start, sizeof(*t));
     if (t == NULL) return -3;
@@ -62,8 +67,9 @@ int part_format_block(part_block_t *block, unsigned int max_parts)
 
 int part_open_block(part_block_t *block)
 {
-    if (block == NULL || block->mmap == NULL) return -1;
-    if (block->size < FIXED_PART_TABLE_SIZE) return -2;
+    if (!BLOCK_CLOSED(block)) return -1;
+
+    if (block->size < FIXED_PART_TABLE_SIZE || block->mmap == NULL) return -2;
 
     const part_table_t *t = block->mmap(block->start, sizeof(*t));
     if (t == NULL) return -3;
@@ -94,14 +100,24 @@ int part_open_block(part_block_t *block)
 }
 
 
+void part_close_block(part_block_t *block)
+{
+    if (!BLOCK_CLOSED(block)) {
+        block->table = NULL;
+        block->parts = NULL;
+        log_debug("part: Closed block %p (%d B)", (void *)block, block->size);
+    }
+}
+
+
 int part_find(part_t *part, const part_block_t *block, const char *label)
 {
-    if (part == NULL || block == NULL || label == NULL ||
-        block->table == NULL || block->parts == NULL)
-        return -1;
+    if (BLOCK_CLOSED(block)) return -1;
+
+    if (part == NULL || label == NULL) return -2;
 
     size_t len = strlen(label);
-    if (len >= MAX_LABEL_SIZE) return -2;
+    if (len >= MAX_LABEL_SIZE) return -3;
 
     for (int i = 0; i < block->table->num_parts; i++) {
         if (memcmp(block->parts[i].label, label, len)) continue;
@@ -116,17 +132,17 @@ int part_find(part_t *part, const part_block_t *block, const char *label)
 
 int part_create(part_t *part, const part_block_t *block, const char *label, size_t size)
 {
-    // Make sure the block object has all the fields that we are going to need
-    if (part == NULL || block == NULL || label == NULL || block->write == NULL ||
-        block->table == NULL || block->parts == NULL)
-        return -1;
+    if (BLOCK_CLOSED(block)) return -1;
+
+    if (part == NULL || label == NULL || block->write == NULL)
+        return -2;
 
     // Check that all the attributes in the partition table have sane values
     size_t len = strlen(label);
-    if (len >= MAX_LABEL_SIZE) return -2;
+    if (len >= MAX_LABEL_SIZE) return -3;
 
     if (block->table->num_parts >= MAX_PARTS(block->table))
-        return -3;
+        return -4;
 
     // Calculate the offset of the first aligned byte where a new partition can
     // start. The new partition will only be created following the current last
@@ -143,7 +159,7 @@ int part_create(part_t *part, const part_block_t *block, const char *label, size
 
     // Make sure that there is enough space in the block for the new partition
     if (first_aligned_byte + size > block->size)
-        return -4;
+        return -5;
 
     // Create a new partition record structure and write it into the
     // corresponding place in the array of partitions.
@@ -154,13 +170,13 @@ int part_create(part_t *part, const part_block_t *block, const char *label, size
     memcpy(p.label, label, len + 1);
     if (!block->write(block->start + FIXED_PART_TABLE_SIZE + block->table->num_parts * sizeof(part_dsc_t),
         &p, sizeof(p)))
-        return -5;
+        return -6;
 
     part_table_t table;
     memcpy(&table, block->table, sizeof(part_table_t));
     table.num_parts++;
     if (!block->write(block->start, &table, sizeof(table)))
-        return -6;
+        return -7;
 
     log_debug("part: Created part '%s' in block %p starting at offset %ld (%d B)",
         label, (void *)block, first_aligned_byte, size);
@@ -171,8 +187,10 @@ int part_create(part_t *part, const part_block_t *block, const char *label, size
 }
 
 
-void part_dump_block(part_block_t *block)
+int part_dump_block(part_block_t *block)
 {
+    if (BLOCK_CLOSED(block)) return -1;
+
     log_debug("part: Block %p (%d B), %d parts of %d", (void *)block, block->size,
         block->table->num_parts, MAX_PARTS(block->table));
 
@@ -180,11 +198,15 @@ void part_dump_block(part_block_t *block)
         log_debug("part:   Part '%s' at offset %ld (%ld B)", block->parts[i].label,
             block->parts[i].start, block->parts[i].size);
     }
+
+    return 0;
 }
 
 
 bool part_write(const part_t *part, uint32_t address, const void *buffer, size_t length)
 {
+    if (part == NULL || BLOCK_CLOSED(part->block)) return false;
+
     if (address + length > part->dsc->size) return false;
     return part->block->write(part->dsc->start + address, buffer, length);
 }
@@ -195,6 +217,7 @@ bool part_erase(const part_t *part)
     int rv = 1;
     uint32_t v = EMPTY;
 
+    if (part == NULL || BLOCK_CLOSED(part->block)) return false;
     log_debug("part: Erasing part %s", part->dsc->label);
 
     for (unsigned int i = 0; i < part->dsc->size; i += sizeof(v)) {
@@ -208,6 +231,8 @@ bool part_erase(const part_t *part)
 
 const void *part_mmap(size_t *size, const part_t *part)
 {
+    if (part == NULL || BLOCK_CLOSED(part->block)) return NULL;
+
     *size = part->dsc->size;
     return part->block->mmap(part->dsc->start, part->dsc->size);
 }

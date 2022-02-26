@@ -38,9 +38,10 @@ typedef struct part_block {
 } part_block_t;
 
 
+int part_erase_block(part_block_t *block);
 int part_format_block(part_block_t *block, unsigned int max_parts);
 int part_open_block(part_block_t *block);
-int part_erase_block(part_block_t *block);
+void part_close_block(part_block_t *block);
 
 int part_find(part_t *part, const part_block_t *block, const char *label);
 int part_create(part_t *part, const part_block_t *block, const char *label, size_t size);
@@ -49,6 +50,6 @@ bool part_write(const part_t *part, uint32_t address, const void *buffer, size_t
 const void *part_mmap(size_t *size, const part_t *part);
 bool part_erase(const part_t *part);
 
-void part_dump_block(part_block_t *block);
+int part_dump_block(part_block_t *block);
 
 #endif // _PART_H_
