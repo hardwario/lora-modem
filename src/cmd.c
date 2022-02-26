@@ -111,10 +111,16 @@ static void reboot(atci_param_t *param)
 static void factory_reset(atci_param_t *param)
 {
     (void)param;
+
+    if (LoRaMacStop() != LORAMAC_STATUS_OK)
+        abort(ERR_FACNEW_FAILED);
+
+    if (nvm_erase() != 0)
+        abort(ERR_FACNEW_FAILED);
+
     OK_();
-    config_reset();
-    config_save();
     cmd_event(CMD_EVENT_MODULE, CMD_MODULE_FACNEW);
+
     rtc_delay_ms(40);
     system_reset();
 }

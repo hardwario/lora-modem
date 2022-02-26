@@ -52,6 +52,17 @@ void nvm_init(void)
 }
 
 
+int nvm_erase(void)
+{
+    // Erase the contents of the block (and all its parts) and close it
+    // immediately so that further operations such as read and write would fail
+    // until the block is opened and formatted again.
+    int rc = part_erase_block(&nvm);
+    part_close_block(&nvm);
+    return rc;
+}
+
+
 void sysconf_process(void)
 {
     if (!sysconf_modified) return;
@@ -64,3 +75,4 @@ void sysconf_process(void)
 
     sysconf_modified = false;
 }
+

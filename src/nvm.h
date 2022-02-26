@@ -18,6 +18,8 @@ extern bool sysconf_modified;
 
 void nvm_init(void);
 
+int nvm_erase(void);
+
 void sysconf_process(void);
 
 #endif // _NVM_H_
