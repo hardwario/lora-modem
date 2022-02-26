@@ -203,12 +203,12 @@ static void restore_state(void)
 static int restore_region()
 {
     size_t size;
-    LoRaMacNvmDataGroup2_t data;
+    LoRaMacRegion_t region;
 
-    const unsigned char *p = part_mmap(&size, &nvm.mac2);
-    if (p && Crc32((unsigned char *)p, size - 4) == *(uint32_t *)(p + size - 4)) {
-        memcpy(&data, p, size);
-        return data.Region;
+    const uint8_t *p = part_mmap(&size, &nvm.mac2);
+    if (check_block_crc(p, size)) {
+        memcpy(&region, &((LoRaMacNvmDataGroup2_t *)p)->Region, sizeof(region));
+        return region;
     }
 
     return region2id(DEFAULT_ACTIVE_REGION);
