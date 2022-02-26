@@ -47,6 +47,7 @@ int part_create(part_t *part, const part_block_t *block, const char *label, size
 
 bool part_write(const part_t *part, uint32_t address, const void *buffer, size_t length);
 const void *part_mmap(size_t *size, const part_t *part);
+bool part_erase(const part_t *part);
 
 void part_dump_block(part_block_t *block);
 

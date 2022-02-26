@@ -7,6 +7,8 @@
 #define ALIGNMENT 4
 #define ALIGN(v) (((v) + ALIGNMENT - 1) / ALIGNMENT * ALIGNMENT)
 
+#define EMPTY 0xffffffff
+
 #define FIXED_PART_TABLE_SIZE (ALIGN(sizeof(part_table_t)))
 
 #define MAX_PARTS(t) (((t)->size - FIXED_PART_TABLE_SIZE) / sizeof(part_dsc_t))
@@ -17,9 +19,19 @@ int part_erase_block(part_block_t *block)
     if (block == NULL || block->size < FIXED_PART_TABLE_SIZE) return -1;
 
     log_debug("part: Erasing block %p (%d B)", (void *)block, block->size);
-    uint32_t sig = 0xffffffff;
+    uint32_t sig = EMPTY;
     block->write(block->start, &sig, sizeof(sig));
-    return 0;
+
+    int rv = 1;
+
+    part_t p;
+    for (unsigned int i = 0; i < block->table->num_parts; i++) {
+        p.block = block;
+        p.dsc = block->parts + i;
+        rv &= part_erase(&p);
+    }
+
+    return rv == 1;
 }
 
 
@@ -175,6 +187,22 @@ bool part_write(const part_t *part, uint32_t address, const void *buffer, size_t
 {
     if (address + length > part->dsc->size) return false;
     return part->block->write(part->dsc->start + address, buffer, length);
+}
+
+
+bool part_erase(const part_t *part)
+{
+    int rv = 1;
+    uint32_t v = EMPTY;
+
+    log_debug("part: Erasing part %s", part->dsc->label);
+
+    for (unsigned int i = 0; i < part->dsc->size; i += sizeof(v)) {
+        rv &= part->block->write(part->dsc->start + i, &v,
+            (part->dsc->size - i) >= sizeof(v) ? sizeof(v) : (part->dsc->size - i));
+    }
+
+    return rv == 1;
 }
 
 
