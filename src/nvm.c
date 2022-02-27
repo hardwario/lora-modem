@@ -20,7 +20,8 @@ part_block_t nvm = {
 
 sysconf_t sysconf = {
     .uart_baudrate = DEFAULT_UART_BAUDRATE,
-    .default_port = 1
+    .default_port = 1,
+    .data_format = 0
 };
 
 static part_t sysconf_part;

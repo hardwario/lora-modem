@@ -635,17 +635,27 @@ static void set_rep(atci_param_t *param)
 }
 
 
-// static void get_dformat(void)
-// {
-//     abort(ERR_UNKNOWN_CMD);
-// }
+static void get_dformat(void)
+{
+    OK("%d", sysconf.data_format);
+}
 
 
-// static void set_dformat(atci_param_t *param)
-// {
-//     (void)param;
-//     abort(ERR_UNKNOWN_CMD);
-// }
+static void set_dformat(atci_param_t *param)
+{
+    uint32_t v;
+
+    if (!atci_param_get_uint(param, &v))
+        abort(ERR_PARAM);
+
+    if (v != 0 && v != 1)
+        abort(ERR_PARAM);
+
+    sysconf.default_port = v;
+    sysconf_modified = true;
+
+    OK_();
+}
 
 
 // static void get_to(void)
@@ -985,7 +995,7 @@ static const atci_command_t cmds[] = {
     // {"+SLEEP",     NULL,          set_sleep,     get_sleep,     NULL, "Configure low power (sleep) mode"},
     {"+PORT",      NULL,          set_port,      get_port,      NULL, "Configure default port number for uplink messages <1,223>"},
     {"+REP",       NULL,          set_rep,       get_rep,       NULL, "Unconfirmed message repeats [1..15]"},
-    // {"+DFORMAT",   NULL,          set_dformat,   get_dformat,   NULL, "Configure payload format used by the modem"},
+    {"+DFORMAT",   NULL,          set_dformat,   get_dformat,   NULL, "Configure payload format used by the modem"},
     // {"+TO",        NULL,          set_to,        get_to,        NULL, "Configure UART port timeout"},
     // {"+UTX",       utx,           NULL,          NULL,          NULL, "Send unconfirmed uplink message"},
     // {"+CTX",       ctx,           NULL,          NULL,          NULL, "Send confirmed uplink message"},
