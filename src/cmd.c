@@ -903,17 +903,30 @@ static void pctx(atci_param_t *param)
 // }
 
 
-// static void get_netid(void)
-// {
-//     abort(ERR_UNKNOWN_CMD);
-// }
+static void get_netid(void)
+{
+    MibRequestConfirm_t r = { .Type = MIB_NET_ID };
+    LoRaMacMibGetRequestConfirm(&r);
+    OK("%08X", r.Param.NetID);
+}
 
 
-// static void set_netid(atci_param_t *param)
-// {
-//     (void)param;
-//     abort(ERR_UNKNOWN_CMD);
-// }
+static void set_netid(atci_param_t *param)
+{
+    // FIXME: endianness?
+    uint32_t id;
+    if (atci_param_get_buffer_from_hex(param, &id, sizeof(id)) != sizeof(id))
+        abort(ERR_PARAM);
+
+    MibRequestConfirm_t r = {
+        .Type  = MIB_NET_ID,
+        .Param = { .NetID = id }
+    };
+    if (LoRaMacMibSetRequestConfirm(&r) != LORAMAC_STATUS_OK)
+        abort(ERR_PARAM);
+
+    OK_();
+}
 
 
 // static void get_channels(void)
@@ -1022,7 +1035,7 @@ static const atci_command_t cmds[] = {
     // {"+BACKOFF",   NULL,          NULL,          get_backoff,   NULL, "Return duty cycle backoff time for EU868"},
     // {"+CHMASK",    NULL,          set_chmask,    get_chmask,    NULL, "Configure channel mask"},
     // {"+RTYNUM",    NULL,          set_rtynum,    get_rtynum,    NULL, "Configure number of confirmed uplink message retries"},
-    // {"+NETID",     NULL,          set_netid,     get_netid,     NULL, "Configure LoRaWAN network identifier"},
+    {"+NETID",     NULL,          set_netid,     get_netid,     NULL, "Configure LoRaWAN network identifier"},
     // {"$CHANNELS",  NULL,          NULL,          get_channels,  NULL, ""},
     {"$DBG",       dbg,           NULL,          NULL,          NULL, ""},
     {"$PING",      ping,          NULL,          NULL,          NULL, "Send ping message"},
