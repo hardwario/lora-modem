@@ -7,6 +7,7 @@
 typedef struct sysconf
 {
     unsigned int uart_baudrate;
+    uint16_t uart_timeout;
     uint8_t default_port;
     uint8_t data_format;
     uint32_t crc32;
