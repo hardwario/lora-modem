@@ -45,11 +45,13 @@ void nvm_init(void)
         if (check_block_crc(p, size)) {
             log_debug("Restoring system configuration from NVM");
             memcpy(&sysconf, p, size);
+            return;
         }
     } else {
         if (part_create(&sysconf_part, &nvm, "sysconf", sizeof(sysconf)))
             halt("Could not create EEPROM system config partition");
     }
+    log_debug("Stored system configuration not found, using defaults");
 }
 
 
