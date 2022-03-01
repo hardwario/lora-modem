@@ -54,6 +54,16 @@ static uint8_t port;
 #define OK_() atci_print("+OK\r\n\r\n")
 
 
+static inline uint32_t ntohl(uint32_t v)
+{
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+    return (v & 0xff) << 24 | (v & 0xff00) << 8 | (v & 0xff0000) >> 8 | (v & 0xff000000) >> 24;
+#else
+    return v;
+#endif
+}
+
+
 static int parse_enabled(atci_param_t *param)
 {
     if (param->length != 1) return -1;
@@ -215,14 +225,13 @@ static void get_devaddr(void)
 
 static void set_devaddr(atci_param_t *param)
 {
-    // FIXME: endianness?
-    uint32_t addr;
-    if (atci_param_get_buffer_from_hex(param, &addr, sizeof(addr)) != sizeof(addr))
+    uint32_t buf;
+    if (atci_param_get_buffer_from_hex(param, &buf, sizeof(buf)) != sizeof(buf))
         abort(ERR_PARAM);
 
     MibRequestConfirm_t r = {
         .Type  = MIB_DEV_ADDR,
-        .Param = { .DevAddr = addr }
+        .Param = { .DevAddr = ntohl(buf) }
     };
     if (LoRaMacMibSetRequestConfirm(&r) != LORAMAC_STATUS_OK)
         abort(ERR_PARAM);
@@ -913,14 +922,13 @@ static void get_netid(void)
 
 static void set_netid(atci_param_t *param)
 {
-    // FIXME: endianness?
-    uint32_t id;
-    if (atci_param_get_buffer_from_hex(param, &id, sizeof(id)) != sizeof(id))
+    uint32_t buf;
+    if (atci_param_get_buffer_from_hex(param, &buf, sizeof(buf)) != sizeof(buf))
         abort(ERR_PARAM);
 
     MibRequestConfirm_t r = {
         .Type  = MIB_NET_ID,
-        .Param = { .NetID = id }
+        .Param = { .NetID = ntohl(buf) }
     };
     if (LoRaMacMibSetRequestConfirm(&r) != LORAMAC_STATUS_OK)
         abort(ERR_PARAM);
