@@ -65,6 +65,14 @@ size_t console_read(char *buffer, size_t length)
     return fifo_read(&_console.rx_fifo, buffer, length);
 }
 
+void console_flush(void)
+{
+    while (_console.vcom_ready != SET)
+    {
+        HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFI);
+    }
+}
+
 static void _console_vcom_tx_callback(void)
 {
     uint16_t length = fifo_read(&_console.tx_fifo, _console.dma_buffer, sizeof(_console.dma_buffer));

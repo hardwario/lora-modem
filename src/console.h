@@ -21,4 +21,6 @@ size_t console_write(const char *buffer, size_t length);
 
 size_t console_read(char *buffer, size_t length);
 
+void console_flush(void);
+
 #endif
