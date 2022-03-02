@@ -17,6 +17,7 @@ void halt(const char *msg)
         log_error("%s: %s\r\n", prefix, msg);
     }
     console_write("\r\n", 2);
+    console_flush();
 
     while (1) {
         system_low_power();
