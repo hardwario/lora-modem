@@ -11,6 +11,7 @@
 #include "rtc.h"
 #include "nvm.h"
 #include "console.h"
+#include "halt.h"
 
 
 typedef enum cmd_errno {
@@ -1008,6 +1009,16 @@ static void activated(void)
 }
 
 
+static void do_halt(atci_param_t *param)
+{
+    (void)param;
+    OK_();
+    console_flush();
+
+    halt(NULL);
+}
+
+
 static const atci_command_t cmds[] = {
     {"+UART",      NULL,          set_uart,      get_uart,      NULL, "Configure UART interface"},
     {"+VER",       NULL,          NULL,          get_version,   NULL, "Firmware version and build time"},
@@ -1060,6 +1071,7 @@ static const atci_command_t cmds[] = {
     {"$DBG",       dbg,           NULL,          NULL,          NULL, ""},
     {"$PING",      ping,          NULL,          NULL,          NULL, "Send ping message"},
     {"$ACTIVATED", NULL,          NULL,          activated,     NULL, "Returns network activation status (0: not activate, >0: activated"},
+    {"$HALT",      do_halt,       NULL,          NULL,          NULL, "Halt the modem"},
     ATCI_COMMAND_CLAC,
     ATCI_COMMAND_HELP};
 

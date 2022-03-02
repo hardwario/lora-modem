@@ -14,7 +14,8 @@ enum cmd_event {
 enum cmd_event_module {
     CMD_MODULE_BOOT       = 0,
     CMD_MODULE_FACNEW     = 1,
-    CMD_MODULE_BOOTLOADER = 2
+    CMD_MODULE_BOOTLOADER = 2,
+    CMD_MODULE_HALT       = 3
 };
 
 
