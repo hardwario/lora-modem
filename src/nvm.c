@@ -22,7 +22,8 @@ sysconf_t sysconf = {
     .uart_baudrate = DEFAULT_UART_BAUDRATE,
     .uart_timeout = 1000,
     .default_port = 1,
-    .data_format = 0
+    .data_format = 0,
+    .sleep = 1
 };
 
 static part_t sysconf_part;

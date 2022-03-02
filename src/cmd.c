@@ -583,17 +583,25 @@ static void set_dutycycle(atci_param_t *param)
 }
 
 
-// static void get_sleep(void)
-// {
-//     abort(ERR_UNKNOWN_CMD);
-// }
+static void get_sleep(void)
+{
+    OK("%d", sysconf.sleep);
+}
 
 
-// static void set_sleep(atci_param_t *param)
-// {
-//     (void)param;
-//     abort(ERR_UNKNOWN_CMD);
-// }
+static void set_sleep(atci_param_t *param)
+{
+    uint32_t v;
+
+    if (!atci_param_get_uint(param, &v))
+        abort(ERR_PARAM);
+
+    if (v > 1) abort(ERR_PARAM);
+
+    sysconf.sleep = v;
+    sysconf_modified = true;
+    OK_();
+}
 
 
 static void get_port(void)
@@ -1023,7 +1031,7 @@ static const atci_command_t cmds[] = {
     // {"+ADRACK",    NULL,          set_adrack,    get_adrack,    NULL, "Configure ADR ACK parameters"},
     // {"+RX2",       NULL,          set_rx2,       get_rx2,       NULL, "Configure RX2 window frequency and data rate"},
     {"+DUTYCYCLE", NULL,          set_dutycycle, get_dutycycle, NULL, "Configure duty cycling in EU868"},
-    // {"+SLEEP",     NULL,          set_sleep,     get_sleep,     NULL, "Configure low power (sleep) mode"},
+    {"+SLEEP",     NULL,          set_sleep,     get_sleep,     NULL, "Configure low power (sleep) mode"},
     {"+PORT",      NULL,          set_port,      get_port,      NULL, "Configure default port number for uplink messages <1,223>"},
     {"+REP",       NULL,          set_rep,       get_rep,       NULL, "Unconfirmed message repeats [1..15]"},
     {"+DFORMAT",   NULL,          set_dformat,   get_dformat,   NULL, "Configure payload format used by the modem"},

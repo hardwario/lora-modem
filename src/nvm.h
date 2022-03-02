@@ -10,6 +10,7 @@ typedef struct sysconf
     uint16_t uart_timeout;
     uint8_t default_port;
     uint8_t data_format;
+    uint8_t sleep;
     uint32_t crc32;
 } sysconf_t;
 
