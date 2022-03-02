@@ -55,10 +55,9 @@ int main(void)
         if (lrw_irq) {
             lrw_irq = false;
         } else {
+            if (schedule_reset) system_reset();
 #ifndef LOW_POWER_DISABLE
-            if (sysconf.sleep) {
-                system_low_power();
-            }
+            if (sysconf.sleep) system_low_power();
 #endif
         }
         CRITICAL_SECTION_END();

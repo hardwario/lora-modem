@@ -30,6 +30,7 @@ enum cmd_event_net {
     CMD_NET_RETRANSMISSION = 2
 };
 
+extern bool schedule_reset;
 
 void cmd_init(unsigned int baudrate);
 

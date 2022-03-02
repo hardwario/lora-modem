@@ -602,12 +602,15 @@ int lrw_set_region(unsigned int region)
 
     // Store the new region id in the NVM state in group MacGroup2
     LoRaMacNvmData_t *state = lrw_get_state();
+
+    // Region did not change, nothing to do
+    if (region == state->MacGroup2.Region) return 1;
+
     state->MacGroup2.Region = region;
 
-    // Since we have potentially modified the state, we need to re-compute the
-    // CRC32 value and trigger the NVM change callback if necessary so that the
-    // update will be saved to NVM.
-
+    // Since we modified the state, we need to re-compute the CRC32 value and
+    // trigger the NVM change callback if necessary so that the update will be
+    // saved to NVM.
     if (update_block_crc(&state->MacGroup2, sizeof(state->MacGroup2)))
         nvm_data_change(LORAMAC_NVM_NOTIFY_FLAG_MAC_GROUP2);
 

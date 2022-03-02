@@ -10,6 +10,7 @@
 #include "log.h"
 #include "rtc.h"
 #include "nvm.h"
+#include "console.h"
 
 
 typedef enum cmd_errno {
@@ -37,6 +38,8 @@ typedef enum cmd_errno {
 
 
 static uint8_t port;
+
+bool schedule_reset = false;
 
 
 #define abort(num) do {                    \
@@ -118,8 +121,8 @@ static void reboot(atci_param_t *param)
 {
     (void)param;
     OK_();
-    rtc_delay_ms(100); // FIXME: Find wait to wait for lpuart to flush the data
-    system_reset();
+    schedule_reset = true;
+    console_flush();
 }
 
 
@@ -129,15 +132,13 @@ static void factory_reset(atci_param_t *param)
 
     if (LoRaMacStop() != LORAMAC_STATUS_OK)
         abort(ERR_FACNEW_FAILED);
-
-    if (nvm_erase() != 0)
-        abort(ERR_FACNEW_FAILED);
-
     OK_();
-    cmd_event(CMD_EVENT_MODULE, CMD_MODULE_FACNEW);
 
-    rtc_delay_ms(40);
-    system_reset();
+    if (nvm_erase() == 0) {
+        cmd_event(CMD_EVENT_MODULE, CMD_MODULE_FACNEW);
+        schedule_reset = true;
+        console_flush();
+    }
 }
 
 
@@ -155,13 +156,16 @@ static void set_band(atci_param_t *param)
     if (!atci_param_get_uint(param, &value))
         abort(ERR_PARAM);
 
-    if (lrw_set_region(value) != 0)
-        abort(ERR_PARAM);
+    int rv = lrw_set_region(value);
+    if (rv < 0) abort(ERR_PARAM);
 
     OK_();
 
-    // FIXME: Schedule reboot here after data has been saved to NVM
-    //reboot(param);
+    // The band changed, we need to schedule modem reset
+    if (rv == 0) {
+        schedule_reset = true;
+        console_flush();
+    }
 }
 
 
