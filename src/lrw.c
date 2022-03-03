@@ -472,40 +472,45 @@ void lrw_init(const part_block_t *nvm_block)
 }
 
 
-bool lrw_send(uint8_t port, void *buffer, uint8_t length, bool confirmed)
+LoRaMacStatus_t lrw_send(uint8_t port, void *buffer, uint8_t length, bool confirmed)
 {
-    McpsReq_t mcpsReq;
-    LoRaMacTxInfo_t txInfo;
+    McpsReq_t mr;
+    LoRaMacTxInfo_t txi;
+    LoRaMacStatus_t rc;
 
-    if (LoRaMacQueryTxPossible(length, &txInfo) != LORAMAC_STATUS_OK) {
-        log_debug("Transmission isn't possible");
-        // Send empty frame in order to flush MAC commands
-        mcpsReq.Type = MCPS_UNCONFIRMED;
-        mcpsReq.Req.Unconfirmed.fBuffer = NULL;
-        mcpsReq.Req.Unconfirmed.fBufferSize = 0;
-        //mcpsReq.Req.Unconfirmed.Datarate = lrw_tx_datarate_get();
+    rc = LoRaMacQueryTxPossible(length, &txi);
+    if (rc != LORAMAC_STATUS_OK) {
+        // The payload is too long to fit into the message or there is some
+        // other error.
+        log_debug("Cannot transmit %d bytes", length);
+
+        // Send an empty frame in order to flush MAC commands
+        mr.Type = MCPS_UNCONFIRMED;
+        mr.Req.Unconfirmed.fBuffer = NULL;
+        mr.Req.Unconfirmed.fBufferSize = 0;
+        //mr.Req.Unconfirmed.Datarate = lrw_tx_datarate_get();
+        return rc;
+    }
+
+    if (confirmed == false) {
+        mr.Type = MCPS_UNCONFIRMED;
+        mr.Req.Unconfirmed.fPort = port;
+        mr.Req.Unconfirmed.fBufferSize = length;
+        mr.Req.Unconfirmed.fBuffer = buffer;
+        //mr.Req.Unconfirmed.Datarate = lrw_tx_datarate_get();
     } else {
-        if (confirmed == false) {
-            mcpsReq.Type = MCPS_UNCONFIRMED;
-            mcpsReq.Req.Unconfirmed.fPort = port;
-            mcpsReq.Req.Unconfirmed.fBufferSize = length;
-            mcpsReq.Req.Unconfirmed.fBuffer = buffer;
-            //mcpsReq.Req.Unconfirmed.Datarate = lrw_tx_datarate_get();
-        } else {
-            mcpsReq.Type = MCPS_CONFIRMED;
-            mcpsReq.Req.Confirmed.fPort = port;
-            mcpsReq.Req.Confirmed.fBufferSize = length;
-            mcpsReq.Req.Confirmed.fBuffer = buffer;
-            //mcpsReq.Req.Confirmed.Datarate = lrw_tx_datarate_get();
-        }
+        mr.Type = MCPS_CONFIRMED;
+        mr.Req.Confirmed.fPort = port;
+        mr.Req.Confirmed.fBufferSize = length;
+        mr.Req.Confirmed.fBuffer = buffer;
+        //mr.Req.Confirmed.Datarate = lrw_tx_datarate_get();
     }
 
-    if (LoRaMacMcpsRequest(&mcpsReq) == LORAMAC_STATUS_OK) {
-        log_debug("Transmission succeeded");
-        return true;
-    }
-    log_debug("Transmission failed");
-    return false;
+    rc = LoRaMacMcpsRequest(&mr);
+    if (rc != LORAMAC_STATUS_OK)
+        log_debug("Transmission failed: %d", rc);
+
+    return rc;
 }
 
 
