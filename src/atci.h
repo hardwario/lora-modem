@@ -22,14 +22,20 @@ typedef struct
 
 typedef struct
 {
-  const char *command;
-  void (*action)(atci_param_t *param);
-  void (*set)(atci_param_t *param);
-  void (*read)(void);
-  void (*help)(void);
-  const char *hint;
+    const char *command;
+    void (*action)(atci_param_t *param);
+    void (*set)(atci_param_t *param);
+    void (*read)(void);
+    void (*help)(void);
+    const char *hint;
 
 } atci_command_t;
+
+typedef enum
+{
+    ATCI_ENCODING_BIN = 0,
+    ATCI_ENCODING_HEX = 1
+} atci_encoding_t;
 
 //! @brief Initialize
 //! @param[in] baudrate The baudrate to configure on the UART interface
@@ -93,7 +99,7 @@ bool atci_param_is_comma(atci_param_t *param);
 
 //! @brief Set callback for next data
 
-void atci_set_read_next_data(size_t length, void (*callback)(atci_param_t *param));
+bool atci_set_read_next_data(size_t length, atci_encoding_t encoding, void (*callback)(atci_param_t *param));
 
 //! @brief Helper for clac action
 

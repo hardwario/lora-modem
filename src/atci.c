@@ -1,6 +1,7 @@
 #include "atci.h"
 #include "console.h"
 #include "log.h"
+#include "halt.h"
 
 static void _atci_process_character(char character);
 static void _atci_process_line(void);
@@ -18,6 +19,7 @@ static struct
     struct
     {
         size_t length;
+        atci_encoding_t encoding;
         void (*callback)(atci_param_t *param);
     } read_next_data;
 
@@ -98,6 +100,26 @@ size_t atci_write(const char *buffer, size_t length)
     return console_write(buffer, length);
 }
 
+static int hex2bin(char c)
+{
+    if ((c >= '0') && (c <= '9'))
+    {
+        return c - '0';
+    }
+    else if ((c >= 'A') && (c <= 'F'))
+    {
+        return c - 'A' + 10;
+    }
+    else if ((c >= 'a') && (c <= 'f'))
+    {
+        return c - 'a' + 10;
+    }
+    else
+    {
+        return -1;
+    }
+}
+
 size_t atci_param_get_buffer_from_hex(atci_param_t *param, void *buffer, size_t length)
 {
     if ((buffer == NULL) || (length < (param->length - param->offset) / 2))
@@ -108,29 +130,15 @@ size_t atci_param_get_buffer_from_hex(atci_param_t *param, void *buffer, size_t 
     char c;
     size_t i;
     size_t max_i = length * 2;
-    uint8_t temp;
+    int temp;
     size_t l = 0;
 
     for (i = 0; (i < max_i) && (param->offset < param->length); i++)
     {
         c = param->txt[param->offset++];
 
-        if ((c >= '0') && (c <= '9'))
-        {
-            temp = c - '0';
-        }
-        else if ((c >= 'A') && (c <= 'F'))
-        {
-            temp = c - 'A' + 10;
-        }
-        else if ((c >= 'a') && (c <= 'f'))
-        {
-            temp = c - 'a' + 10;
-        }
-        else
-        {
-            return false;
-        }
+        temp = hex2bin(c);
+        if (temp < 0) return 0;
 
         if (i % 2 == 0)
         {
@@ -185,10 +193,16 @@ bool atci_param_is_comma(atci_param_t *param)
     return param->txt[param->offset++] == ',';
 }
 
-void atci_set_read_next_data(size_t length, void (*callback)(atci_param_t *param))
+bool atci_set_read_next_data(size_t length, atci_encoding_t encoding, void (*callback)(atci_param_t *param))
 {
+    if (sizeof(_atci.rx_buffer) <= length)
+        return false;
+
     _atci.read_next_data.length = length;
+    _atci.read_next_data.encoding = encoding;
     _atci.read_next_data.callback = callback;
+
+    return true;
 }
 
 void atci_clac_action(atci_param_t *param)
@@ -316,14 +330,46 @@ static void _atci_process_line(void)
 
 static void _atci_process_character(char character)
 {
+    int c;
+    static bool even = true;
     // log_debug("c %c %d %d", character, character, _atci.read_next_data.length);
 
     if (_atci.read_next_data.length != 0)
     {
-        _atci.rx_buffer[_atci.rx_length++] = character;
+        switch(_atci.read_next_data.encoding)
+        {
+            case ATCI_ENCODING_BIN:
+                _atci.rx_buffer[_atci.rx_length++] = character;
+                break;
+
+            case ATCI_ENCODING_HEX:
+                c = hex2bin(character);
+                if (c < 0) {
+                    _atci.rx_error = true;
+                    return;
+                }
+                if (even)
+                {
+                    _atci.rx_buffer[_atci.rx_length] = c << 4;
+                    even = false;
+                }
+                else
+                {
+                    _atci.rx_buffer[_atci.rx_length++] |= c;
+                    even = true;
+                }
+                break;
+
+            default:
+                halt("Unsupported payload encoding");
+                break;
+        }
+
         if (_atci.read_next_data.length == _atci.rx_length)
         {
+            even = true;
             _atci.read_next_data.length = 0;
+            _atci.read_next_data.encoding = ATCI_ENCODING_BIN;
             _atci.rx_buffer[_atci.rx_length] = 0;
 
             if (_atci.read_next_data.callback != NULL)
