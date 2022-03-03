@@ -673,7 +673,7 @@ static void set_dformat(atci_param_t *param)
     if (v != 0 && v != 1)
         abort(ERR_PARAM);
 
-    sysconf.default_port = v;
+    sysconf.data_format = v;
     sysconf_modified = true;
 
     OK_();
