@@ -80,6 +80,20 @@ static int parse_enabled(atci_param_t *param)
 }
 
 
+static int parse_port(atci_param_t *param)
+{
+    uint32_t v;
+
+    if (!atci_param_get_uint(param, &v))
+        return -1;
+
+    if (v < 1 || v > 223)
+        return -1;
+
+    return v;
+}
+
+
 static void get_uart(void)
 {
     OK("%d,%d,%d,%d,%d", sysconf.uart_baudrate, 8, 1, 0, 0);
@@ -626,15 +640,10 @@ static void get_port(void)
 
 static void set_port(atci_param_t *param)
 {
-    uint32_t v;
+    int p = parse_port(param);
+    if (p < 0) abort(ERR_PARAM);
 
-    if (!atci_param_get_uint(param, &v))
-        abort(ERR_PARAM);
-
-    if (v < 1 || v > 223)
-        abort(ERR_PARAM);
-
-    sysconf.default_port = v;
+    sysconf.default_port = p;
     sysconf_modified = true;
     OK_();
 }
