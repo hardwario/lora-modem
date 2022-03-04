@@ -204,13 +204,27 @@ static int restore_region()
 {
     size_t size;
     LoRaMacRegion_t region;
+    uint32_t crc;
 
-    const uint8_t *p = part_mmap(&size, &nvm.mac2);
-    if (check_block_crc(p, size)) {
-        memcpy(&region, &((LoRaMacNvmDataGroup2_t *)p)->Region, sizeof(region));
+    const LoRaMacNvmDataGroup2_t *p = part_mmap(&size, &nvm.mac2);
+    if (p == NULL) goto out;
+    if (size < sizeof(LoRaMacNvmDataGroup2_t)) goto out;
+
+    // Only restore the region parameter value if the crc32 checksum over the
+    // entire block matches, or if the checksum calculate over the region
+    // parameter only matches. The latter is a special case used by
+    // lrw_set_region to indicate that the structure has a valid region value,
+    // but the entire block should not be restored. This is used to
+    // re-initialize the parameters from defaults when switching regions.
+
+    memcpy(&crc, &p->Crc32, sizeof(crc));
+
+    if (check_block_crc(p, size) || Crc32((uint8_t *)&p->Region, sizeof(p->Region)) == crc) {
+        memcpy(&region, &p->Region, sizeof(region));
         return region;
     }
 
+out:
     return region2id(DEFAULT_ACTIVE_REGION);
 }
 
@@ -603,7 +617,8 @@ int lrw_activate()
 
 int lrw_set_region(unsigned int region)
 {
-    if (!RegionIsActive(region)) return -1;
+    if (!RegionIsActive(region))
+        return -LORAMAC_STATUS_REGION_NOT_SUPPORTED;
 
     // Store the new region id in the NVM state in group MacGroup2
     LoRaMacNvmData_t *state = lrw_get_state();
@@ -611,13 +626,42 @@ int lrw_set_region(unsigned int region)
     // Region did not change, nothing to do
     if (region == state->MacGroup2.Region) return 1;
 
+    // The following function deactivates the MAC, the radio, and initializes
+    // the MAC parameters to defaults.
+    int rv = LoRaMacDeInitialization();
+    if (rv != LORAMAC_STATUS_OK) return -rv;
+
+    // Reset all configuration parameters except the secure element. Note that
+    // we intentionally do not recompute the CRC32 checksums here (except for
+    // MacGroup2) since we don't want the state to be reloaded upon reboot. We
+    // want the LoRaMac to initialize itself from defaults.
+    memset(&state->Crypto, 0, sizeof(state->Crypto));
+    memset(&state->MacGroup1, 0, sizeof(state->MacGroup1));
+    memset(&state->MacGroup2, 0, sizeof(state->MacGroup2));
+    memset(&state->RegionGroup1, 0, sizeof(state->RegionGroup1));
+    memset(&state->RegionGroup2, 0, sizeof(state->RegionGroup2));
+    memset(&state->ClassB, 0, sizeof(state->ClassB));
+
+    // Update the region and regenerate the CRC for this block so that the
+    // region will be picked up upon reboot.
     state->MacGroup2.Region = region;
 
-    // Since we modified the state, we need to re-compute the CRC32 value and
-    // trigger the NVM change callback if necessary so that the update will be
-    // saved to NVM.
-    if (update_block_crc(&state->MacGroup2, sizeof(state->MacGroup2)))
-        nvm_data_change(LORAMAC_NVM_NOTIFY_FLAG_MAC_GROUP2);
+    // We don't want to restore the entire MacGroup2 on the next reboot, but we
+    // do want to restore the region parameter. Thus, calculate the CRC32 value
+    // only over the region field and save it into the Crc32 parameter in the
+    // structure. That way, the checksum will fail for the entire structure, but
+    // the function that retrieves the region from it will additional check if
+    // the checksum matches the region parameter and if yes, reload it.
+    state->MacGroup2.Crc32 = Crc32(&state->MacGroup2.Region, sizeof(state->MacGroup2.Region));
+
+    // Save all reset parameters in non-volatile memory.
+    nvm_data_change(
+        LORAMAC_NVM_NOTIFY_FLAG_CRYPTO        |
+        LORAMAC_NVM_NOTIFY_FLAG_MAC_GROUP1    |
+        LORAMAC_NVM_NOTIFY_FLAG_MAC_GROUP2    |
+        LORAMAC_NVM_NOTIFY_FLAG_REGION_GROUP1 |
+        LORAMAC_NVM_NOTIFY_FLAG_REGION_GROUP2 |
+        LORAMAC_NVM_NOTIFY_FLAG_CLASS_B);
 
     return 0;
 }

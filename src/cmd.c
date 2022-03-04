@@ -158,14 +158,23 @@ static void set_band(atci_param_t *param)
         abort(ERR_PARAM);
 
     int rv = lrw_set_region(value);
-    if (rv < 0) abort(ERR_PARAM);
+    switch(rv) {
+        case 0:  // region changed successfully
+        case 1:  // region did not change
+            OK_();
+            break;
 
-    OK_();
+        case -LORAMAC_STATUS_BUSY:
+            abort(ERR_BUSY);
+            break;
 
-    // The band changed, we need to schedule modem reset
-    if (rv == 0) {
-        schedule_reset = true;
-        console_flush();
+        case -LORAMAC_STATUS_REGION_NOT_SUPPORTED:
+            abort(ERR_BAND);
+            break;
+
+        default:
+            abort(ERR_PARAM);
+            break;
     }
 }
 
