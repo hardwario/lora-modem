@@ -154,49 +154,38 @@ static void restore_state(void)
 {
     size_t size;
     const unsigned char *p;
-    LoRaMacNvmData_t *s = lrw_get_state();
+    LoRaMacNvmData_t s;
+
+    memset(&s, 0, sizeof(s));
 
     p = part_mmap(&size, &nvm.crypto);
-    if (check_block_crc(p, size)) {
-        log_debug("Restoring Crypto state from NVM");
-        memcpy(&s->Crypto, p, size);
-    }
+    if (p && size >= sizeof(s.Crypto)) memcpy(&s.Crypto, p, size);
 
     p = part_mmap(&size, &nvm.mac1);
-    if (check_block_crc(p, size)) {
-        log_debug("Restoring MacGroup1 state from NVM");
-        memcpy(&s->MacGroup1, p, size);
-    }
+    if (p && size >= sizeof(s.MacGroup1)) memcpy(&s.MacGroup1, p, size);
 
     p = part_mmap(&size, &nvm.mac2);
-    if (check_block_crc(p, size)) {
-        log_debug("Restoring MacGroup2 state from NVM");
-        memcpy(&s->MacGroup2, p, size);
-    }
+    if (p && size >= sizeof(s.MacGroup2)) memcpy(&s.MacGroup2, p, size);
 
     p = part_mmap(&size, &nvm.se);
-    if (check_block_crc(p, size)) {
-        log_debug("Restoring SecureElement state from NVM");
-        memcpy(&s->SecureElement, p, size);
-    }
+    if (p && size >= sizeof(s.SecureElement)) memcpy(&s.SecureElement, p, size);
 
     p = part_mmap(&size, &nvm.region1);
-    if (check_block_crc(p, size)) {
-        log_debug("Restoring RegionGroup1 state from NVM");
-        memcpy(&s->RegionGroup1, p, size);
-    }
+    if (p && size >= sizeof(s.RegionGroup1)) memcpy(&s.RegionGroup1, p, size);
 
     p = part_mmap(&size, &nvm.region2);
-    if (check_block_crc(p, size)) {
-        log_debug("Restoring RegionGroup2 state from NVM");
-        memcpy(&s->RegionGroup2, p, size);
-    }
+    if (p && size >= sizeof(s.RegionGroup2)) memcpy(&s.RegionGroup2, p, size);
 
     p = part_mmap(&size, &nvm.classb);
-    if (check_block_crc(p, size)) {
-        log_debug("Restoring ClassB state from NVM");
-        memcpy(&s->ClassB, p, size);
-    }
+    if (p && size >= sizeof(s.ClassB)) memcpy(&s.ClassB, p, size);
+
+    MibRequestConfirm_t r = {
+        .Type = MIB_NVM_CTXS,
+        .Param = { .Contexts = &s }
+    };
+    int rc = LoRaMacMibSetRequestConfirm(&r);
+    if (rc != LORAMAC_STATUS_OK)
+        log_error("LoRaMac: Error while restoring contexts: %d", rc);
 }
 
 
