@@ -581,26 +581,24 @@ LoRaMacNvmData_t *lrw_get_state()
 
 int lrw_activate()
 {
-    LoRaMacStatus_t rc;
+    int rc;
     MlmeReq_t mlme;
 
     mlme.Type = MLME_JOIN;
     mlme.Req.Join.Datarate = DR_0; // LoRaParamInit->tx_datarate;
 
     if (activation_mode == 1) {
-        if (LoRaMacIsBusy()) return -1;
+        if (LoRaMacIsBusy()) return -LORAMAC_STATUS_BUSY;
         mlme.Req.Join.NetworkActivation = ACTIVATION_TYPE_OTAA;
     } else {
         mlme.Req.Join.NetworkActivation = ACTIVATION_TYPE_ABP;
     }
 
     rc = LoRaMacMlmeRequest(&mlme);
-    if (rc != LORAMAC_STATUS_OK) {
+    if (rc != LORAMAC_STATUS_OK)
         log_error("LoRaMac: Activation failed: %d", rc);
-        return -5;
-    }
 
-    return 0;
+    return -rc;
 }
 
 
@@ -652,7 +650,7 @@ int lrw_set_region(unsigned int region)
         LORAMAC_NVM_NOTIFY_FLAG_REGION_GROUP2 |
         LORAMAC_NVM_NOTIFY_FLAG_CLASS_B);
 
-    return 0;
+    return LORAMAC_STATUS_OK;
 }
 
 
