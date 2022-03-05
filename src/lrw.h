@@ -35,7 +35,7 @@ void lrw_process(void);
 //! @param[in] buffer Pointer to source buffer
 //! @param[in] length Number of bytes to be send
 //! @param[in] confirmed set true for confirmed message
-LoRaMacStatus_t lrw_send(uint8_t port, void *buffer, uint8_t length, bool confirmed);
+int lrw_send(uint8_t port, void *buffer, uint8_t length, bool confirmed);
 
 //! @brief  Get whether or not the last sent data were acknowledged
 //! @retval ENABLE if so, DISABLE otherwise

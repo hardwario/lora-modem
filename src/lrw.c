@@ -475,7 +475,7 @@ void lrw_init(const part_block_t *nvm_block)
 }
 
 
-LoRaMacStatus_t lrw_send(uint8_t port, void *buffer, uint8_t length, bool confirmed)
+int lrw_send(uint8_t port, void *buffer, uint8_t length, bool confirmed)
 {
     McpsReq_t mr;
     LoRaMacTxInfo_t txi;
@@ -492,7 +492,7 @@ LoRaMacStatus_t lrw_send(uint8_t port, void *buffer, uint8_t length, bool confir
         mr.Req.Unconfirmed.fBuffer = NULL;
         mr.Req.Unconfirmed.fBufferSize = 0;
         //mr.Req.Unconfirmed.Datarate = lrw_tx_datarate_get();
-        return rc;
+        return -rc;
     }
 
     if (confirmed == false) {
@@ -513,7 +513,7 @@ LoRaMacStatus_t lrw_send(uint8_t port, void *buffer, uint8_t length, bool confir
     if (rc != LORAMAC_STATUS_OK)
         log_debug("Transmission failed: %d", rc);
 
-    return rc;
+    return -rc;
 }
 
 
