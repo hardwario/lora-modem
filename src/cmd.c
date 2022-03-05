@@ -469,17 +469,31 @@ static void join(atci_param_t *param)
 // }
 
 
-// static void get_rfpower(void)
-// {
-//     abort(ERR_UNKNOWN_CMD);
-// }
+static void get_rfpower(void)
+{
+    MibRequestConfirm_t r = { .Type  = MIB_CHANNELS_TX_POWER };
+    if (LoRaMacMibGetRequestConfirm(&r) != LORAMAC_STATUS_OK)
+        abort(ERR_PARAM);
+
+    OK("%d", r.Param.ChannelsTxPower);
+}
 
 
-// static void set_rfpower(atci_param_t *param)
-// {
-//     (void)param;
-//     abort(ERR_UNKNOWN_CMD);
-// }
+static void set_rfpower(atci_param_t *param)
+{
+    uint32_t val;
+    if (!atci_param_get_uint(param, &val)) abort(ERR_PARAM);
+    if (val > 15) abort(ERR_PARAM);
+
+    MibRequestConfirm_t r = {
+        .Type  = MIB_CHANNELS_TX_POWER,
+        .Param = { .ChannelsTxPower = val }
+    };
+    if (LoRaMacMibSetRequestConfirm(&r) != LORAMAC_STATUS_OK)
+        abort(ERR_PARAM);
+
+    OK_();
+}
 
 
 static void get_nwk(void)
@@ -1037,7 +1051,7 @@ static const atci_command_t cmds[] = {
     // {"+JOINDC",    NULL,          set_joindc,    get_joindc,    NULL, "Configure OTAA Join duty cycling"},
     // {"+LNCHECK",   link_check,    NULL,          NULL,          NULL, "Perform link check"},
     // {"+RFPARAM",   NULL,          set_rfparam,   get_rfparam,   NULL, "Configure RF channel parameters"},
-    // {"+RFPOWER",   NULL,          set_rfpower,   get_rfpower,   NULL, "Configure RF power"},
+    {"+RFPOWER",   NULL,          set_rfpower,   get_rfpower,   NULL, "Configure RF power"},
     {"+NWK",       NULL,          set_nwk,       get_nwk,       NULL, "Configure public/private LoRa network setting"},
     {"+ADR",       NULL,          set_adr,       get_adr,       NULL, "Configure adaptive data rate (ADR)"},
     {"+DR",        NULL,          set_dr,        get_dr,        NULL, "Configure data rate (DR)"},
