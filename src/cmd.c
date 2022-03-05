@@ -39,8 +39,12 @@ typedef enum cmd_errno {
 
 
 static uint8_t port;
+static bool request_confirmation;
 
 bool schedule_reset = false;
+
+
+static void transmit(atci_param_t *param);
 
 
 #define abort(num) do {                    \
@@ -422,16 +426,13 @@ static void join(atci_param_t *param)
 {
     (void)param;
 
-    if (true)
-    {
-        if (lrw_activate() == 0) {
-            OK_();
-        } else {
-            abort(ERR_DUTYCYCLE);
-        }
-    } else {
-        abort(ERR_NO_OTAA);
+    switch(lrw_activate()) {
+        case LORAMAC_STATUS_OK: break;
+        case -LORAMAC_STATUS_BUSY: abort(ERR_BUSY); break;
+        default: abort(ERR_PARAM); break;
     }
+
+    OK_();
 }
 
 
@@ -721,18 +722,35 @@ static void set_to(atci_param_t *param)
 }
 
 
-// static void utx(atci_param_t *param)
-// {
-//     (void)param;
-//     abort(ERR_UNKNOWN_CMD);
-// }
+static void utx(atci_param_t *param)
+{
+    uint32_t size;
+    port = sysconf.default_port;
+
+    if (!atci_param_get_uint(param, &size))
+        abort(ERR_PARAM);
+
+    // The maximum payload size in LoRaWAN seems to be 242 bytes (US region) in
+    // the most favorable conditions. If the payload is transmitted hex-encoded
+    // by the client, we need to read twice as much data.
+
+    unsigned int mul = sysconf.data_format == 1 ? 2 : 1;
+    if (size > 242 * mul)
+        abort(ERR_PAYLOAD_LONG);
+
+    request_confirmation = false;
+    if (!atci_set_read_next_data(size,
+        sysconf.data_format == 1 ? ATCI_ENCODING_HEX : ATCI_ENCODING_BIN, transmit))
+        abort(ERR_PAYLOAD_LONG);
+}
 
 
-// static void ctx(atci_param_t *param)
-// {
-//     (void)param;
-//     abort(ERR_UNKNOWN_CMD);
-// }
+static void ctx(atci_param_t *param)
+{
+    (void)param;
+    utx(param);
+    request_confirmation = true;
+}
 
 
 // static void get_mcast(void)
@@ -748,80 +766,40 @@ static void set_to(atci_param_t *param)
 // }
 
 
-static void putx_data(atci_param_t *param)
+static void transmit(atci_param_t *param)
 {
-    if (lrw_send(port, param->txt, param->length, false))
-    {
-        OK_();
-    }
-    else
-    {
-        abort(ERR_DUTYCYCLE); // TODO
+    int rc = lrw_send(port, param->txt, param->length, request_confirmation);
+    switch(rc) {
+        case LORAMAC_STATUS_OK:                    OK_();                break;
+        case -LORAMAC_STATUS_BUSY:                 abort(ERR_BUSY);      break;
+        case -LORAMAC_STATUS_NO_NETWORK_JOINED:    abort(ERR_NO_JOIN);   break;
+        case -LORAMAC_STATUS_DUTYCYCLE_RESTRICTED: abort(ERR_DUTYCYCLE); break;
+        default:                                   abort(ERR_PARAM);     break;
     }
 }
 
 
 static void putx(atci_param_t *param)
 {
-    uint32_t value;
+    int p;
 
-    if (!atci_param_get_uint(param, &value) || value > 255)
-    {
-        abort(ERR_PARAM);
-    }
+    p = parse_port(param);
+    if (p < 0) abort(ERR_PARAM);
 
     if (!atci_param_is_comma(param))
-    {
         abort(ERR_PARAM);
-    }
 
-    port = value;
-
-    if (!atci_param_get_uint(param, &value) || value > 255)
-    {
-        abort(ERR_PARAM);
-    }
-
-    atci_set_read_next_data(value, putx_data);
-}
-
-
-static void pctx_data(atci_param_t *param)
-{
-    if (lrw_send(port, param->txt, param->length, true))
-    {
-        OK_();
-    }
-    else
-    {
-        abort(ERR_DUTYCYCLE); // TODO
-    }
+    utx(param);
+    port = p;
 }
 
 
 static void pctx(atci_param_t *param)
 {
-    uint32_t value;
-
-    if (!atci_param_get_uint(param, &value) || value > 255)
-    {
-        abort(ERR_PARAM);
-    }
-
-    if (!atci_param_is_comma(param))
-    {
-        abort(ERR_PARAM);
-    }
-
-    port = value;
-
-    if (!atci_param_get_uint(param, &value) || value > 255)
-    {
-        abort(ERR_PARAM);
-    }
-
-    atci_set_read_next_data(value, pctx_data);
+    putx(param);
+    request_confirmation = true;
 }
+
 
 
 // static void get_frmcnt(void)
@@ -1011,10 +989,13 @@ static void dbg(atci_param_t *param)
 static void ping(atci_param_t *param)
 {
     (void)param;
-    if (lrw_send(2, "ping", 4, false)) {
-        OK_();
-    } else {
-        abort(ERR_DUTYCYCLE); // TODO
+    int rc = lrw_send(sysconf.default_port, "ping", 4, false);
+    switch(rc) {
+        case LORAMAC_STATUS_OK:                    OK_();                break;
+        case -LORAMAC_STATUS_BUSY:                 abort(ERR_BUSY);      break;
+        case -LORAMAC_STATUS_NO_NETWORK_JOINED:    abort(ERR_NO_JOIN);   break;
+        case -LORAMAC_STATUS_DUTYCYCLE_RESTRICTED: abort(ERR_DUTYCYCLE); break;
+        default:                                   abort(ERR_PARAM);     break;
     }
 }
 
@@ -1069,8 +1050,8 @@ static const atci_command_t cmds[] = {
     {"+REP",       NULL,          set_rep,       get_rep,       NULL, "Unconfirmed message repeats [1..15]"},
     {"+DFORMAT",   NULL,          set_dformat,   get_dformat,   NULL, "Configure payload format used by the modem"},
     {"+TO",        NULL,          set_to,        get_to,        NULL, "Configure UART port timeout"},
-    // {"+UTX",       utx,           NULL,          NULL,          NULL, "Send unconfirmed uplink message"},
-    // {"+CTX",       ctx,           NULL,          NULL,          NULL, "Send confirmed uplink message"},
+    {"+UTX",       utx,           NULL,          NULL,          NULL, "Send unconfirmed uplink message"},
+    {"+CTX",       ctx,           NULL,          NULL,          NULL, "Send confirmed uplink message"},
     // {"+MCAST",     NULL,          set_mcast,     get_mcast,     NULL, "Configure multicast addresses"},
     {"+PUTX",      putx,          NULL,          NULL,          NULL, "Send unconfirmed uplink message to port"},
     {"+PCTX",      pctx,          NULL,          NULL,          NULL, "Send confirmed uplink message to port"},
