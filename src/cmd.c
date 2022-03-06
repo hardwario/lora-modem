@@ -1081,8 +1081,13 @@ static void dbg(atci_param_t *param)
 
 static void ping(atci_param_t *param)
 {
-    (void)param;
-    int rc = lrw_send(sysconf.default_port, "ping", 4, false);
+    int confirm = 0;
+    if (param != NULL) {
+        confirm = parse_enabled(param);
+        if (confirm == -1) abort(ERR_PARAM);
+    }
+
+    int rc = lrw_send(sysconf.default_port, "ping", 4, confirm == 1);
     switch(rc) {
         case LORAMAC_STATUS_OK:                    OK_();                break;
         case -LORAMAC_STATUS_BUSY:                 abort(ERR_BUSY);      break;
