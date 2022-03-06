@@ -179,6 +179,15 @@ static void set_band(atci_param_t *param)
     int rv = lrw_set_region(value);
     switch(rv) {
         case 0:  // region changed successfully
+            OK_();
+            // Emit a factory reset event since we have reset a significant
+            // portion of the internal state (this is to match the original
+            // firmware which does full factory reset on band change).
+            cmd_event(CMD_EVENT_MODULE, CMD_MODULE_FACNEW);
+            console_flush();
+            schedule_reset = true;
+            break;
+
         case 1:  // region did not change
             OK_();
             break;
