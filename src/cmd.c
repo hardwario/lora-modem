@@ -988,17 +988,16 @@ static void set_maxeirp(atci_param_t *param)
 // }
 
 
-// static void get_rtynum(void)
-// {
-//     abort(ERR_UNKNOWN_CMD);
-// }
+static void get_rtynum(void)
+{
+    get_rep();
+}
 
 
-// static void set_rtynum(atci_param_t *param)
-// {
-//     (void)param;
-//     abort(ERR_UNKNOWN_CMD);
-// }
+static void set_rtynum(atci_param_t *param)
+{
+    set_rep(param);
+}
 
 
 static void get_netid(void)
@@ -1144,7 +1143,7 @@ static const atci_command_t cmds[] = {
     // {"+CST",       NULL,          set_cst,       get_cst,       NULL, "Configure carrie sensor time (CST) for LBT"},
     // {"+BACKOFF",   NULL,          NULL,          get_backoff,   NULL, "Return duty cycle backoff time for EU868"},
     // {"+CHMASK",    NULL,          set_chmask,    get_chmask,    NULL, "Configure channel mask"},
-    // {"+RTYNUM",    NULL,          set_rtynum,    get_rtynum,    NULL, "Configure number of confirmed uplink message retries"},
+    {"+RTYNUM",    NULL,          set_rtynum,    get_rtynum,    NULL, "Configure number of confirmed uplink message retries"},
     {"+NETID",     NULL,          set_netid,     get_netid,     NULL, "Configure LoRaWAN network identifier"},
     // {"$CHANNELS",  NULL,          NULL,          get_channels,  NULL, ""},
     {"$DBG",       dbg,           NULL,          NULL,          NULL, ""},
