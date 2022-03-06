@@ -284,21 +284,17 @@ static void mlme_confirm(MlmeConfirm_t *param)
 
     if (param->MlmeRequest == MLME_JOIN) {
         if (param->Status == LORAMAC_EVENT_INFO_STATUS_OK) {
-            // // Set class after join
-            // req.Type = MIB_DEVICE_CLASS;
-            // LoRaMacMibGetRequestConfirm(&req);
-            // if (config->class != req.Param.Class) {
-            //     req.Param.Class = config->class;
-            //     LoRaMacMibSetRequestConfirm(&req);
-            // }
+            // TODO: LoRaMac switches to class A during join. Consider switching
+            // back here if we had some other class configured before join.
 
-            // overwrites the channel mask of the obtained connection to confirm
-            // req.Type = MIB_CHANNELS_MASK;
-            // req.Param.ChannelsMask = config->chmask;
-            // LoRaMacMibSetRequestConfirm(&req);
-            cmd_event(CMD_EVENT_JOIN, CMD_JOIN_SUCCEEDED);
+            // TODO: Restore channel mask from a previously saved version in
+            // case the LNS has the wrong channel mask configured.
+
+            if (activation_mode)
+                cmd_event(CMD_EVENT_JOIN, CMD_JOIN_SUCCEEDED);
         } else {
-            cmd_event(CMD_EVENT_JOIN, CMD_JOIN_FAILED);
+            if (activation_mode)
+                cmd_event(CMD_EVENT_JOIN, CMD_JOIN_FAILED);
         }
     }
 
