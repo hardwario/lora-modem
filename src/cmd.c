@@ -344,14 +344,32 @@ static void set_nwkskey(atci_param_t *param)
     if (atci_param_get_buffer_from_hex(param, key, SE_KEY_SIZE) != SE_KEY_SIZE)
         abort(ERR_PARAM);
 
+    // Forwarding network session integrity key. This is the network session key for 1.0.x devices.
     MibRequestConfirm_t r = {
-        .Type  = MIB_NWK_S_ENC_KEY,
-        .Param = { .NwkSEncKey = key }
+        .Type  = MIB_F_NWK_S_INT_KEY,
+        .Param = { .FNwkSIntKey = key }
     };
     LoRaMacMibSetRequestConfirm(&r);
 
     if (LoRaMacMibSetRequestConfirm(&r) != LORAMAC_STATUS_OK)
         abort(ERR_PARAM);
+
+    // Service network session integrity key. This is not used in 1.0.x. Must be the same as the forwarding key above.
+    r.Type  = MIB_S_NWK_S_INT_KEY;
+    r.Param.SNwkSIntKey = key;
+    LoRaMacMibSetRequestConfirm(&r);
+
+    if (LoRaMacMibSetRequestConfirm(&r) != LORAMAC_STATUS_OK)
+        abort(ERR_PARAM);
+
+    // Network session encryption key. Not used by 1.0.x devices. Must be the same as the forwarding key above.
+    r.Type  = MIB_NWK_S_ENC_KEY;
+    r.Param.NwkSEncKey = key;
+    LoRaMacMibSetRequestConfirm(&r);
+
+    if (LoRaMacMibSetRequestConfirm(&r) != LORAMAC_STATUS_OK)
+        abort(ERR_PARAM);
+
 
     OK_();
 }
