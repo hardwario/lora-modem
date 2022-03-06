@@ -467,11 +467,22 @@ static void join(atci_param_t *param)
 // }
 
 
-// static void link_check(atci_p[aram_t *param])
-// {
-//     (void)param;
-//     abort(ERR_UNKNOWN_CMD);
-// }
+static void lncheck(atci_param_t *param)
+{
+    int piggyback = 0;
+
+    if (param != NULL) {
+        piggyback = parse_enabled(param);
+        if (piggyback == -1) abort(ERR_PARAM);
+    }
+
+    switch(lrw_check_link(piggyback == 1)) {
+        case LORAMAC_STATUS_OK: OK_(); break;
+        case LORAMAC_STATUS_BUSY: abort(ERR_BUSY); break;
+        case LORAMAC_STATUS_NO_NETWORK_JOINED: abort(ERR_NO_JOIN); break;
+        default: abort(ERR_PARAM); break;
+    }
+}
 
 
 // static void get_rfparam(void)
@@ -1114,7 +1125,7 @@ static const atci_command_t cmds[] = {
     {"+APPKEY",    NULL,          set_appkey,    get_appkey,    NULL, "Configure AppKey"},
     {"+JOIN",      join,          NULL,          NULL,          NULL, "Send OTAA Join packet"},
     // {"+JOINDC",    NULL,          set_joindc,    get_joindc,    NULL, "Configure OTAA Join duty cycling"},
-    // {"+LNCHECK",   link_check,    NULL,          NULL,          NULL, "Perform link check"},
+    {"+LNCHECK",   lncheck,       NULL,          NULL,          NULL, "Perform link check"},
     // {"+RFPARAM",   NULL,          set_rfparam,   get_rfparam,   NULL, "Configure RF channel parameters"},
     {"+RFPOWER",   NULL,          set_rfpower,   get_rfpower,   NULL, "Configure RF power"},
     {"+NWK",       NULL,          set_nwk,       get_nwk,       NULL, "Configure public/private LoRa network setting"},
@@ -1163,4 +1174,10 @@ void cmd_init(unsigned int baudrate)
 void cmd_event(unsigned int type, unsigned int subtype)
 {
     atci_printf("+EVENT=%d,%d\r\n\r\n", type, subtype);
+}
+
+
+void cmd_ans(unsigned int margin, unsigned int gwcnt)
+{
+    atci_printf("+ANS=2,%d,%d\r\n\r\n", margin, gwcnt);
 }

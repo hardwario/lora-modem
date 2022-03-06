@@ -296,17 +296,14 @@ static void mlme_confirm(MlmeConfirm_t *param)
             if (activation_mode)
                 cmd_event(CMD_EVENT_JOIN, CMD_JOIN_FAILED);
         }
+    } else if (param->MlmeRequest == MLME_LINK_CHECK) {
+        if (param->Status == LORAMAC_EVENT_INFO_STATUS_OK) {
+            cmd_event(CMD_EVENT_NETWORK, CMD_NET_ANSWER);
+            cmd_ans(param->DemodMargin, param->NbGateways);
+        } else {
+            cmd_event(CMD_EVENT_NETWORK, CMD_NET_NOANSWER);
+        }
     }
-
-    // case MLME_LINK_CHECK:
-    // {
-    //     // Check DemodMargin
-    //     // Check NbGateways
-    //     break;
-    // }
-    // default:
-    //     break;
-    // }
 }
 
 
@@ -688,4 +685,34 @@ int lrw_set_dwell(uint8_t uplink, uint8_t downlink)
     state->MacGroup2.Crc32 = Crc32((uint8_t *)&state->MacGroup2, sizeof(state->MacGroup2) - 4);
     nvm_data_change(LORAMAC_NVM_NOTIFY_FLAG_MAC_GROUP2);
     return 0;
+}
+
+
+int lrw_check_link(bool piggyback)
+{
+    LoRaMacStatus_t rc;
+    MlmeReq_t mlr = { .Type = MLME_LINK_CHECK };
+
+    rc = LoRaMacMlmeRequest(&mlr);
+    if (rc != LORAMAC_STATUS_OK) {
+        log_debug("Link check request failed: %d", rc);
+        return -rc;
+    }
+
+    if (!piggyback) {
+        MibRequestConfirm_t mbr = { .Type = MIB_CHANNELS_DATARATE };
+        LoRaMacMibGetRequestConfirm(&mbr);
+
+        // Send an empty frame frame to piggy-back the link check operation on
+        McpsReq_t mcr;
+        memset(&mcr, 0, sizeof(mcr));
+        mcr.Type = MCPS_UNCONFIRMED;
+        mcr.Req.Unconfirmed.Datarate = mbr.Param.ChannelsDatarate;
+
+        rc = LoRaMacMcpsRequest(&mcr);
+        if (rc != LORAMAC_STATUS_OK)
+            log_debug("Empty frame TX failed: %d", rc);
+    }
+
+    return -rc;
 }

@@ -37,6 +37,8 @@ void cmd_init(unsigned int baudrate);
 
 void cmd_event(unsigned int type, unsigned subtype);
 
+void cmd_ans(unsigned int margin, unsigned int gwcnt);
+
 #define cmd_process atci_process
 #define cmd_print atci_print
 #define cmd_printf atci_printf
