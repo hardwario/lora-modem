@@ -668,3 +668,11 @@ int lrw_set_mode(unsigned int mode)
     if (mode == 0) lrw_activate();
     return 0;
 }
+
+
+void lrw_set_maxeirp(unsigned int maxeirp)
+{
+    LoRaMacNvmData_t *state = lrw_get_state();
+    state->MacGroup2.MacParams.MaxEirp = maxeirp;
+    nvm_data_change(LORAMAC_NVM_NOTIFY_FLAG_MAC_GROUP2);
+}

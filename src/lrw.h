@@ -59,4 +59,6 @@ unsigned int lrw_get_mode(void);
 //! @retval 0 on success, negative number on error
 int lrw_set_mode(unsigned int mode);
 
+void lrw_set_maxeirp(unsigned int maxeirp);
+
 #endif // _LRW_H
