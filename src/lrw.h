@@ -18,6 +18,7 @@ typedef struct
 
 extern bool lrw_irq;
 
+extern McpsIndication_t lrw_rx_params;
 
 //! @brief Initialize LoRaMac stack
 //! @param[in] nvm NVM memory block to store persistent LoRaMac data

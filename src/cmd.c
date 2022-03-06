@@ -867,10 +867,10 @@ static void get_frmcnt(void)
 // }
 
 
-// static void get_rfq(void)
-// {
-//     abort(ERR_UNKNOWN_CMD);
-// }
+static void get_rfq(void)
+{
+    OK("%d,%d", lrw_rx_params.Rssi, lrw_rx_params.Snr);
+}
 
 
 static void get_dwell(void)
@@ -1136,7 +1136,7 @@ static const atci_command_t cmds[] = {
     {"+PCTX",      pctx,          NULL,          NULL,          NULL, "Send confirmed uplink message to port"},
     {"+FRMCNT",    NULL,          NULL,          get_frmcnt,    NULL, "Return current values for uplink and downlink counters"},
     // {"+MSIZE",     NULL,          NULL,          get_msize,     NULL, "Return maximum payload size for current data rate"},
-    // {"+RFQ",       NULL,          NULL,          get_rfq,       NULL, "Return RSSI and SNR of the last received message"},
+    {"+RFQ",       NULL,          NULL,          get_rfq,       NULL, "Return RSSI and SNR of the last received message"},
     {"+DWELL",     NULL,          set_dwell,     get_dwell,     NULL, "Configure dwell setting for AS923"},
     {"+MAXEIRP",   NULL,          set_maxeirp,   get_maxeirp,   NULL, "Configure maximum EIRP"},
     // {"+RSSITH",    NULL,          set_rssith,    get_rssith,    NULL, "Configure RSSI threshold for LBT"},

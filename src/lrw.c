@@ -18,7 +18,7 @@
 bool lrw_irq = false;
 
 static McpsConfirm_t tx_params;
-static McpsIndication_t rx_params;
+McpsIndication_t lrw_rx_params;
 
 // Remember activation mode in this variable. 0 means ABP, 1 means OTAA. This
 // variables does not need to be saved in NVM.
@@ -254,18 +254,18 @@ static void mcps_indication(McpsIndication_t *param)
 {
     log_debug("mcps_indication: status: %d rssi: %d", param->Status, param->Rssi);
 
-    rx_params.Status = param->Status;
+    lrw_rx_params.Status = param->Status;
 
-    if (rx_params.Status != LORAMAC_EVENT_INFO_STATUS_OK) {
+    if (lrw_rx_params.Status != LORAMAC_EVENT_INFO_STATUS_OK) {
         return;
     }
 
     if (param->RxData) {
-        rx_params.RxDatarate = param->RxDatarate;
-        rx_params.Rssi = param->Rssi;
-        rx_params.Snr = param->Snr;
-        rx_params.DownLinkCounter = param->DownLinkCounter;
-        rx_params.RxSlot = param->RxSlot;
+        lrw_rx_params.RxDatarate = param->RxDatarate;
+        lrw_rx_params.Rssi = param->Rssi;
+        lrw_rx_params.Snr = param->Snr;
+        lrw_rx_params.DownLinkCounter = param->DownLinkCounter;
+        lrw_rx_params.RxSlot = param->RxSlot;
 
         recv(param->Port, param->Buffer, param->BufferSize);
     }
@@ -313,7 +313,7 @@ static void mlme_confirm(MlmeConfirm_t *param)
 static void mlme_indication(MlmeIndication_t *param)
 {
     log_debug("MlmeIndication: MlmeIndication: %d Status: %d", param->MlmeIndication, param->Status);
-    rx_params.Status = param->Status;
+    lrw_rx_params.Status = param->Status;
 }
 
 
@@ -376,7 +376,7 @@ void lrw_init(const part_block_t *nvm_block)
     MibRequestConfirm_t r;
 
     memset(&tx_params, 0, sizeof(tx_params));
-    memset(&rx_params, 0, sizeof(rx_params));
+    memset(&lrw_rx_params, 0, sizeof(lrw_rx_params));
 
     init_nvm(nvm_block);
     LoRaMacRegion_t region = restore_region();
