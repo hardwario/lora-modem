@@ -481,6 +481,9 @@ int lrw_send(uint8_t port, void *buffer, uint8_t length, bool confirmed)
     LoRaMacTxInfo_t txi;
     LoRaMacStatus_t rc;
 
+    MibRequestConfirm_t r = { .Type = MIB_CHANNELS_DATARATE };
+    LoRaMacMibGetRequestConfirm(&r);
+
     rc = LoRaMacQueryTxPossible(length, &txi);
     if (rc != LORAMAC_STATUS_OK) {
         // The payload is too long to fit into the message or there is some
@@ -491,7 +494,7 @@ int lrw_send(uint8_t port, void *buffer, uint8_t length, bool confirmed)
         mr.Type = MCPS_UNCONFIRMED;
         mr.Req.Unconfirmed.fBuffer = NULL;
         mr.Req.Unconfirmed.fBufferSize = 0;
-        //mr.Req.Unconfirmed.Datarate = lrw_tx_datarate_get();
+        mr.Req.Unconfirmed.Datarate = r.Param.ChannelsDatarate;
         return -rc;
     }
 
@@ -500,13 +503,13 @@ int lrw_send(uint8_t port, void *buffer, uint8_t length, bool confirmed)
         mr.Req.Unconfirmed.fPort = port;
         mr.Req.Unconfirmed.fBufferSize = length;
         mr.Req.Unconfirmed.fBuffer = buffer;
-        //mr.Req.Unconfirmed.Datarate = lrw_tx_datarate_get();
+        mr.Req.Unconfirmed.Datarate = r.Param.ChannelsDatarate;
     } else {
         mr.Type = MCPS_CONFIRMED;
         mr.Req.Confirmed.fPort = port;
         mr.Req.Confirmed.fBufferSize = length;
         mr.Req.Confirmed.fBuffer = buffer;
-        //mr.Req.Confirmed.Datarate = lrw_tx_datarate_get();
+        mr.Req.Unconfirmed.Datarate = r.Param.ChannelsDatarate;
     }
 
     rc = LoRaMacMcpsRequest(&mr);
