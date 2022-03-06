@@ -673,5 +673,19 @@ void lrw_set_maxeirp(unsigned int maxeirp)
 {
     LoRaMacNvmData_t *state = lrw_get_state();
     state->MacGroup2.MacParams.MaxEirp = maxeirp;
+    state->MacGroup2.Crc32 = Crc32((uint8_t *)&state->MacGroup2, sizeof(state->MacGroup2) - 4);
     nvm_data_change(LORAMAC_NVM_NOTIFY_FLAG_MAC_GROUP2);
+}
+
+
+int lrw_set_dwell(uint8_t uplink, uint8_t downlink)
+{
+    if (uplink > 1 || downlink > 1) return -1;
+
+    LoRaMacNvmData_t *state = lrw_get_state();
+    state->MacGroup2.MacParams.UplinkDwellTime = uplink;
+    state->MacGroup2.MacParams.DownlinkDwellTime = downlink;
+    state->MacGroup2.Crc32 = Crc32((uint8_t *)&state->MacGroup2, sizeof(state->MacGroup2) - 4);
+    nvm_data_change(LORAMAC_NVM_NOTIFY_FLAG_MAC_GROUP2);
+    return 0;
 }

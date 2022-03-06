@@ -61,4 +61,6 @@ int lrw_set_mode(unsigned int mode);
 
 void lrw_set_maxeirp(unsigned int maxeirp);
 
+int lrw_set_dwell(uint8_t uplink, uint8_t downlink);
+
 #endif // _LRW_H

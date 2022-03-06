@@ -852,17 +852,38 @@ static void get_frmcnt(void)
 // }
 
 
-// static void get_dwell(void)
-// {
-//     abort(ERR_UNKNOWN_CMD);
-// }
+static void get_dwell(void)
+{
+    LoRaMacNvmData_t *state = lrw_get_state();
+    OK("%d,%d", state->MacGroup2.MacParams.UplinkDwellTime,
+        state->MacGroup2.MacParams.DownlinkDwellTime);
+}
 
 
-// static void set_dwell(atci_param_t *param)
-// {
-//     (void)param;
-//     abort(ERR_UNKNOWN_CMD);
-// }
+static void set_dwell(atci_param_t *param)
+{
+    uint8_t uplink, downlink;
+
+    switch (param->txt[param->offset++]) {
+        case '0': uplink = 0; break;
+        case '1': uplink = 1; break;
+        default : abort(ERR_PARAM);
+    }
+
+    if (!atci_param_is_comma(param))
+        abort(ERR_PARAM);
+
+    switch (param->txt[param->offset++]) {
+        case '0': downlink = 0; break;
+        case '1': downlink = 1; break;
+        default : abort(ERR_PARAM);
+    }
+
+    if (lrw_set_dwell(uplink, downlink) != 0)
+        abort(ERR_PARAM);
+
+    OK_();
+}
 
 
 static void get_maxeirp(void)
@@ -1096,7 +1117,7 @@ static const atci_command_t cmds[] = {
     {"+FRMCNT",    NULL,          NULL,          get_frmcnt,    NULL, "Return current values for uplink and downlink counters"},
     // {"+MSIZE",     NULL,          NULL,          get_msize,     NULL, "Return maximum payload size for current data rate"},
     // {"+RFQ",       NULL,          NULL,          get_rfq,       NULL, "Return RSSI and SNR of the last received message"},
-    // {"+DWELL",     NULL,          set_dwell,     get_dwell,     NULL, "Configure dwell setting for AS923"},
+    {"+DWELL",     NULL,          set_dwell,     get_dwell,     NULL, "Configure dwell setting for AS923"},
     {"+MAXEIRP",   NULL,          set_maxeirp,   get_maxeirp,   NULL, "Configure maximum EIRP"},
     // {"+RSSITH",    NULL,          set_rssith,    get_rssith,    NULL, "Configure RSSI threshold for LBT"},
     // {"+CST",       NULL,          set_cst,       get_cst,       NULL, "Configure carrie sensor time (CST) for LBT"},
