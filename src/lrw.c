@@ -246,7 +246,9 @@ static void mcps_confirm(McpsConfirm_t *param)
 {
     log_debug("mcps_confirm: McpsRequest: %d, Channel: %ld AckReceived: %d", param->McpsRequest, param->Channel, param->AckReceived);
     tx_params = *param;
-    on_ack(true);
+
+    if (param->McpsRequest == MCPS_CONFIRMED)
+        on_ack(param->AckReceived == 1);
 }
 
 
