@@ -94,5 +94,10 @@ void log_warning(const char *format, ...) __attribute__ ((format (printf, 1, 2))
 
 void log_error(const char *format, ...) __attribute__ ((format (printf, 1, 2)));
 
+//! @brief Start a log line composed via repeated calls to log_*
+void log_compose(void);
+
+//! @brief Finish the log line previously started via log_compose
+void log_finish();
 
 #endif // _LOG_H

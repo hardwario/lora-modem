@@ -5,14 +5,21 @@
 #include "console.h"
 #include "usart.h"
 
+enum log_state
+{
+    LOG_STATE_SIMPLE_MSG = 0,
+    LOG_STATE_COMPOSITE_MSG,
+    LOG_STATE_HAVE_HEADER
+};
+
 typedef struct
 {
     bool initialized;
     log_level_t level;
     log_timestamp_t timestamp;
     uint32_t tick_last;
+    enum log_state state;
     char buffer[LOG_BUFFER_SIZE];
-
 } log_t;
 
 static log_t _log = {.initialized = false};
@@ -31,6 +38,7 @@ void log_init(log_level_t level, log_timestamp_t timestamp)
     _log.level = level;
     _log.timestamp = timestamp;
     _log.initialized = true;
+    _log.state = LOG_STATE_SIMPLE_MSG;
 
     #if LOG_TO_USART != 0
     usart_init();
@@ -38,6 +46,17 @@ void log_init(log_level_t level, log_timestamp_t timestamp)
 
     #if LOG_TO_RTT != 0
     SEGGER_RTT_Init();
+    #endif
+}
+
+static void _write(const char *buf, size_t len)
+{
+    #if LOG_TO_USART != 0
+    usart_write(buf, len);
+    #endif
+
+    #if LOG_TO_RTT != 0
+    SEGGER_RTT_Write(0, buf, len);
     #endif
 }
 
@@ -143,13 +162,7 @@ void log_dump(const void *buffer, size_t length, const char *format, ...)
             _log.buffer[offset++] = '\r';
             _log.buffer[offset++] = '\n';
 
-            #if LOG_TO_USART != 0
-            usart_write(_log.buffer, offset);
-            #endif
-
-            #if LOG_TO_RTT != 0
-            SEGGER_RTT_Write(0, _log.buffer, offset);
-            #endif
+            _write(_log.buffer, offset);
         }
     }
 }
@@ -206,33 +219,39 @@ static void _log_message(log_level_t level, char id, const char *format, va_list
         return;
     }
 
-    size_t offset;
+    size_t offset = 0;
 
-    if (_log.timestamp == LOG_TIMESTAMP_ABS)
+    if (_log.state == LOG_STATE_SIMPLE_MSG || _log.state == LOG_STATE_COMPOSITE_MSG)
     {
-        uint32_t tick_now = rtc_get_timer_value();
+        if (_log.timestamp == LOG_TIMESTAMP_ABS)
+        {
+            uint32_t tick_now = rtc_get_timer_value();
 
-        uint32_t timestamp_abs = tick_now / 10;
+            uint32_t timestamp_abs = tick_now / 10;
 
-        offset = sprintf(_log.buffer, "# %lu.%02lu <%c> ", timestamp_abs / 100, timestamp_abs % 100, id);
-    }
-    else if (_log.timestamp == LOG_TIMESTAMP_REL)
-    {
-        uint32_t tick_now = rtc_get_timer_value();
+            offset = sprintf(_log.buffer, "# %lu.%02lu <%c> ", timestamp_abs / 100, timestamp_abs % 100, id);
+        }
+        else if (_log.timestamp == LOG_TIMESTAMP_REL)
+        {
+            uint32_t tick_now = rtc_get_timer_value();
 
-        uint32_t timestamp_rel = (tick_now - _log.tick_last) / 10;
+            uint32_t timestamp_rel = (tick_now - _log.tick_last) / 10;
 
-        offset = sprintf(_log.buffer, "# +%lu.%02lu <%c> ", timestamp_rel / 100, timestamp_rel % 100, id);
+            offset = sprintf(_log.buffer, "# +%lu.%02lu <%c> ", timestamp_rel / 100, timestamp_rel % 100, id);
 
-        _log.tick_last = tick_now;
-    }
-    else
-    {
-        strcpy(_log.buffer, "# <!> ");
+            _log.tick_last = tick_now;
+        }
+        else
+        {
+            strcpy(_log.buffer, "# <!> ");
 
-        _log.buffer[3] = id;
+            _log.buffer[3] = id;
 
-        offset = 6;
+            offset = 6;
+        }
+
+        if (_log.state == LOG_STATE_COMPOSITE_MSG)
+            _log.state = LOG_STATE_HAVE_HEADER;
     }
 
     offset += vsnprintf(&_log.buffer[offset], sizeof(_log.buffer) - offset - 1, format, ap);
@@ -245,14 +264,57 @@ static void _log_message(log_level_t level, char id, const char *format, va_list
         _log.buffer[offset++] = '.';
     }
 
-    _log.buffer[offset++] = '\r';
-    _log.buffer[offset++] = '\n';
+    if (_log.state == LOG_STATE_SIMPLE_MSG) {
+        _log.buffer[offset++] = '\r';
+        _log.buffer[offset++] = '\n';
+    }
 
-    #if LOG_TO_USART != 0
-    usart_write(_log.buffer, offset);
-    #endif
+    _write(_log.buffer, offset);
+}
 
-    #if LOG_TO_RTT != 0
-    SEGGER_RTT_Write(0, _log.buffer, offset);
-    #endif
+void log_compose(void)
+{
+    switch(_log.state)
+    {
+        case LOG_STATE_SIMPLE_MSG:
+            _log.state = LOG_STATE_COMPOSITE_MSG;
+            break;
+
+        case LOG_STATE_COMPOSITE_MSG:
+            // do nothing
+            break;
+
+        case LOG_STATE_HAVE_HEADER:
+            // The previous message started via log_compose hasn't been finish.
+            // Finish it now and start a new one.
+            log_finish();
+            _log.state = LOG_STATE_COMPOSITE_MSG;
+            break;
+
+        default:
+            // This is a bug, do nothing
+            break;
+    }
+}
+
+void log_finish(void)
+{
+    switch(_log.state)
+    {
+        case LOG_STATE_SIMPLE_MSG:
+            break;
+
+        case LOG_STATE_COMPOSITE_MSG:
+            break;
+
+        case LOG_STATE_HAVE_HEADER:
+            _write("\r\n", 2);
+            break;
+
+        default:
+            // This is bug, do nothing
+            break;
+    }
+
+    _log.state = LOG_STATE_SIMPLE_MSG;
 }
