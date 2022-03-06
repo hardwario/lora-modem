@@ -11,6 +11,7 @@
 #include "log.h"
 #include "part.h"
 #include "utils.h"
+#include "nvm.h"
 
 #define MAX_BAT 254
 
@@ -51,7 +52,7 @@ static struct {
     part_t region1;
     part_t region2;
     part_t classb;
-} nvm;
+} nvm_parts;
 
 
 static int region2id(const char *name)
@@ -105,43 +106,43 @@ static void save_state(void)
 
     if (nvm_flags & LORAMAC_NVM_NOTIFY_FLAG_CRYPTO) {
         log_debug("Saving Crypto state to NVM");
-        if (!part_write(&nvm.crypto, 0, &s->Crypto, sizeof(s->Crypto)))
+        if (!part_write(&nvm_parts.crypto, 0, &s->Crypto, sizeof(s->Crypto)))
             log_error("Error while writing Crypto state to NVM");
     }
 
     if (nvm_flags & LORAMAC_NVM_NOTIFY_FLAG_MAC_GROUP1) {
         log_debug("Saving MacGroup1 state to NVM");
-        if (!part_write(&nvm.mac1, 0, &s->MacGroup1, sizeof(s->MacGroup1)))
+        if (!part_write(&nvm_parts.mac1, 0, &s->MacGroup1, sizeof(s->MacGroup1)))
             log_error("Error while writing MacGroup1 state to NVM");
     }
 
     if (nvm_flags & LORAMAC_NVM_NOTIFY_FLAG_MAC_GROUP2) {
         log_debug("Saving MacGroup2 state to NVM");
-        if (!part_write(&nvm.mac2, 0, &s->MacGroup2, sizeof(s->MacGroup2)))
+        if (!part_write(&nvm_parts.mac2, 0, &s->MacGroup2, sizeof(s->MacGroup2)))
             log_error("Error while writing MacGroup2 state to NVM");
     }
 
     if (nvm_flags & LORAMAC_NVM_NOTIFY_FLAG_SECURE_ELEMENT) {
         log_debug("Saving SecureElement state to NVM");
-        if (!part_write(&nvm.se, 0, &s->SecureElement, sizeof(s->SecureElement)))
+        if (!part_write(&nvm_parts.se, 0, &s->SecureElement, sizeof(s->SecureElement)))
             log_error("Error while writing SecureElement state to NVM");
     }
 
     if (nvm_flags & LORAMAC_NVM_NOTIFY_FLAG_REGION_GROUP1) {
         log_debug("Saving RegionGroup1 state to NVM");
-        if (!part_write(&nvm.region1, 0, &s->RegionGroup1, sizeof(s->RegionGroup1)))
+        if (!part_write(&nvm_parts.region1, 0, &s->RegionGroup1, sizeof(s->RegionGroup1)))
             log_error("Error while writing RegionGroup1 state to NVM");
     }
 
     if (nvm_flags & LORAMAC_NVM_NOTIFY_FLAG_REGION_GROUP2) {
         log_debug("Saving RegionGroup2 state to NVM");
-        if (!part_write(&nvm.region2, 0, &s->RegionGroup2, sizeof(s->RegionGroup2)))
+        if (!part_write(&nvm_parts.region2, 0, &s->RegionGroup2, sizeof(s->RegionGroup2)))
             log_error("Error while writing RegionGroup2 state to NVM");
     }
 
     if (nvm_flags & LORAMAC_NVM_NOTIFY_FLAG_CLASS_B) {
         log_debug("Saving ClassB state to NVM");
-        if (!part_write(&nvm.classb, 0, &s->ClassB, sizeof(s->ClassB)))
+        if (!part_write(&nvm_parts.classb, 0, &s->ClassB, sizeof(s->ClassB)))
             log_error("Error while writing ClassB state to NVM");
     }
 
@@ -158,25 +159,25 @@ static void restore_state(void)
 
     memset(&s, 0, sizeof(s));
 
-    p = part_mmap(&size, &nvm.crypto);
+    p = part_mmap(&size, &nvm_parts.crypto);
     if (p && size >= sizeof(s.Crypto)) memcpy(&s.Crypto, p, size);
 
-    p = part_mmap(&size, &nvm.mac1);
+    p = part_mmap(&size, &nvm_parts.mac1);
     if (p && size >= sizeof(s.MacGroup1)) memcpy(&s.MacGroup1, p, size);
 
-    p = part_mmap(&size, &nvm.mac2);
+    p = part_mmap(&size, &nvm_parts.mac2);
     if (p && size >= sizeof(s.MacGroup2)) memcpy(&s.MacGroup2, p, size);
 
-    p = part_mmap(&size, &nvm.se);
+    p = part_mmap(&size, &nvm_parts.se);
     if (p && size >= sizeof(s.SecureElement)) memcpy(&s.SecureElement, p, size);
 
-    p = part_mmap(&size, &nvm.region1);
+    p = part_mmap(&size, &nvm_parts.region1);
     if (p && size >= sizeof(s.RegionGroup1)) memcpy(&s.RegionGroup1, p, size);
 
-    p = part_mmap(&size, &nvm.region2);
+    p = part_mmap(&size, &nvm_parts.region2);
     if (p && size >= sizeof(s.RegionGroup2)) memcpy(&s.RegionGroup2, p, size);
 
-    p = part_mmap(&size, &nvm.classb);
+    p = part_mmap(&size, &nvm_parts.classb);
     if (p && size >= sizeof(s.ClassB)) memcpy(&s.ClassB, p, size);
 
     MibRequestConfirm_t r = {
@@ -195,7 +196,7 @@ static int restore_region()
     LoRaMacRegion_t region;
     uint32_t crc;
 
-    const LoRaMacNvmDataGroup2_t *p = part_mmap(&size, &nvm.mac2);
+    const LoRaMacNvmDataGroup2_t *p = part_mmap(&size, &nvm_parts.mac2);
     if (p == NULL) goto out;
     if (size < sizeof(LoRaMacNvmDataGroup2_t)) goto out;
 
@@ -237,8 +238,12 @@ static void on_ack(bool ack_received)
 static void recv(uint8_t port, uint8_t *buffer, uint8_t length)
 {
     atci_printf("+RECV=%d,%d\r\n\r\n", port, length);
-    atci_write((char *) buffer, length);
-    // atci_print_buffer_as_hex(buffer, length);
+
+    if (sysconf.data_format) {
+        atci_print_buffer_as_hex(buffer, length);
+    } else {
+        atci_write((char *) buffer, length);
+    }
 }
 
 
@@ -334,32 +339,32 @@ static LoRaMacCallback_t callbacks = {
 
 static void init_nvm(const part_block_t *nvm_block)
 {
-    if (part_find(&nvm.crypto, nvm_block, "crypto") &&
-        part_create(&nvm.crypto, nvm_block, "crypto", sizeof(LoRaMacCryptoNvmData_t)))
+    if (part_find(&nvm_parts.crypto, nvm_block, "crypto") &&
+        part_create(&nvm_parts.crypto, nvm_block, "crypto", sizeof(LoRaMacCryptoNvmData_t)))
         goto error;
 
-    if (part_find(&nvm.mac1, nvm_block, "mac1") &&
-        part_create(&nvm.mac1, nvm_block, "mac1", sizeof(LoRaMacNvmDataGroup1_t)))
+    if (part_find(&nvm_parts.mac1, nvm_block, "mac1") &&
+        part_create(&nvm_parts.mac1, nvm_block, "mac1", sizeof(LoRaMacNvmDataGroup1_t)))
         goto error;
 
-    if (part_find(&nvm.mac2, nvm_block, "mac2") &&
-        part_create(&nvm.mac2, nvm_block, "mac2", sizeof(LoRaMacNvmDataGroup2_t)))
+    if (part_find(&nvm_parts.mac2, nvm_block, "mac2") &&
+        part_create(&nvm_parts.mac2, nvm_block, "mac2", sizeof(LoRaMacNvmDataGroup2_t)))
         goto error;
 
-    if (part_find(&nvm.se, nvm_block, "se") &&
-        part_create(&nvm.se, nvm_block, "se", sizeof(SecureElementNvmData_t)))
+    if (part_find(&nvm_parts.se, nvm_block, "se") &&
+        part_create(&nvm_parts.se, nvm_block, "se", sizeof(SecureElementNvmData_t)))
         goto error;
 
-    if (part_find(&nvm.region1, nvm_block, "region1") &&
-        part_create(&nvm.region1, nvm_block, "region1", sizeof(RegionNvmDataGroup1_t)))
+    if (part_find(&nvm_parts.region1, nvm_block, "region1") &&
+        part_create(&nvm_parts.region1, nvm_block, "region1", sizeof(RegionNvmDataGroup1_t)))
         goto error;
 
-    if (part_find(&nvm.region2, nvm_block, "region2") &&
-        part_create(&nvm.region2, nvm_block, "region2", sizeof(RegionNvmDataGroup2_t)))
+    if (part_find(&nvm_parts.region2, nvm_block, "region2") &&
+        part_create(&nvm_parts.region2, nvm_block, "region2", sizeof(RegionNvmDataGroup2_t)))
         goto error;
 
-    if (part_find(&nvm.classb, nvm_block, "classb") &&
-        part_create(&nvm.classb, nvm_block, "classb", sizeof(LoRaMacClassBNvmData_t)))
+    if (part_find(&nvm_parts.classb, nvm_block, "classb") &&
+        part_create(&nvm_parts.classb, nvm_block, "classb", sizeof(LoRaMacClassBNvmData_t)))
         goto error;
 
     return;
