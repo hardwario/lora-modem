@@ -614,17 +614,38 @@ static void set_dr(atci_param_t *param)
 // }
 
 
-// static void get_rx2(void)
-// {
-//     abort(ERR_UNKNOWN_CMD);
-// }
+static void get_rx2(void)
+{
+    MibRequestConfirm_t r = { .Type = MIB_RX2_CHANNEL };
+    LoRaMacMibGetRequestConfirm(&r);
+    OK("%d,%d", r.Param.Rx2Channel.Frequency, r.Param.Rx2Channel.Datarate);
+}
 
 
-// static void set_rx2(atci_param_t *param)
-// {
-//     (void)param;
-//     abort(ERR_UNKNOWN_CMD);
-// }
+static void set_rx2(atci_param_t *param)
+{
+    uint32_t freq, dr;
+
+    if (!atci_param_get_uint(param, &freq)) abort(ERR_PARAM);
+    if (!atci_param_is_comma(param)) abort(ERR_PARAM);
+    if (!atci_param_get_uint(param, &dr)) abort(ERR_PARAM);
+    if (dr > 15) abort(ERR_PARAM);
+
+    MibRequestConfirm_t r = {
+        .Type = MIB_RX2_CHANNEL,
+        .Param = {
+            .Rx2Channel = {
+                .Frequency = freq,
+                .Datarate = dr
+            }
+        }
+    };
+
+    if (LoRaMacMibSetRequestConfirm(&r) != LORAMAC_STATUS_OK)
+        abort(ERR_PARAM);
+
+    OK_();
+}
 
 
 static void get_dutycycle(void)
@@ -1102,7 +1123,7 @@ static const atci_command_t cmds[] = {
     {"+DR",        NULL,          set_dr,        get_dr,        NULL, "Configure data rate (DR)"},
     // {"+DELAY",     NULL,          set_delay,     get_delay,     NULL, "Configure receive window offsets"},
     // {"+ADRACK",    NULL,          set_adrack,    get_adrack,    NULL, "Configure ADR ACK parameters"},
-    // {"+RX2",       NULL,          set_rx2,       get_rx2,       NULL, "Configure RX2 window frequency and data rate"},
+    {"+RX2",       NULL,          set_rx2,       get_rx2,       NULL, "Configure RX2 window frequency and data rate"},
     {"+DUTYCYCLE", NULL,          set_dutycycle, get_dutycycle, NULL, "Configure duty cycling in EU868"},
     {"+SLEEP",     NULL,          set_sleep,     get_sleep,     NULL, "Configure low power (sleep) mode"},
     {"+PORT",      NULL,          set_port,      get_port,      NULL, "Configure default port number for uplink messages <1,223>"},
