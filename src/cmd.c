@@ -74,9 +74,10 @@ static inline uint32_t ntohl(uint32_t v)
 
 static int parse_enabled(atci_param_t *param)
 {
-    if (param->length != 1) return -1;
+    if (param->offset >= param->length) return -1;
+    if (param->length - param->offset != 1) return -1;
 
-    switch (param->txt[0]) {
+    switch (param->txt[param->offset++]) {
         case '0': return 0;
         case '1': return 1;
         default : return -1;
@@ -791,6 +792,7 @@ static void utx(atci_param_t *param)
     uint32_t size;
     port = sysconf.default_port;
 
+    if (param == NULL) abort(ERR_PARAM);
     if (!atci_param_get_uint(param, &size))
         abort(ERR_PARAM);
 
@@ -847,6 +849,7 @@ static void putx(atci_param_t *param)
 {
     int p;
 
+    if (param == NULL) abort(ERR_PARAM);
     p = parse_port(param);
     if (p < 0) abort(ERR_PARAM);
 
