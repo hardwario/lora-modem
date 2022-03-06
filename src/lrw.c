@@ -22,7 +22,7 @@ McpsIndication_t lrw_rx_params;
 
 // Remember activation mode in this variable. 0 means ABP, 1 means OTAA. This
 // variables does not need to be saved in NVM.
-unsigned int activation_mode = 0;
+unsigned int activation_mode;
 
 
 static struct {
@@ -402,6 +402,22 @@ void lrw_init(const part_block_t *nvm_block)
     }
 
     restore_state();
+
+    // See what activation mode LoRaMac is in and configure the activation_mode
+    // variable accordingly.
+    r.Type = MIB_NETWORK_ACTIVATION;
+    LoRaMacMibGetRequestConfirm(&r);
+    switch (r.Param.NetworkActivation) {
+        case ACTIVATION_TYPE_NONE:
+        case ACTIVATION_TYPE_ABP:
+        default:
+            activation_mode = 0;
+            break;
+
+        case ACTIVATION_TYPE_OTAA:
+            activation_mode = 1;
+            break;
+    }
 
     r.Type = MIB_LORAWAN_VERSION;
     LoRaMacMibGetRequestConfirm(&r);
