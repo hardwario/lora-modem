@@ -1142,7 +1142,7 @@ static const atci_command_t cmds[] = {
     {"+APPKEY",    NULL,          set_appkey,    get_appkey,    NULL, "Configure AppKey"},
     {"+JOIN",      join,          NULL,          NULL,          NULL, "Send OTAA Join packet"},
     // {"+JOINDC",    NULL,          set_joindc,    get_joindc,    NULL, "Configure OTAA Join duty cycling"},
-    {"+LNCHECK",   lncheck,       NULL,          NULL,          NULL, "Perform link check"},
+    {"+LNCHECK",   lncheck,       lncheck,       NULL,          NULL, "Perform link check"},
     // {"+RFPARAM",   NULL,          set_rfparam,   get_rfparam,   NULL, "Configure RF channel parameters"},
     {"+RFPOWER",   NULL,          set_rfpower,   get_rfpower,   NULL, "Configure RF power"},
     {"+NWK",       NULL,          set_nwk,       get_nwk,       NULL, "Configure public/private LoRa network setting"},
