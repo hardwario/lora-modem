@@ -30,6 +30,10 @@ LORAMAC_VERSION ?= 0x01000400
 # may need to select 1.0.3 to enable the legacy mode.
 LORAMAC_ABP_VERSION ?= 0x01000300
 
+# The version string to be returned by AT+VER. The version string is meant to be
+# compatible with the version string returned by the original Murata firmware.
+# It must be of the form x.x.xx.
+VERSION_COMPAT ?= 1.1.06
 
 ELF ?= $(OUT_DIR)/$(TYPE)/$(OUT).elf
 MAP ?= $(OUT_DIR)/$(TYPE)/$(OUT).map
@@ -159,6 +163,7 @@ endif
 ifeq (1,$(building))
 
 build_date := $(shell date "+%Y-%b-%d %H:%M:%S %Z")
+build_date_compat := $(shell date "+%b %d %Y %H:%M:%S")
 
 # In order to properly re-build the firmware when the version string changes,
 # e.g., as a result of a git tag begin added or removed, the output of git
@@ -247,7 +252,9 @@ CFLAGS += -DREGION_AS923_DEFAULT_CHANNEL_PLAN=CHANNEL_PLAN_GROUP_AS923_1
 CFLAGS += -DREGION_CN470_DEFAULT_CHANNEL_PLAN=CHANNEL_PLAN_20MHZ_TYPE_A
 
 CFLAGS += -DBUILD_DATE='"$(build_date)"'
+CFLAGS += -DBUILD_DATE_COMPAT='"$(build_date_compat)"'
 CFLAGS += -DVERSION='"$(version)"'
+CFLAGS += -DVERSION_COMPAT='"$(VERSION_COMPAT)"'
 CFLAGS += -DLIB_VERSION='"$(lib_version)"'
 
 ifneq (,$(LORAMAC_VERSION))
