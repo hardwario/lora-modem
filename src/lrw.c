@@ -511,7 +511,7 @@ int lrw_send(uint8_t port, void *buffer, uint8_t length, bool confirmed)
         mr.Req.Unconfirmed.fBuffer = NULL;
         mr.Req.Unconfirmed.fBufferSize = 0;
         mr.Req.Unconfirmed.Datarate = r.Param.ChannelsDatarate;
-        return -rc;
+        return rc;
     }
 
     if (confirmed == false) {
@@ -532,7 +532,7 @@ int lrw_send(uint8_t port, void *buffer, uint8_t length, bool confirmed)
     if (rc != LORAMAC_STATUS_OK)
         log_debug("Transmission failed: %d", rc);
 
-    return -rc;
+    return rc;
 }
 
 
@@ -607,7 +607,7 @@ int lrw_activate()
     mlme.Req.Join.Datarate = DR_0; // LoRaParamInit->tx_datarate;
 
     if (activation_mode == 1) {
-        if (LoRaMacIsBusy()) return -LORAMAC_STATUS_BUSY;
+        if (LoRaMacIsBusy()) return LORAMAC_STATUS_BUSY;
         mlme.Req.Join.NetworkActivation = ACTIVATION_TYPE_OTAA;
     } else {
         mlme.Req.Join.NetworkActivation = ACTIVATION_TYPE_ABP;
@@ -617,25 +617,25 @@ int lrw_activate()
     if (rc != LORAMAC_STATUS_OK)
         log_error("LoRaMac: Activation failed: %d", rc);
 
-    return -rc;
+    return rc;
 }
 
 
 int lrw_set_region(unsigned int region)
 {
     if (!RegionIsActive(region))
-        return -LORAMAC_STATUS_REGION_NOT_SUPPORTED;
+        return LORAMAC_STATUS_REGION_NOT_SUPPORTED;
 
     // Store the new region id in the NVM state in group MacGroup2
     LoRaMacNvmData_t *state = lrw_get_state();
 
     // Region did not change, nothing to do
-    if (region == state->MacGroup2.Region) return 1;
+    if (region == state->MacGroup2.Region) return -1;
 
     // The following function deactivates the MAC, the radio, and initializes
     // the MAC parameters to defaults.
     int rv = LoRaMacDeInitialization();
-    if (rv != LORAMAC_STATUS_OK) return -rv;
+    if (rv != LORAMAC_STATUS_OK) return rv;
 
     // Reset all configuration parameters except the secure element. Note that
     // we intentionally do not recompute the CRC32 checksums here (except for
@@ -681,7 +681,7 @@ unsigned int lrw_get_mode(void)
 
 int lrw_set_mode(unsigned int mode)
 {
-    if (mode > 1) return -1;
+    if (mode > 1) return LORAMAC_STATUS_PARAMETER_INVALID;
 
     activation_mode = mode;
     if (mode == 0) lrw_activate();
@@ -700,7 +700,7 @@ void lrw_set_maxeirp(unsigned int maxeirp)
 
 int lrw_set_dwell(uint8_t uplink, uint8_t downlink)
 {
-    if (uplink > 1 || downlink > 1) return -1;
+    if (uplink > 1 || downlink > 1) return LORAMAC_STATUS_PARAMETER_INVALID;
 
     LoRaMacNvmData_t *state = lrw_get_state();
     state->MacGroup2.MacParams.UplinkDwellTime = uplink;
@@ -719,7 +719,7 @@ int lrw_check_link(bool piggyback)
     rc = LoRaMacMlmeRequest(&mlr);
     if (rc != LORAMAC_STATUS_OK) {
         log_debug("Link check request failed: %d", rc);
-        return -rc;
+        return rc;
     }
 
     if (!piggyback) {
@@ -737,5 +737,5 @@ int lrw_check_link(bool piggyback)
             log_debug("Empty frame TX failed: %d", rc);
     }
 
-    return -rc;
+    return rc;
 }

@@ -72,6 +72,32 @@ static inline uint32_t ntohl(uint32_t v)
 }
 
 
+#define abort_on_error(status) do { \
+    int rc = status2error(status);  \
+    if (rc < 0) abort(rc);          \
+} while (0)
+
+
+static int status2error(int status)
+{
+    if (status <= 0) return -status;
+    switch ((status)) {
+        case LORAMAC_STATUS_BUSY:                  return ERR_BUSY;         break;
+        case LORAMAC_STATUS_SERVICE_UNKNOWN:       return ERR_UNKNOWN_CMD;  break;
+        case LORAMAC_STATUS_NO_NETWORK_JOINED:     return ERR_NO_JOIN;      break;
+        case LORAMAC_STATUS_DUTYCYCLE_RESTRICTED:  return ERR_DUTYCYCLE;    break;
+        case LORAMAC_STATUS_REGION_NOT_SUPPORTED:  return ERR_BAND;         break;
+        case LORAMAC_STATUS_FREQUENCY_INVALID:     return ERR_UNSUPPORTED;  break;
+        case LORAMAC_STATUS_DATARATE_INVALID:      return ERR_UNSUPPORTED;  break;
+        case LORAMAC_STATUS_FREQ_AND_DR_INVALID:   return ERR_UNSUPPORTED;  break;
+        case LORAMAC_STATUS_LENGTH_ERROR:          return ERR_PAYLOAD_LONG; break;
+        case LORAMAC_STATUS_NO_CHANNEL_FOUND:      return ERR_NO_CHANNEL;   break;
+        case LORAMAC_STATUS_NO_FREE_CHANNEL_FOUND: return ERR_NO_CHANNEL;   break;
+        default:                                   return ERR_PARAM;        break;
+    }
+}
+
+
 static int parse_enabled(atci_param_t *param)
 {
     if (param->offset >= param->length) return -1;
@@ -185,32 +211,16 @@ static void set_band(atci_param_t *param)
         abort(ERR_PARAM);
 
     int rv = lrw_set_region(value);
-    switch(rv) {
-        case 0:  // region changed successfully
-            OK_();
-            // Emit a factory reset event since we have reset a significant
-            // portion of the internal state (this is to match the original
-            // firmware which does full factory reset on band change).
-            cmd_event(CMD_EVENT_MODULE, CMD_MODULE_FACNEW);
-            console_flush();
-            schedule_reset = true;
-            break;
+    abort_on_error(rv);
 
-        case 1:  // region did not change
-            OK_();
-            break;
-
-        case -LORAMAC_STATUS_BUSY:
-            abort(ERR_BUSY);
-            break;
-
-        case -LORAMAC_STATUS_REGION_NOT_SUPPORTED:
-            abort(ERR_BAND);
-            break;
-
-        default:
-            abort(ERR_PARAM);
-            break;
+    OK_();
+    if (rv == 0) {
+        // Emit a factory reset event since we have reset a significant portion
+        // of the internal state (this is to match the original firmware which
+        // does full factory reset on band change).
+        cmd_event(CMD_EVENT_MODULE, CMD_MODULE_FACNEW);
+        console_flush();
+        schedule_reset = true;
     }
 }
 
@@ -218,13 +228,10 @@ static void set_band(atci_param_t *param)
 static void get_class(void)
 {
     MibRequestConfirm_t r = { .Type = MIB_DEVICE_CLASS };
-    LoRaMacMibGetRequestConfirm(&r);
+    abort_on_error(LoRaMacMibGetRequestConfirm(&r));
     OK("%d", r.Param.Class);
 }
 
-
-//! @brief Set LoRaWAN device class
-//! @attention can be calld only in LRW_ClassSwitchSlot or rx_data callbacks
 
 static void set_class(atci_param_t *param)
 {
@@ -234,15 +241,14 @@ static void set_class(atci_param_t *param)
     if (v > 2) abort(ERR_PARAM);
 
     MibRequestConfirm_t r = { .Type = MIB_DEVICE_CLASS };
-    LoRaMacMibGetRequestConfirm(&r);
+    abort_on_error(LoRaMacMibGetRequestConfirm(&r));
     if (r.Param.Class == v) {
         OK_();
         return;
     }
 
     r.Param.Class = v;
-    if (LoRaMacMibSetRequestConfirm(&r) != LORAMAC_STATUS_OK)
-        abort(ERR_PARAM);
+    abort_on_error(LoRaMacMibSetRequestConfirm(&r));
 
     OK_();
 }
@@ -260,7 +266,7 @@ static void set_mode(atci_param_t *param)
     if (!atci_param_get_uint(param, &v)) abort(ERR_PARAM);
     if (v > 1) abort(ERR_PARAM);
 
-    if (lrw_set_mode(v) != 0) abort(ERR_PARAM);
+    abort_on_error(lrw_set_mode(v));
     OK_();
 }
 
@@ -268,7 +274,7 @@ static void set_mode(atci_param_t *param)
 static void get_devaddr(void)
 {
     MibRequestConfirm_t r = { .Type = MIB_DEV_ADDR };
-    LoRaMacMibGetRequestConfirm(&r);
+    abort_on_error(LoRaMacMibGetRequestConfirm(&r));
     OK("%08X", r.Param.DevAddr);
 }
 
@@ -283,8 +289,7 @@ static void set_devaddr(atci_param_t *param)
         .Type  = MIB_DEV_ADDR,
         .Param = { .DevAddr = ntohl(buf) }
     };
-    if (LoRaMacMibSetRequestConfirm(&r) != LORAMAC_STATUS_OK)
-        abort(ERR_PARAM);
+    abort_on_error(LoRaMacMibSetRequestConfirm(&r));
 
     OK_();
 }
@@ -293,7 +298,7 @@ static void set_devaddr(atci_param_t *param)
 static void get_deveui(void)
 {
     MibRequestConfirm_t r = { .Type = MIB_DEV_EUI };
-    LoRaMacMibGetRequestConfirm(&r);
+    abort_on_error(LoRaMacMibGetRequestConfirm(&r));
     atci_print("+OK=");
     atci_print_buffer_as_hex(r.Param.DevEui, SE_EUI_SIZE);
     EOL();
@@ -311,9 +316,7 @@ static void set_deveui(atci_param_t *param)
         .Param = { .DevEui = eui }
     };
 
-    if (LoRaMacMibSetRequestConfirm(&r) != LORAMAC_STATUS_OK)
-        abort(ERR_PARAM);
-
+    abort_on_error(LoRaMacMibSetRequestConfirm(&r));
     OK_();
 }
 
@@ -321,7 +324,7 @@ static void set_deveui(atci_param_t *param)
 static void get_joineui(void)
 {
     MibRequestConfirm_t r = { .Type = MIB_JOIN_EUI };
-    LoRaMacMibGetRequestConfirm(&r);
+    abort_on_error(LoRaMacMibGetRequestConfirm(&r));
     atci_print("+OK=");
     atci_print_buffer_as_hex(r.Param.JoinEui, SE_EUI_SIZE);
     EOL();
@@ -339,9 +342,7 @@ static void set_joineui(atci_param_t *param)
         .Param = { .JoinEui = eui }
     };
 
-    if (LoRaMacMibSetRequestConfirm(&r) != LORAMAC_STATUS_OK)
-        abort(ERR_PARAM);
-
+    abort_on_error(LoRaMacMibSetRequestConfirm(&r));
     OK_();
 }
 
@@ -367,27 +368,17 @@ static void set_nwkskey(atci_param_t *param)
         .Type  = MIB_F_NWK_S_INT_KEY,
         .Param = { .FNwkSIntKey = key }
     };
-    LoRaMacMibSetRequestConfirm(&r);
-
-    if (LoRaMacMibSetRequestConfirm(&r) != LORAMAC_STATUS_OK)
-        abort(ERR_PARAM);
+    abort_on_error(LoRaMacMibSetRequestConfirm(&r));
 
     // Service network session integrity key. This is not used in 1.0.x. Must be the same as the forwarding key above.
     r.Type  = MIB_S_NWK_S_INT_KEY;
     r.Param.SNwkSIntKey = key;
-    LoRaMacMibSetRequestConfirm(&r);
-
-    if (LoRaMacMibSetRequestConfirm(&r) != LORAMAC_STATUS_OK)
-        abort(ERR_PARAM);
+    abort_on_error(LoRaMacMibSetRequestConfirm(&r));
 
     // Network session encryption key. Not used by 1.0.x devices. Must be the same as the forwarding key above.
     r.Type  = MIB_NWK_S_ENC_KEY;
     r.Param.NwkSEncKey = key;
-    LoRaMacMibSetRequestConfirm(&r);
-
-    if (LoRaMacMibSetRequestConfirm(&r) != LORAMAC_STATUS_OK)
-        abort(ERR_PARAM);
-
+    abort_on_error(LoRaMacMibSetRequestConfirm(&r));
 
     OK_();
 }
@@ -413,10 +404,7 @@ static void set_appskey(atci_param_t *param)
         .Type  = MIB_APP_S_KEY,
         .Param = { .AppSKey = key }
     };
-    LoRaMacMibSetRequestConfirm(&r);
-
-    if (LoRaMacMibSetRequestConfirm(&r) != LORAMAC_STATUS_OK)
-        abort(ERR_PARAM);
+    abort_on_error(LoRaMacMibSetRequestConfirm(&r));
 
     OK_();
 }
@@ -442,17 +430,11 @@ static void set_appkey(atci_param_t *param)
         .Type  = MIB_APP_KEY,
         .Param = { .AppKey = key }
     };
-    LoRaMacMibSetRequestConfirm(&r);
-
-    if (LoRaMacMibSetRequestConfirm(&r) != LORAMAC_STATUS_OK)
-        abort(ERR_PARAM);
+    abort_on_error(LoRaMacMibSetRequestConfirm(&r));
 
     r.Type = MIB_NWK_KEY;
     r.Param.NwkKey = key;
-    LoRaMacMibSetRequestConfirm(&r);
-
-    if (LoRaMacMibSetRequestConfirm(&r) != LORAMAC_STATUS_OK)
-        abort(ERR_PARAM);
+    abort_on_error(LoRaMacMibSetRequestConfirm(&r));
 
     OK_();
 }
@@ -462,11 +444,7 @@ static void join(atci_param_t *param)
 {
     (void)param;
 
-    switch(lrw_activate()) {
-        case LORAMAC_STATUS_OK: break;
-        case -LORAMAC_STATUS_BUSY: abort(ERR_BUSY); break;
-        default: abort(ERR_PARAM); break;
-    }
+    abort_on_error(lrw_activate());
 
     OK_();
 }
@@ -494,12 +472,8 @@ static void lncheck(atci_param_t *param)
         if (piggyback == -1) abort(ERR_PARAM);
     }
 
-    switch(lrw_check_link(piggyback == 1)) {
-        case LORAMAC_STATUS_OK: OK_(); break;
-        case LORAMAC_STATUS_BUSY: abort(ERR_BUSY); break;
-        case LORAMAC_STATUS_NO_NETWORK_JOINED: abort(ERR_NO_JOIN); break;
-        default: abort(ERR_PARAM); break;
-    }
+    abort_on_error(lrw_check_link(piggyback == 1));
+    OK_();
 }
 
 
@@ -519,9 +493,7 @@ static void lncheck(atci_param_t *param)
 static void get_rfpower(void)
 {
     MibRequestConfirm_t r = { .Type  = MIB_CHANNELS_TX_POWER };
-    if (LoRaMacMibGetRequestConfirm(&r) != LORAMAC_STATUS_OK)
-        abort(ERR_PARAM);
-
+    abort_on_error(LoRaMacMibGetRequestConfirm(&r));
     OK("%d", r.Param.ChannelsTxPower);
 }
 
@@ -536,9 +508,7 @@ static void set_rfpower(atci_param_t *param)
         .Type  = MIB_CHANNELS_TX_POWER,
         .Param = { .ChannelsTxPower = val }
     };
-    if (LoRaMacMibSetRequestConfirm(&r) != LORAMAC_STATUS_OK)
-        abort(ERR_PARAM);
-
+    abort_on_error(LoRaMacMibSetRequestConfirm(&r));
     OK_();
 }
 
@@ -546,7 +516,7 @@ static void set_rfpower(atci_param_t *param)
 static void get_nwk(void)
 {
     MibRequestConfirm_t r = { .Type = MIB_PUBLIC_NETWORK };
-    LoRaMacMibGetRequestConfirm(&r);
+    abort_on_error(LoRaMacMibGetRequestConfirm(&r));
     OK("%d", r.Param.EnablePublicNetwork);
 }
 
@@ -560,9 +530,7 @@ static void set_nwk(atci_param_t *param)
         .Type  = MIB_PUBLIC_NETWORK,
         .Param = { .EnablePublicNetwork = enabled }
     };
-
-    if (LoRaMacMibSetRequestConfirm(&r) != LORAMAC_STATUS_OK)
-        abort(ERR_PARAM);
+    abort_on_error(LoRaMacMibSetRequestConfirm(&r));
 
     OK_();
 }
@@ -571,7 +539,7 @@ static void set_nwk(atci_param_t *param)
 static void get_adr(void)
 {
     MibRequestConfirm_t r = { .Type = MIB_ADR };
-    LoRaMacMibGetRequestConfirm(&r);
+    abort_on_error(LoRaMacMibGetRequestConfirm(&r));
     OK("%d", r.Param.AdrEnable);
 }
 
@@ -585,8 +553,7 @@ static void set_adr(atci_param_t *param)
         .Type  = MIB_ADR,
         .Param = { .AdrEnable = enabled }
     };
-    if (LoRaMacMibSetRequestConfirm(&r) != LORAMAC_STATUS_OK)
-        abort(ERR_PARAM);
+    abort_on_error(LoRaMacMibSetRequestConfirm(&r));
 
     OK_();
 }
@@ -595,7 +562,7 @@ static void set_adr(atci_param_t *param)
 static void get_dr(void)
 {
     MibRequestConfirm_t r = { .Type = MIB_CHANNELS_DATARATE };
-    LoRaMacMibGetRequestConfirm(&r);
+    abort_on_error(LoRaMacMibGetRequestConfirm(&r));
     OK("%d", r.Param.ChannelsDatarate);
 }
 
@@ -610,8 +577,7 @@ static void set_dr(atci_param_t *param)
         .Type  = MIB_CHANNELS_DATARATE,
         .Param = { .ChannelsDatarate = val }
     };
-    if (LoRaMacMibSetRequestConfirm(&r) != LORAMAC_STATUS_OK)
-        abort(ERR_PARAM);
+    abort_on_error(LoRaMacMibSetRequestConfirm(&r));
 
     OK_();
 }
@@ -646,7 +612,8 @@ static void set_dr(atci_param_t *param)
 static void get_rx2(void)
 {
     MibRequestConfirm_t r = { .Type = MIB_RX2_CHANNEL };
-    LoRaMacMibGetRequestConfirm(&r);
+    abort_on_error(LoRaMacMibGetRequestConfirm(&r));
+
     OK("%d,%d", r.Param.Rx2Channel.Frequency, r.Param.Rx2Channel.Datarate);
 }
 
@@ -669,9 +636,7 @@ static void set_rx2(atci_param_t *param)
             }
         }
     };
-
-    if (LoRaMacMibSetRequestConfirm(&r) != LORAMAC_STATUS_OK)
-        abort(ERR_PARAM);
+    abort_on_error(LoRaMacMibSetRequestConfirm(&r));
 
     OK_();
 }
@@ -735,7 +700,7 @@ static void set_port(atci_param_t *param)
 static void get_rep(void)
 {
     MibRequestConfirm_t r = { .Type = MIB_CHANNELS_NB_TRANS };
-    LoRaMacMibGetRequestConfirm(&r);
+    abort_on_error(LoRaMacMibGetRequestConfirm(&r));
     OK("%d", r.Param.ChannelsNbTrans);
 }
 
@@ -751,8 +716,7 @@ static void set_rep(atci_param_t *param)
         .Type  = MIB_CHANNELS_NB_TRANS,
         .Param = { .ChannelsNbTrans = v }
     };
-    if (LoRaMacMibSetRequestConfirm(&r) != LORAMAC_STATUS_OK)
-        abort(ERR_PARAM);
+    abort_on_error(LoRaMacMibSetRequestConfirm(&r));
 
     OK_();
 }
@@ -851,14 +815,8 @@ static void ctx(atci_param_t *param)
 
 static void transmit(atci_param_t *param)
 {
-    int rc = lrw_send(port, param->txt, param->length, request_confirmation);
-    switch(rc) {
-        case LORAMAC_STATUS_OK:                    OK_();                break;
-        case -LORAMAC_STATUS_BUSY:                 abort(ERR_BUSY);      break;
-        case -LORAMAC_STATUS_NO_NETWORK_JOINED:    abort(ERR_NO_JOIN);   break;
-        case -LORAMAC_STATUS_DUTYCYCLE_RESTRICTED: abort(ERR_DUTYCYCLE); break;
-        default:                                   abort(ERR_PARAM);     break;
-    }
+    abort_on_error(lrw_send(port, param->txt, param->length, request_confirmation));
+    OK_();
 }
 
 
@@ -931,9 +889,7 @@ static void set_dwell(atci_param_t *param)
         default : abort(ERR_PARAM);
     }
 
-    if (lrw_set_dwell(uplink, downlink) != 0)
-        abort(ERR_PARAM);
-
+    abort_on_error(lrw_set_dwell(uplink, downlink));
     OK_();
 }
 
@@ -1034,7 +990,7 @@ static void set_rtynum(atci_param_t *param)
 static void get_netid(void)
 {
     MibRequestConfirm_t r = { .Type = MIB_NET_ID };
-    LoRaMacMibGetRequestConfirm(&r);
+    abort_on_error(LoRaMacMibGetRequestConfirm(&r));
     OK("%08X", r.Param.NetID);
 }
 
@@ -1049,8 +1005,7 @@ static void set_netid(atci_param_t *param)
         .Type  = MIB_NET_ID,
         .Param = { .NetID = ntohl(buf) }
     };
-    if (LoRaMacMibSetRequestConfirm(&r) != LORAMAC_STATUS_OK)
-        abort(ERR_PARAM);
+    abort_on_error(LoRaMacMibSetRequestConfirm(&r));
 
     OK_();
 }
@@ -1104,21 +1059,15 @@ static void ping(atci_param_t *param)
         if (confirm == -1) abort(ERR_PARAM);
     }
 
-    int rc = lrw_send(sysconf.default_port, "ping", 4, confirm == 1);
-    switch(rc) {
-        case LORAMAC_STATUS_OK:                    OK_();                break;
-        case -LORAMAC_STATUS_BUSY:                 abort(ERR_BUSY);      break;
-        case -LORAMAC_STATUS_NO_NETWORK_JOINED:    abort(ERR_NO_JOIN);   break;
-        case -LORAMAC_STATUS_DUTYCYCLE_RESTRICTED: abort(ERR_DUTYCYCLE); break;
-        default:                                   abort(ERR_PARAM);     break;
-    }
+    abort_on_error(lrw_send(sysconf.default_port, "ping", 4, confirm == 1));
+    OK_();
 }
 
 
 static void activated(void)
 {
     MibRequestConfirm_t r = { .Type = MIB_NETWORK_ACTIVATION };
-    LoRaMacMibGetRequestConfirm(&r);
+    abort_on_error(LoRaMacMibGetRequestConfirm(&r));
     OK("%d", r.Param.NetworkActivation);
 }
 
@@ -1176,7 +1125,7 @@ static const atci_command_t cmds[] = {
     {"+DWELL",     NULL,          set_dwell,     get_dwell,        NULL, "Configure dwell setting for AS923"},
     {"+MAXEIRP",   NULL,          set_maxeirp,   get_maxeirp,      NULL, "Configure maximum EIRP"},
     // {"+RSSITH",    NULL,          set_rssith,    get_rssith,       NULL, "Configure RSSI threshold for LBT"},
-    // {"+CST",       NULL,          set_cst,       get_cst,          NULL, "Configure carrie sensor time (CST) for LBT"},
+    // {"+CST",       NULL,          set_cst,       get_cst,          NULL, "Configure carrier sensor time (CST) for LBT"},
     // {"+BACKOFF",   NULL,          NULL,          get_backoff,      NULL, "Return duty cycle backoff time for EU868"},
     // {"+CHMASK",    NULL,          set_chmask,    get_chmask,       NULL, "Configure channel mask"},
     {"+RTYNUM",    NULL,          set_rtynum,    get_rtynum,       NULL, "Configure number of confirmed uplink message retries"},
