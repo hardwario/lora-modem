@@ -5,7 +5,7 @@
 #include "irq.h"
 
 static void _console_vcom_tx_callback(void);
-static void _console_vcom_rx_callback(uint8_t *character);
+static void _console_vcom_rx_callback(const uint8_t *data, size_t len);
 
 typedef struct
 {
@@ -50,7 +50,7 @@ size_t console_write(const char *buffer, size_t length)
 
         _console.vcom_ready = RESET;
 
-        system_stop_mode_disable(SYSTEM_MASK_LPUART);
+        system_stop_mode_disable(SYSTEM_MASK_LPUART_TX);
 
         lpuart_async_write(_console.dma_buffer, length);
     }
@@ -62,7 +62,12 @@ size_t console_write(const char *buffer, size_t length)
 
 size_t console_read(char *buffer, size_t length)
 {
-    return fifo_read(&_console.rx_fifo, buffer, length);
+    size_t rv;
+
+    irq_disable();
+    rv = fifo_read(&_console.rx_fifo, buffer, length);
+    irq_enable();
+    return rv;
 }
 
 void console_flush(void)
@@ -83,12 +88,12 @@ static void _console_vcom_tx_callback(void)
     }
     else
     {
-        system_stop_mode_enable(SYSTEM_MASK_LPUART);
+        system_stop_mode_enable(SYSTEM_MASK_LPUART_TX);
         _console.vcom_ready = SET;
     }
 }
 
-static void _console_vcom_rx_callback(uint8_t *character)
+static void _console_vcom_rx_callback(const uint8_t *data, size_t len)
 {
-    fifo_write(&_console.rx_fifo, character, 1);
+    fifo_write(&_console.rx_fifo, data, len);
 }

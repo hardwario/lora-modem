@@ -1,212 +1,267 @@
 #include "lpuart.h"
+#include <stm/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_dma.h>
+#include <stm/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_lpuart.h>
 #include "io.h"
 #include "halt.h"
+#include "utils.h"
+#include "log.h"
+#include "system.h"
 
-static UART_HandleTypeDef UartHandle;
 
-uint8_t charRx;
+static uint8_t rx_buffer[64];
 
-static void (*TxCpltCallback)(void);
 
-static void (*RxCpltCallback)(uint8_t *rxChar);
+static UART_HandleTypeDef port;
+static void (*on_tx_done)(void);
 
-void lpuart_init(unsigned int baudrate, void (*TxCb)(void))
+static lpuart_rx_callback_f rx_callback;
+
+
+static void rx(void)
 {
-    // Record Tx complete for DMA*/
-    TxCpltCallback = TxCb;
-    /*## Configure the UART peripheral ######################################*/
-    /* Put the USART peripheral in the Asynchronous mode (UART Mode) */
-    /* UART1 configured as follow:
-      - Word Length = 8 Bits
-      - Stop Bit = One Stop bit
-      - Parity = ODD parity
-      - BaudRate = 921600 baud
-      - Hardware flow control disabled (RTS and CTS signals) */
-    UartHandle.Instance = LPUART1;
+    static size_t old_pos;
+    size_t pos;
 
-    UartHandle.Init.BaudRate = baudrate;
-    UartHandle.Init.WordLength = UART_WORDLENGTH_8B;
-    UartHandle.Init.StopBits = UART_STOPBITS_1;
-    UartHandle.Init.Parity = UART_PARITY_NONE;
-    UartHandle.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-    UartHandle.Init.Mode = UART_MODE_TX_RX;
+    pos = ARRAY_LEN(rx_buffer) - LL_DMA_GetDataLength(DMA1, LL_DMA_CHANNEL_6);
+    if (pos == old_pos) return;
+    if (rx_callback == NULL) return;
 
-    if (HAL_UART_Init(&UartHandle) != HAL_OK)
-    {
-        /* Initialization Error */
+    if (pos > old_pos) {
+        rx_callback(&rx_buffer[old_pos], pos - old_pos);
+    } else {
+        rx_callback(&rx_buffer[old_pos], ARRAY_LEN(rx_buffer) - old_pos);
+        if (pos > 0) rx_callback(&rx_buffer[0], pos);
+    }
+    old_pos = pos;
+}
+
+
+void lpuart_init(unsigned int baudrate, void (*tx)(void))
+{
+    on_tx_done = tx;
+
+    port.Instance = LPUART1;
+    port.Init.Mode = UART_MODE_TX_RX;
+    port.Init.BaudRate = baudrate;
+    port.Init.WordLength = UART_WORDLENGTH_8B;
+    port.Init.StopBits = UART_STOPBITS_1;
+    port.Init.Parity = UART_PARITY_NONE;
+    port.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+
+    if (HAL_UART_Init(&port) != HAL_OK)
         halt("Error while initializing UART");
-    }
+
+    LL_LPUART_EnableIT_IDLE(port.Instance);
 }
 
-void lpuart_async_write(uint8_t *buffer, size_t length)
-{
-    HAL_UART_Transmit_DMA(&UartHandle, buffer, length);
-}
-
-void HAL_UART_TxCpltCallback(UART_HandleTypeDef *UartHandle)
-{
-    (void) UartHandle;
-    // buffer transmission complete
-    if (NULL != TxCpltCallback)
-    {
-        TxCpltCallback();
-    }
-}
-
-void lpuart_set_rx_callback(void (*RxCb)(uint8_t *rxChar))
-{
-    UART_WakeUpTypeDef WakeUpSelection;
-
-    /*record call back*/
-    RxCpltCallback = RxCb;
-
-    /*Set wakeUp event on start bit*/
-    WakeUpSelection.WakeUpEvent = UART_WAKEUP_ON_STARTBIT;
-    //
-    HAL_UARTEx_StopModeWakeUpSourceConfig(&UartHandle, WakeUpSelection);
-
-    /*Enable wakeup from stop mode*/
-    HAL_UARTEx_EnableStopMode(&UartHandle);
-
-    /*Start LPUART receive on IT*/
-    HAL_UART_Receive_IT(&UartHandle, &charRx, 1);
-}
-
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *UartHandle)
-{
-    if ((NULL != RxCpltCallback) && (HAL_UART_ERROR_NONE == UartHandle->ErrorCode))
-    {
-        RxCpltCallback(&charRx);
-    }
-    HAL_UART_Receive_IT(UartHandle, &charRx, 1);
-}
 
 void lpuart_deinit(void)
 {
-    HAL_UART_DeInit(&UartHandle);
+    HAL_UART_DeInit(&port);
 }
 
-void HAL_UART_MspInit(UART_HandleTypeDef *huart)
+
+void init_gpio(void)
 {
-    static DMA_HandleTypeDef hdma_tx;
+    GPIO_InitTypeDef gpio = {
+        .Mode = GPIO_MODE_AF_PP,
+        .Speed = GPIO_SPEED_HIGH
+    };
 
-    /*##-1- Enable peripherals and GPIO Clocks #################################*/
-    /* Enable GPIO TX/RX clock */
-    __GPIOA_CLK_ENABLE();
-    __GPIOA_CLK_ENABLE();
+    __HAL_RCC_GPIOA_CLK_ENABLE();
+    __HAL_RCC_GPIOA_CLK_ENABLE();
 
-    /* Enable USARTx clock */
+    gpio.Pin = LPUART_TX_PIN;
+    gpio.Alternate = LPUART_TX_AF;
+    gpio.Pull = GPIO_NOPULL;
+    HAL_GPIO_Init(LPUART_TX_GPIO_PORT, &gpio);
+
+    gpio.Pin = LPUART_RX_PIN;
+    gpio.Alternate = LPUART_RX_AF;
+    gpio.Pull = GPIO_PULLUP;
+    HAL_GPIO_Init(LPUART_RX_GPIO_PORT, &gpio);
+}
+
+
+void deinit_gpio(void)
+{
+    GPIO_InitTypeDef gpio = {
+        .Mode = GPIO_MODE_ANALOG,
+        .Pull = GPIO_NOPULL
+    };
+
+    __HAL_RCC_GPIOA_CLK_ENABLE();
+
+    gpio.Pin = LPUART_TX_PIN;
+    HAL_GPIO_Init(LPUART_TX_GPIO_PORT, &gpio);
+
+    gpio.Pin = LPUART_RX_PIN;
+    HAL_GPIO_Init(LPUART_RX_GPIO_PORT, &gpio);
+}
+
+
+void HAL_UART_MspInit(UART_HandleTypeDef *port)
+{
+    /* Enable peripherals and GPIO Clocks */
+    __HAL_RCC_GPIOA_CLK_ENABLE();
+    __HAL_RCC_GPIOA_CLK_ENABLE();
+
+    /* Enable LPUART clock */
     __LPUART1_CLK_ENABLE();
-    /* select USARTx clock source*/
-    RCC_PeriphCLKInitTypeDef PeriphClkInit = {0};
-    PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_LPUART1;
-    PeriphClkInit.Lpuart1ClockSelection = RCC_LPUART1CLKSOURCE_HSI;
-    HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit);
+
+    /* select LPUART clock source */
+    RCC_PeriphCLKInitTypeDef clock = {
+        .PeriphClockSelection = RCC_PERIPHCLK_LPUART1,
+        .Lpuart1ClockSelection = RCC_LPUART1CLKSOURCE_HSI
+    };
+    HAL_RCCEx_PeriphCLKConfig(&clock);
 
     /* Enable DMA clock */
     __HAL_RCC_DMA1_CLK_ENABLE();
 
-    /*##-2- Configure peripheral GPIO ##########################################*/
-    /* UART  pin configuration  */
-    lpuart_io_init();
+    static DMA_HandleTypeDef tx_dma = {
+        .Instance = DMA1_Channel7,
+        .Init = {
+            .Direction           = DMA_MEMORY_TO_PERIPH,
+            .Priority            = DMA_PRIORITY_LOW,
+            .Mode                = DMA_NORMAL,
+            .Request             = DMA_REQUEST_5,
+            .PeriphDataAlignment = DMA_PDATAALIGN_BYTE,
+            .MemDataAlignment    = DMA_MDATAALIGN_BYTE,
+            .PeriphInc           = DMA_PINC_DISABLE,
+            .MemInc              = DMA_MINC_ENABLE
+        }
+    };
 
-    /*##-3- Configure the DMA ##################################################*/
-    /* Configure the DMA handler for Transmission process */
-    hdma_tx.Instance = DMA1_Channel7;
-    hdma_tx.Init.Direction = DMA_MEMORY_TO_PERIPH;
-    hdma_tx.Init.PeriphInc = DMA_PINC_DISABLE;
-    hdma_tx.Init.MemInc = DMA_MINC_ENABLE;
-    hdma_tx.Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE;
-    hdma_tx.Init.MemDataAlignment = DMA_MDATAALIGN_BYTE;
-    hdma_tx.Init.Mode = DMA_NORMAL;
-    hdma_tx.Init.Priority = DMA_PRIORITY_LOW;
-#ifndef STM32L152xE
-    hdma_tx.Init.Request = DMA_REQUEST_5;
-#endif
-    HAL_DMA_Init(&hdma_tx);
+    if (HAL_DMA_Init(&tx_dma) != HAL_OK)
+        halt("Failed to initialize DMA for LPUART1 TX path");
 
-    /* Associate the initialized DMA handle to the UART handle */
-    __HAL_LINKDMA(huart, hdmatx, hdma_tx);
+    __HAL_LINKDMA(port, hdmatx, tx_dma);
 
-    /*##-4- Configure the NVIC for DMA #########################################*/
-    /* NVIC configuration for DMA transfer complete interrupt*/
-    HAL_NVIC_SetPriority(DMA1_Channel4_5_6_7_IRQn, 1, 1);
+
+    static DMA_HandleTypeDef rx_dma = {
+        .Instance = DMA1_Channel6,
+        .Init = {
+            .Direction           = DMA_PERIPH_TO_MEMORY,
+            .Priority            = DMA_PRIORITY_LOW,
+            .Mode                = DMA_CIRCULAR,
+            .Request             = DMA_REQUEST_5,
+            .PeriphDataAlignment = DMA_PDATAALIGN_BYTE,
+            .MemDataAlignment    = DMA_MDATAALIGN_BYTE,
+            .PeriphInc           = DMA_PINC_DISABLE,
+            .MemInc              = DMA_MINC_ENABLE
+        }
+    };
+
+    if (HAL_DMA_Init(&rx_dma) != HAL_OK)
+        halt("Failed to initialize DMA for LPUART1 RX path");
+
+    /* Associate the initialized DMA handle with the LPUART handle */
+    __HAL_LINKDMA(port, hdmarx, rx_dma);
+
+    HAL_NVIC_SetPriority(DMA1_Channel4_5_6_7_IRQn, 0, 0);
     HAL_NVIC_EnableIRQ(DMA1_Channel4_5_6_7_IRQn);
 
-    /* NVIC for USART, to catch the TX complete */
-    HAL_NVIC_SetPriority(RNG_LPUART1_IRQn, 1, 1);
+    HAL_NVIC_SetPriority(RNG_LPUART1_IRQn, 0, 0);
     HAL_NVIC_EnableIRQ(RNG_LPUART1_IRQn);
+
+    /* Configure the GPIO pins used by LPUART */
+    init_gpio();
 }
 
-void HAL_UART_MspDeInit(UART_HandleTypeDef *huart)
-{
-    lpuart_io_deinit();
 
-    /*##-1- Reset peripherals ##################################################*/
+void HAL_UART_MspDeInit(UART_HandleTypeDef *port)
+{
+    deinit_gpio();
+
+    /* Reset peripherals */
     __LPUART1_FORCE_RESET();
     __LPUART1_RELEASE_RESET();
 
-    /*##-3- Disable the DMA #####################################################*/
-    /* De-Initialize the DMA channel associated to reception process */
-    if (huart->hdmarx != 0)
-    {
-        HAL_DMA_DeInit(huart->hdmarx);
-    }
-    /* De-Initialize the DMA channel associated to transmission process */
-    if (huart->hdmatx != 0)
-    {
-        HAL_DMA_DeInit(huart->hdmatx);
-    }
+    /* Disable DMA */
+    if (port->hdmarx != 0) HAL_DMA_DeInit(port->hdmarx);
+    if (port->hdmatx != 0) HAL_DMA_DeInit(port->hdmatx);
 
-    /*##-4- Disable the NVIC for DMA ###########################################*/
     HAL_NVIC_DisableIRQ(DMA1_Channel4_5_6_7_IRQn);
+    HAL_NVIC_DisableIRQ(RNG_LPUART1_IRQn);
 }
 
-void lpuart_io_init(void)
+
+void lpuart_async_write(uint8_t *buffer, size_t length)
 {
-    GPIO_InitTypeDef GPIO_InitStruct = {0};
-    /* Enable GPIO TX/RX clock */
-    __GPIOA_CLK_ENABLE();
-    __GPIOA_CLK_ENABLE();
-    /* UART TX GPIO pin configuration  */
-    GPIO_InitStruct.Pin = LPUART_TX_PIN;
-    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_HIGH;
-    GPIO_InitStruct.Alternate = LPUART_TX_AF;
-
-    HAL_GPIO_Init(LPUART_TX_GPIO_PORT, &GPIO_InitStruct);
-
-    /* UART RX GPIO pin configuration  */
-    GPIO_InitStruct.Pin = LPUART_RX_PIN;
-    GPIO_InitStruct.Alternate = LPUART_RX_AF;
-    GPIO_InitStruct.Pull = GPIO_PULLUP;
-
-    HAL_GPIO_Init(LPUART_RX_GPIO_PORT, &GPIO_InitStruct);
+    HAL_UART_Transmit_DMA(&port, buffer, length);
 }
 
-void lpuart_io_deinit(void)
+
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *port)
 {
-    GPIO_InitTypeDef GPIO_InitStructure = {0};
-
-    __GPIOA_CLK_ENABLE();
-
-    GPIO_InitStructure.Mode = GPIO_MODE_ANALOG;
-    GPIO_InitStructure.Pull = GPIO_NOPULL;
-
-    GPIO_InitStructure.Pin = LPUART_TX_PIN;
-    HAL_GPIO_Init(LPUART_TX_GPIO_PORT, &GPIO_InitStructure);
-
-    GPIO_InitStructure.Pin = LPUART_RX_PIN;
-    HAL_GPIO_Init(LPUART_RX_GPIO_PORT, &GPIO_InitStructure);
+    (void)port;
+    if (NULL != on_tx_done) on_tx_done();
 }
+
+
+void lpuart_set_rx_callback(lpuart_rx_callback_f cb)
+{
+    rx_callback = cb;
+
+    // Wake the MCU up from stop mode if we start receiving data over LPUART1
+    UART_WakeUpTypeDef wake = { .WakeUpEvent = LL_LPUART_WAKEUP_ON_STARTBIT };
+    HAL_UARTEx_StopModeWakeUpSourceConfig(&port, wake);
+
+    if (HAL_UART_Receive_DMA(&port, rx_buffer, ARRAY_LEN(rx_buffer)) != HAL_OK)
+        halt("Couldn't start DMA for LPUART1 rx path");
+
+    HAL_UARTEx_EnableStopMode(&port);
+}
+
 
 void RNG_LPUART1_IRQHandler(void)
 {
-    HAL_UART_IRQHandler(&UartHandle);
+    if (LL_LPUART_IsEnabledIT_IDLE(port.Instance) && LL_LPUART_IsActiveFlag_IDLE(port.Instance)) {
+        LL_LPUART_ClearFlag_IDLE(port.Instance);
+        rx();
+        system_stop_mode_enable(SYSTEM_MASK_LPUART_RX);
+        return;
+    }
+
+    if (LL_LPUART_IsEnabledIT_RXNE(port.Instance)) {
+        LL_LPUART_DisableIT_RXNE(port.Instance);
+        system_stop_mode_disable(SYSTEM_MASK_LPUART_RX);
+    }
+
+    HAL_UART_IRQHandler(&port);
 }
+
+
+void HAL_UART_RxHalfCpltCallback(UART_HandleTypeDef *port)
+{
+    (void)port;
+    rx();
+}
+
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *handle)
+{
+    (void)handle;
+    rx();
+}
+
 
 void DMA1_Channel4_5_6_7_IRQHandler(void)
 {
-    HAL_DMA_IRQHandler(UartHandle.hdmatx);
+    HAL_DMA_IRQHandler(port.hdmarx);
+    HAL_DMA_IRQHandler(port.hdmatx);
+}
+
+
+void lpuart_disable_rx_dma(void)
+{
+    LL_LPUART_EnableIT_RXNE(port.Instance);
+    HAL_UART_DMAPause(&port);
+}
+
+
+void lpuart_enable_rx_dma(void)
+{
+    HAL_UART_DMAResume(&port);
 }

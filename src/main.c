@@ -70,6 +70,7 @@ void system_on_enter_stop_mode(void)
     spi_io_deinit();
     sx1276io_deinit();
     adc_deinit();
+    lpuart_disable_rx_dma();
     // usart_io_deinit();
 }
 
@@ -78,6 +79,6 @@ void system_on_exit_stop_mode(void)
 {
     spi_io_init();
     sx1276io_init();
-    // lpuart_io_init();
+    lpuart_enable_rx_dma();
     // usart_io_init();
 }

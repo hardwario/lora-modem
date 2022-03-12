@@ -28,9 +28,10 @@ void system_wait_hsi(void);
 typedef enum
 {
     SYSTEM_MASK_RTC = (1 << 0),
-    SYSTEM_MASK_LPUART = (1 << 1),
-    SYSTEM_MASK_USART = (1 << 2),
-    SYSTEM_MASK_RADIO = (1 << 3),
+    SYSTEM_MASK_LPUART_RX = (1 << 1),
+    SYSTEM_MASK_LPUART_TX = (1 << 2),
+    SYSTEM_MASK_USART = (1 << 3),
+    SYSTEM_MASK_RADIO = (1 << 5),
 } system_mask_t;
 
 //! @brief Enable stop mode
