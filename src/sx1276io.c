@@ -200,11 +200,11 @@ void sx1276io_ant_set_sw_low_power(bool status)
             gpio_write(RADIO_ANT_SWITCH_PORT_TX_RFO, RADIO_ANT_SWITCH_PIN_TX_RFO, 0);
             gpio_init(RADIO_ANT_SWITCH_PORT_TX_RFO, RADIO_ANT_SWITCH_PIN_TX_RFO, &initStruct);
 
-            system_stop_mode_disable(SYSTEM_MASK_RADIO);
+            system_disallow_stop_mode(SYSTEM_MODULE_RADIO);
         }
         else
         {
-            system_stop_mode_enable(SYSTEM_MASK_RADIO);
+            system_allow_stop_mode(SYSTEM_MODULE_RADIO);
 
             initStruct.Mode = GPIO_MODE_ANALOG;
             initStruct.Pull = GPIO_NOPULL;

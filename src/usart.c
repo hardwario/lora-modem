@@ -51,7 +51,7 @@ size_t usart_write(const char *buffer, size_t length)
     system_wait_hsi();
 
     irq_disable();
-    system_stop_mode_disable(SYSTEM_MASK_USART);
+    system_disallow_stop_mode(SYSTEM_MODULE_USART);
     USART1->CR1 |= USART_CR1_TXEIE;
     irq_enable();
 
@@ -142,7 +142,7 @@ void USART1_IRQHandler(void)
         {
             block = false;
 
-            system_stop_mode_enable(SYSTEM_MASK_USART);
+            system_allow_stop_mode(SYSTEM_MODULE_USART);
         }
     }
 }

@@ -24,7 +24,8 @@ static void _system_init_gpio(void);
 static void _system_init_debug(void);
 static void _system_init_clock(void);
 
-static uint32_t _system_stop_mode_disable = 0;
+volatile static unsigned stop_mode_mask;
+volatile static unsigned sleep_mask;
 
 void system_init(void)
 {
@@ -74,86 +75,88 @@ void system_wait_hsi(void)
     }
 }
 
-void system_stop_mode_enable(system_mask_t mask)
+void system_allow_stop_mode(system_module_t module)
 {
     irq_disable();
-    _system_stop_mode_disable &= ~(uint32_t)mask;
+    stop_mode_mask &= ~module;
     irq_enable();
 }
 
-void system_stop_mode_disable(system_mask_t mask)
+void system_disallow_stop_mode(system_module_t module)
 {
     irq_disable();
-    _system_stop_mode_disable |= (uint32_t)mask;
+    stop_mode_mask |= module;
     irq_enable();
 }
 
-bool system_is_stop_mode(void)
+bool system_is_stop_mode_allowed(void)
 {
     irq_disable();
-    bool res = _system_stop_mode_disable == 0;
+    bool res = stop_mode_mask == 0;
     irq_enable();
     return res;
 }
 
-system_mask_t system_get_stop_mode_mask(void)
+unsigned system_get_stop_mode_mask(void)
 {
     irq_disable();
-    system_mask_t mask = _system_stop_mode_disable;
+    unsigned mask = stop_mode_mask;
     irq_enable();
     return mask;
 }
 
+void system_allow_sleep(system_module_t module)
+{
+    irq_disable();
+    sleep_mask &= ~module;
+    irq_enable();
+}
+
+void system_disallow_sleep(system_module_t module)
+{
+    irq_disable();
+    sleep_mask |= module;
+    irq_enable();
+}
+
 void system_low_power(void)
 {
-    if (_system_stop_mode_disable)
-    {
-        // Only sleep
+    // Sleeping is disabled completely, do nothing
+    if (sleep_mask) return;
+
+    if (stop_mode_mask) {
         HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFI);
-    }
-    else
-    {
+    } else {
         {
-            // STOP mode
+            // Enter STOP mode
             BACKUP_PRIMASK();
             DISABLE_IRQ();
             system_on_enter_stop_mode();
             SET_BIT(PWR->CR, PWR_CR_CWUF);
             RESTORE_PRIMASK();
             HAL_PWR_EnterSTOPMode(PWR_LOWPOWERREGULATOR_ON, PWR_STOPENTRY_WFI);
-        }
-        {
-            // wake-up from STOP mode
+        } {
+            // Wake-up from STOP mode
             BACKUP_PRIMASK();
             DISABLE_IRQ();
 
             // reconfigure the system clock
-
             __HAL_RCC_HSI_ENABLE();
             while (__HAL_RCC_GET_FLAG(RCC_FLAG_HSIRDY) == RESET)
-            {
                 continue;
-            }
 
             __HAL_RCC_PLL_ENABLE();
             while (__HAL_RCC_GET_FLAG(RCC_FLAG_PLLRDY) == RESET)
-            {
                 continue;
-            }
 
             __HAL_RCC_SYSCLK_CONFIG(RCC_SYSCLKSOURCE_PLLCLK);
-
             while (__HAL_RCC_GET_SYSCLK_SOURCE() != RCC_SYSCLKSOURCE_STATUS_PLLCLK)
-            {
                 continue;
-            }
 
             system_on_exit_stop_mode();
             RESTORE_PRIMASK();
         }
     }
-
-    return;
 }
 
 static void _system_init_flash(void)

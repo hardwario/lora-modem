@@ -50,7 +50,7 @@ size_t console_write(const char *buffer, size_t length)
 
         _console.vcom_ready = RESET;
 
-        system_stop_mode_disable(SYSTEM_MASK_LPUART_TX);
+        system_disallow_stop_mode(SYSTEM_MODULE_LPUART_TX);
 
         lpuart_async_write(_console.dma_buffer, length);
     }
@@ -88,7 +88,7 @@ static void _console_vcom_tx_callback(void)
     }
     else
     {
-        system_stop_mode_enable(SYSTEM_MASK_LPUART_TX);
+        system_allow_stop_mode(SYSTEM_MODULE_LPUART_TX);
         _console.vcom_ready = SET;
     }
 }

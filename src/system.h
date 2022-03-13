@@ -24,31 +24,34 @@ void system_get_unique_id(uint8_t *id);
 
 void system_wait_hsi(void);
 
-//! @brief Stop mode mask subsystem
+//! @brief Sleep lock and Stop mode mask
 typedef enum
 {
-    SYSTEM_MASK_RTC = (1 << 0),
-    SYSTEM_MASK_LPUART_RX = (1 << 1),
-    SYSTEM_MASK_LPUART_TX = (1 << 2),
-    SYSTEM_MASK_USART = (1 << 3),
-    SYSTEM_MASK_RADIO = (1 << 5),
-} system_mask_t;
+    SYSTEM_MODULE_RTC       = (1 << 0),
+    SYSTEM_MODULE_LPUART_RX = (1 << 1),
+    SYSTEM_MODULE_LPUART_TX = (1 << 2),
+    SYSTEM_MODULE_USART     = (1 << 3),
+    SYSTEM_MODULE_RADIO     = (1 << 5),
+    SYSTEM_MODULE_ATCI      = (1 << 6)
+} system_module_t;
 
-//! @brief Enable stop mode
-//! @param[in] mask Mask subsystem
 
-void system_stop_mode_enable(system_mask_t mask);
+void system_allow_stop_mode(system_module_t module);
 
-//! @brief Disable stop mode
-//! @param[in] mask Mask subsystem
+void system_disallow_stop_mode(system_module_t module);
 
-void system_stop_mode_disable(system_mask_t mask);
+bool system_is_stop_mode_allowed(void);
 
-bool system_is_stop_mode(void);
+unsigned system_get_stop_mode_mask(void);
 
-system_mask_t system_get_stop_mode_mask(void);
+void system_allow_sleep(system_module_t module);
 
-//! @brief Go to low power, sleep mode or stop mode
+void system_disallow_sleep(system_module_t module);
+
+unsigned system_get_sleep_mask(void);
+
+//! @brief Go to low power, sleep mode or stop mode. The function must be
+//! invoked with interrupts disabled.
 
 void system_low_power(void);
 

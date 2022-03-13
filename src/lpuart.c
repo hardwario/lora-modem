@@ -220,13 +220,13 @@ void RNG_LPUART1_IRQHandler(void)
     if (LL_LPUART_IsEnabledIT_IDLE(port.Instance) && LL_LPUART_IsActiveFlag_IDLE(port.Instance)) {
         LL_LPUART_ClearFlag_IDLE(port.Instance);
         rx();
-        system_stop_mode_enable(SYSTEM_MASK_LPUART_RX);
+        system_allow_stop_mode(SYSTEM_MODULE_LPUART_RX);
         return;
     }
 
     if (LL_LPUART_IsEnabledIT_RXNE(port.Instance)) {
         LL_LPUART_DisableIT_RXNE(port.Instance);
-        system_stop_mode_disable(SYSTEM_MASK_LPUART_RX);
+        system_disallow_stop_mode(SYSTEM_MODULE_LPUART_RX);
     }
 
     HAL_UART_IRQHandler(&port);
