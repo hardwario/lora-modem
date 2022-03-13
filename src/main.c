@@ -52,12 +52,8 @@ int main(void)
         sysconf_process();
 
         CRITICAL_SECTION_BEGIN();
-        if (lrw_irq) {
-            lrw_irq = false;
-        } else {
-            if (schedule_reset) system_reset();
-            if (sysconf.sleep) system_low_power();
-        }
+        if (schedule_reset) system_reset();
+        else if (sysconf.sleep) system_low_power();
         CRITICAL_SECTION_END();
     }
 }

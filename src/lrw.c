@@ -17,8 +17,6 @@
 #define MAX_BAT 254
 
 
-bool lrw_irq = false;
-
 static McpsConfirm_t tx_params;
 McpsIndication_t lrw_rx_params;
 
@@ -83,9 +81,11 @@ static uint8_t get_battery_level(void)
 }
 
 
-static void process_irq(void)
+static void process_notify(void)
 {
-    lrw_irq = true;
+    // The LoRa radio generated an IRQ. Disable sleep so that LoRaMacProcess()
+    // gets invoked immediately to handle the event.
+    system_disallow_sleep(SYSTEM_MODULE_RADIO);
 }
 
 
@@ -334,7 +334,7 @@ static LoRaMacCallback_t callbacks = {
     .GetBatteryLevel     = get_battery_level,
     .GetTemperatureLevel = adc_get_temperature_celsius,
     .NvmDataChange       = nvm_data_change,
-    .MacProcessNotify    = process_irq
+    .MacProcessNotify    = process_notify
 };
 
 
@@ -539,6 +539,7 @@ int lrw_send(uint8_t port, void *buffer, uint8_t length, bool confirmed)
 
 void lrw_process()
 {
+    system_allow_sleep(SYSTEM_MODULE_RADIO);
     if (Radio.IrqProcess != NULL) Radio.IrqProcess();
     LoRaMacProcess();
     save_state();
