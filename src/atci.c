@@ -198,6 +198,14 @@ bool atci_set_read_next_data(size_t length, atci_encoding_t encoding, void (*cal
     if (sizeof(_atci.rx_buffer) <= length)
         return false;
 
+    if (length == 0) {
+        if (callback != NULL) {
+            atci_param_t param = { .txt = "", .length = 0, .offset = 0 };
+            callback(&param);
+        }
+        return true;
+    }
+
     _atci.read_next_data.length = length;
     _atci.read_next_data.encoding = encoding;
     _atci.read_next_data.callback = callback;
