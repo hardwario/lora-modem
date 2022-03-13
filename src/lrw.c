@@ -4,6 +4,7 @@
 #include <loramac-node/src/mac/LoRaMac.h>
 #include <loramac-node/src/mac/LoRaMacTest.h>
 #include <loramac-node/src/mac/region/Region.h>
+#include <loramac-node/src/radio/radio.h>
 #include "adc.h"
 #include "cmd.h"
 #include "system.h"
@@ -538,6 +539,7 @@ int lrw_send(uint8_t port, void *buffer, uint8_t length, bool confirmed)
 
 void lrw_process()
 {
+    if (Radio.IrqProcess != NULL) Radio.IrqProcess();
     LoRaMacProcess();
     save_state();
 }
