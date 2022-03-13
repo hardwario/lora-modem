@@ -58,7 +58,7 @@ size_t atci_print(const char *message);
 //! @param[in] ... Optional format arguments
 //! @return Number of bytes written
 
-size_t atci_printf(const char *format, ...);
+size_t atci_printf(const char *format, ...) __attribute__ ((format (printf, 1, 2)));
 
 //! @brief Print buffer as HEX string
 //! @param[in] buffer Pointer to source buffer
