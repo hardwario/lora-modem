@@ -23,7 +23,11 @@ ENABLE_REGIONS ?= AS923 AU915 CN470 CN779 EU433 EU868 IN865 KR920 RU864 US915
 DEFAULT_ACTIVE_REGION ?= EU868
 
 # Select the LoRaWAN MAC version: 0x01010100 for 1.1.0, 0x01000400 for 1.0.4.
-# The default (if undefined) is 1.1.0 in LoRaMac v4.6.0.
+# Note that you can only use the versions supported by the LoRaMac library here.
+# In LoRaMac v4.6.0 that is either 1.1.0 or 1.0.4. The default (if undefined) is
+# 1.1.0. This parameter is only useful if you use a 1.1.x LoRaWAN network server
+# and wish to downgrade to 1.0.x after Join. if that's the case, set this
+# parameter to 0x01000400, otherwise leave it undefined or set it to 0x01010100.
 LORAMAC_VERSION ?= 0x01000400
 
 # Configure the LoRaWAN specification version to be used in ABP mode. Here we
