@@ -1086,8 +1086,9 @@ class LoRaModule(EventEmitter):
         # update it and reboot the modem to apply new settings. If they are the
         # same, do nothing.
         if self.band.value != band.value:
-            self.band = band
-            self.reboot()
+            with self.lock:
+                self.band = band
+                self.wait_for_event('event=0,0')
 
 
 def join(device):
@@ -1140,7 +1141,6 @@ def show_session_info(device):
 
 def configure_device(device, hex=False):
     device.switch_band(LoRaBand.US915)
-    sleep(1)
     device.nwk    = LoRaNetwork.PUBLIC
     device.appeui = "0101010101010101"
     device.class_ = LoRaClass.CLASS_C
