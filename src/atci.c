@@ -2,9 +2,11 @@
 #include "console.h"
 #include "log.h"
 #include "halt.h"
+#include "system.h"
 
 static void _atci_process_character(char character);
 static void _atci_process_line(void);
+static void finish_next_data(atci_data_status_t status);
 
 static struct
 {
@@ -13,6 +15,7 @@ static struct
     char rx_buffer[256];
     size_t rx_length;
     bool rx_error;
+    bool aborted;
 
     char tmp[256];
 
@@ -20,7 +23,7 @@ static struct
     {
         size_t length;
         atci_encoding_t encoding;
-        void (*callback)(atci_param_t *param);
+        void (*callback)(atci_data_status_t status, atci_param_t *param);
     } read_next_data;
 
 } _atci;
@@ -37,9 +40,16 @@ void atci_init(unsigned int baudrate, const atci_command_t *commands, int length
 
 void atci_process(void)
 {
+    system_allow_sleep(SYSTEM_MODULE_ATCI);
+
     while (true)
     {
         static char buffer[16];
+
+        if (_atci.aborted) {
+            finish_next_data(ATCI_DATA_ABORTED);
+            _atci.aborted = false;
+        }
 
         size_t length = console_read(buffer, sizeof(buffer));
 
@@ -193,7 +203,7 @@ bool atci_param_is_comma(atci_param_t *param)
     return param->txt[param->offset++] == ',';
 }
 
-bool atci_set_read_next_data(size_t length, atci_encoding_t encoding, void (*callback)(atci_param_t *param))
+bool atci_set_read_next_data(size_t length, atci_encoding_t encoding, void (*callback)(atci_data_status_t status, atci_param_t *param))
 {
     if (sizeof(_atci.rx_buffer) <= length)
         return false;
@@ -201,7 +211,7 @@ bool atci_set_read_next_data(size_t length, atci_encoding_t encoding, void (*cal
     if (length == 0) {
         if (callback != NULL) {
             atci_param_t param = { .txt = "", .length = 0, .offset = 0 };
-            callback(&param);
+            callback(ATCI_DATA_OK, &param);
         }
         return true;
     }
@@ -211,6 +221,12 @@ bool atci_set_read_next_data(size_t length, atci_encoding_t encoding, void (*cal
     _atci.read_next_data.callback = callback;
 
     return true;
+}
+
+void atci_abort_read_next_data(void)
+{
+    _atci.aborted = true;
+    system_disallow_sleep(SYSTEM_MODULE_ATCI);
 }
 
 void atci_clac_action(atci_param_t *param)
@@ -336,6 +352,25 @@ static void _atci_process_line(void)
     console_write("+ERR=-1\r\n\r\n", 11);
 }
 
+static void finish_next_data(atci_data_status_t status)
+{
+    _atci.read_next_data.length = 0;
+    _atci.read_next_data.encoding = ATCI_ENCODING_BIN;
+    _atci.rx_buffer[_atci.rx_length] = 0;
+
+    if (_atci.read_next_data.callback != NULL)
+    {
+        atci_param_t param = {
+            .txt = _atci.rx_buffer,
+            .length = _atci.rx_length,
+            .offset = 0
+        };
+        _atci.read_next_data.callback(status, &param);
+    }
+
+    _atci.rx_length = 0;
+}
+
 static void _atci_process_character(char character)
 {
     int c;
@@ -354,7 +389,7 @@ static void _atci_process_character(char character)
                 c = hex2bin(character);
                 if (c < 0) {
                     _atci.rx_error = true;
-                    return;
+                    break;
                 }
                 if (even)
                 {
@@ -373,23 +408,10 @@ static void _atci_process_character(char character)
                 break;
         }
 
-        if (_atci.read_next_data.length == _atci.rx_length)
+        if (_atci.read_next_data.length == _atci.rx_length || _atci.rx_error)
         {
             even = true;
-            _atci.read_next_data.length = 0;
-            _atci.read_next_data.encoding = ATCI_ENCODING_BIN;
-            _atci.rx_buffer[_atci.rx_length] = 0;
-
-            if (_atci.read_next_data.callback != NULL)
-            {
-                atci_param_t param = {
-                    .txt = _atci.rx_buffer,
-                    .length = _atci.rx_length,
-                    .offset = 0};
-                _atci.read_next_data.callback(&param);
-            }
-
-            _atci.rx_length = 0;
+            finish_next_data(_atci.rx_error ? ATCI_DATA_ENCODING_ERROR : ATCI_DATA_OK);
             _atci.rx_error = false;
         }
         return;

@@ -18,6 +18,13 @@ typedef struct
 
 } atci_param_t;
 
+typedef enum
+{
+    ATCI_DATA_OK = 0,
+    ATCI_DATA_ABORTED = -1,
+    ATCI_DATA_ENCODING_ERROR = -2
+} atci_data_status_t;
+
 //! @brief AT command struct
 
 typedef struct
@@ -99,7 +106,11 @@ bool atci_param_is_comma(atci_param_t *param);
 
 //! @brief Set callback for next data
 
-bool atci_set_read_next_data(size_t length, atci_encoding_t encoding, void (*callback)(atci_param_t *param));
+bool atci_set_read_next_data(size_t length, atci_encoding_t encoding, void (*callback)(atci_data_status_t status, atci_param_t *param));
+
+//! @brief Abort the reception of next data, e.g., on time out
+
+void atci_abort_read_next_data(void);
 
 //! @brief Helper for clac action
 
