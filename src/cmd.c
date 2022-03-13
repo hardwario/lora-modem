@@ -870,10 +870,24 @@ static void get_frmcnt(void)
 }
 
 
-// static void get_msize(void)
-// {
-//     abort(ERR_UNKNOWN_CMD);
-// }
+static void get_msize(void)
+{
+    LoRaMacTxInfo_t txi;
+    LoRaMacStatus_t rc = LoRaMacQueryTxPossible(0, &txi);
+    switch(rc) {
+        case LORAMAC_STATUS_OK:
+            OK("%d", txi.MaxPossibleApplicationDataSize);
+            break;
+
+        case LORAMAC_STATUS_LENGTH_ERROR:
+            OK("%d", 0);
+            break;
+
+        default:
+            abort_on_error(rc);
+            break;
+    }
+}
 
 
 static void get_rfq(void)
@@ -1140,7 +1154,7 @@ static const atci_command_t cmds[] = {
     {"+PUTX",      putx,          NULL,          NULL,             NULL, "Send unconfirmed uplink message to port"},
     {"+PCTX",      pctx,          NULL,          NULL,             NULL, "Send confirmed uplink message to port"},
     {"+FRMCNT",    NULL,          NULL,          get_frmcnt,       NULL, "Return current values for uplink and downlink counters"},
-    // {"+MSIZE",     NULL,          NULL,          get_msize,        NULL, "Return maximum payload size for current data rate"},
+    {"+MSIZE",     NULL,          NULL,          get_msize,        NULL, "Return maximum payload size for current data rate"},
     {"+RFQ",       NULL,          NULL,          get_rfq,          NULL, "Return RSSI and SNR of the last received message"},
     {"+DWELL",     NULL,          set_dwell,     get_dwell,        NULL, "Configure dwell setting for AS923"},
     {"+MAXEIRP",   NULL,          set_maxeirp,   get_maxeirp,      NULL, "Configure maximum EIRP"},
