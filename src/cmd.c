@@ -275,7 +275,7 @@ static void get_devaddr(void)
 {
     MibRequestConfirm_t r = { .Type = MIB_DEV_ADDR };
     abort_on_error(LoRaMacMibGetRequestConfirm(&r));
-    OK("%08X", r.Param.DevAddr);
+    OK("%08lX", r.Param.DevAddr);
 }
 
 
@@ -614,7 +614,7 @@ static void get_rx2(void)
     MibRequestConfirm_t r = { .Type = MIB_RX2_CHANNEL };
     abort_on_error(LoRaMacMibGetRequestConfirm(&r));
 
-    OK("%d,%d", r.Param.Rx2Channel.Frequency, r.Param.Rx2Channel.Datarate);
+    OK("%ld,%d", r.Param.Rx2Channel.Frequency, r.Param.Rx2Channel.Datarate);
 }
 
 
@@ -846,7 +846,7 @@ static void pctx(atci_param_t *param)
 static void get_frmcnt(void)
 {
     LoRaMacNvmData_t *state = lrw_get_state();
-    OK("%d,%d", state->Crypto.FCntList.FCntUp ,state->Crypto.FCntList.FCntDown);
+    OK("%ld,%ld", state->Crypto.FCntList.FCntUp ,state->Crypto.FCntList.FCntDown);
 }
 
 
@@ -991,7 +991,7 @@ static void get_netid(void)
 {
     MibRequestConfirm_t r = { .Type = MIB_NET_ID };
     abort_on_error(LoRaMacMibGetRequestConfirm(&r));
-    OK("%08X", r.Param.NetID);
+    OK("%08lX", r.Param.NetID);
 }
 
 
