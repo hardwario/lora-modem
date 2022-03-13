@@ -3,6 +3,7 @@
 #include <loramac-node/src/radio/sx1276/sx1276.h>
 #include <loramac-node/src/mac/secure-element-nvm.h>
 #include <loramac-node/src/mac/LoRaMacTest.h>
+#include <LoRaWAN/Utilities/timeServer.h>
 #include "lrw.h"
 #include "system.h"
 #include "config.h"
@@ -40,11 +41,9 @@ typedef enum cmd_errno {
 
 static uint8_t port;
 static bool request_confirmation;
+static TimerEvent_t payload_timer;
 
 bool schedule_reset = false;
-
-
-static void transmit(atci_param_t *param);
 
 
 #define abort(num) do {                    \
@@ -768,6 +767,30 @@ static void set_to(atci_param_t *param)
 }
 
 
+static void payload_timeout(void *ctx)
+{
+    (void)ctx;
+    log_debug("Payload reader timed out after %ld ms", payload_timer.ReloadValue);
+    atci_abort_read_next_data();
+}
+
+
+static void transmit(atci_data_status_t status, atci_param_t *param)
+{
+    TimerStop(&payload_timer);
+
+    if (status == ATCI_DATA_ENCODING_ERROR)
+        abort(ERR_PARAM);
+
+    // The original Type ABZ firmware returns an OK if payload submission times
+    // out and sends an incomplete message, i.e., whatever has been received
+    // before the timer fired. Hence, we don't check for ATCI_DATA_ABORTED here.
+
+    abort_on_error(lrw_send(port, param->txt, param->length, request_confirmation));
+    OK_();
+}
+
+
 static void utx(atci_param_t *param)
 {
     uint32_t size;
@@ -784,6 +807,10 @@ static void utx(atci_param_t *param)
     unsigned int mul = sysconf.data_format == 1 ? 2 : 1;
     if (size > 242 * mul)
         abort(ERR_PAYLOAD_LONG);
+
+    TimerInit(&payload_timer, payload_timeout);
+    TimerSetValue(&payload_timer, sysconf.uart_timeout);
+    TimerStart(&payload_timer);
 
     request_confirmation = false;
     if (!atci_set_read_next_data(size,
@@ -811,13 +838,6 @@ static void ctx(atci_param_t *param)
 //     (void)param;
 //     abort(ERR_UNKNOWN_CMD);
 // }
-
-
-static void transmit(atci_param_t *param)
-{
-    abort_on_error(lrw_send(port, param->txt, param->length, request_confirmation));
-    OK_();
-}
 
 
 static void putx(atci_param_t *param)
