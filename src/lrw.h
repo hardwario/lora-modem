@@ -66,4 +66,7 @@ int lrw_set_dwell(uint8_t uplink, uint8_t downlink);
 
 int lrw_check_link(bool piggyback);
 
+LoRaMacStatus_t lrw_set_class(DeviceClass_t device_class);
+DeviceClass_t lrw_get_class(void);
+
 #endif // _LRW_H

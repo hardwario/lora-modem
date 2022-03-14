@@ -284,6 +284,24 @@ static void mcps_indication(McpsIndication_t *param)
 }
 
 
+// Copy the device class value from sys config to the MIB. The value in MIB can
+// be overwritten by LoRaMac at runtime, e.g., after a Join.
+static int sync_device_class(void)
+{
+    int rc;
+    MibRequestConfirm_t r = { .Type = MIB_DEVICE_CLASS };
+
+    rc = LoRaMacMibGetRequestConfirm(&r);
+    if (rc != LORAMAC_STATUS_OK) return rc;
+
+    if (r.Param.Class == sysconf.device_class)
+        return LORAMAC_STATUS_OK;
+
+    r.Param.Class = sysconf.device_class;
+    return LoRaMacMibSetRequestConfirm(&r);
+}
+
+
 static void mlme_confirm(MlmeConfirm_t *param)
 {
     log_debug("mlme_confirm: MlmeRequest: %d Status: %d", param->MlmeRequest, param->Status);
@@ -305,14 +323,7 @@ static void mlme_confirm(MlmeConfirm_t *param)
         // During the Join operation, LoRaMac internally switches the device
         // class to class A. Thus, we need to restore the original class from
         // sysconf.device_class here.
-        MibRequestConfirm_t r = {
-            .Type = MIB_DEVICE_CLASS,
-            .Param = { .Class = sysconf.device_class }
-        };
-        int rc = LoRaMacMibSetRequestConfirm(&r);
-        if (rc != LORAMAC_STATUS_OK)
-            log_warning("Could not switch class after Join: %d", rc);
-
+        sync_device_class();
     } else if (param->MlmeRequest == MLME_LINK_CHECK) {
         if (param->Status == LORAMAC_EVENT_INFO_STATUS_OK) {
             cmd_event(CMD_EVENT_NETWORK, CMD_NET_ANSWER);
@@ -417,6 +428,8 @@ void lrw_init(const part_block_t *nvm_block)
     }
 
     restore_state();
+
+    sync_device_class();
 
     // See what activation mode LoRaMac is in and configure the activation_mode
     // variable accordingly.
@@ -750,4 +763,18 @@ int lrw_check_link(bool piggyback)
     }
 
     return rc;
+}
+
+
+LoRaMacStatus_t lrw_set_class(DeviceClass_t device_class)
+{
+    sysconf.device_class = device_class;
+    sysconf_modified = true;
+    return sync_device_class();
+}
+
+
+DeviceClass_t lrw_get_class(void)
+{
+    return sysconf.device_class;
 }
