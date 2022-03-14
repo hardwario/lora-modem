@@ -71,9 +71,9 @@ static inline uint32_t ntohl(uint32_t v)
 }
 
 
-#define abort_on_error(status) do { \
-    int rc = status2error(status);  \
-    if (rc < 0) abort(rc);          \
+#define abort_on_error(status) do {  \
+    int __rc = status2error(status); \
+    if (__rc < 0) abort(__rc);       \
 } while (0)
 
 
