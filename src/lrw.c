@@ -292,9 +292,6 @@ static void mlme_confirm(MlmeConfirm_t *param)
 
     if (param->MlmeRequest == MLME_JOIN) {
         if (param->Status == LORAMAC_EVENT_INFO_STATUS_OK) {
-            // TODO: LoRaMac switches to class A during join. Consider switching
-            // back here if we had some other class configured before join.
-
             // TODO: Restore channel mask from a previously saved version in
             // case the LNS has the wrong channel mask configured.
 
@@ -304,6 +301,18 @@ static void mlme_confirm(MlmeConfirm_t *param)
             if (activation_mode)
                 cmd_event(CMD_EVENT_JOIN, CMD_JOIN_FAILED);
         }
+
+        // During the Join operation, LoRaMac internally switches the device
+        // class to class A. Thus, we need to restore the original class from
+        // sysconf.device_class here.
+        MibRequestConfirm_t r = {
+            .Type = MIB_DEVICE_CLASS,
+            .Param = { .Class = sysconf.device_class }
+        };
+        int rc = LoRaMacMibSetRequestConfirm(&r);
+        if (rc != LORAMAC_STATUS_OK)
+            log_warning("Could not switch class after Join: %d", rc);
+
     } else if (param->MlmeRequest == MLME_LINK_CHECK) {
         if (param->Status == LORAMAC_EVENT_INFO_STATUS_OK) {
             cmd_event(CMD_EVENT_NETWORK, CMD_NET_ANSWER);

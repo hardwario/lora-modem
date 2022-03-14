@@ -1,5 +1,6 @@
 #include "nvm.h"
 #include <stm/include/stm32l072xx.h>
+#include <loramac-node/src/mac/LoRaMacTypes.h>
 #include "log.h"
 #include "part.h"
 #include "eeprom.h"
@@ -23,7 +24,8 @@ sysconf_t sysconf = {
     .uart_timeout = 1000,
     .default_port = 1,
     .data_format = 0,
-    .sleep = 1
+    .sleep = 1,
+    .device_class = CLASS_A
 };
 
 static part_t sysconf_part;

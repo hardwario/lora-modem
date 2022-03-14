@@ -226,9 +226,7 @@ static void set_band(atci_param_t *param)
 
 static void get_class(void)
 {
-    MibRequestConfirm_t r = { .Type = MIB_DEVICE_CLASS };
-    abort_on_error(LoRaMacMibGetRequestConfirm(&r));
-    OK("%d", r.Param.Class);
+    OK("%d", sysconf.device_class);
 }
 
 
@@ -239,14 +237,17 @@ static void set_class(atci_param_t *param)
 
     if (v > 2) abort(ERR_PARAM);
 
+    sysconf.device_class = v;
+    sysconf_modified = true;
+
     MibRequestConfirm_t r = { .Type = MIB_DEVICE_CLASS };
     abort_on_error(LoRaMacMibGetRequestConfirm(&r));
-    if (r.Param.Class == v) {
+    if (r.Param.Class == sysconf.device_class) {
         OK_();
         return;
     }
 
-    r.Param.Class = v;
+    r.Param.Class = sysconf.device_class;
     abort_on_error(LoRaMacMibSetRequestConfirm(&r));
 
     OK_();
