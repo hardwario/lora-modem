@@ -16,7 +16,7 @@ DEFAULT_UART_BAUDRATE ?= 9600
 # firmware. By default the full set is included. Please note that the full set
 # may not fit into the flash memory in the debug mode (it does fit in the
 # release mode).
-ENABLE_REGIONS ?= AS923 AU915 CN470 CN779 EU433 EU868 IN865 KR920 RU864 US915
+ENABLED_REGIONS ?= AS923 AU915 CN470 CN779 EU433 EU868 IN865 KR920 RU864 US915
 
 # Activate the following region if no region has been selected by the
 # application.
@@ -90,14 +90,14 @@ SRC_FILES += \
 	$(LIB_DIR)/loramac-node/src/mac/region/RegionCommon.c
 
 # Activate the regional parameter files explicitly enabled by the developer in
-# the variable ENABLE_REGIONS.
-SRC_FILES += $(foreach reg,$(ENABLE_REGIONS),$(wildcard $(LIB_DIR)/loramac-node/src/mac/region/*$(reg)*.c))
-CFLAGS += $(foreach reg,$(ENABLE_REGIONS),-DREGION_$(reg))
+# the variable ENABLED_REGIONS.
+SRC_FILES += $(foreach reg,$(ENABLED_REGIONS),$(wildcard $(LIB_DIR)/loramac-node/src/mac/region/*$(reg)*.c))
+CFLAGS += $(foreach reg,$(ENABLED_REGIONS),-DREGION_$(reg))
 
 # The US915 regional file depends on RegionBaseUS which will not be matched by
 # the wildcard pattern above, so we need to include it explicitly if the region
 # is enabled.
-ifneq (,$(findstring US,$(ENABLE_REGIONS)))
+ifneq (,$(findstring US,$(ENABLED_REGIONS)))
 SRC_FILES += $(LIB_DIR)/loramac-node/src/mac/region/RegionBaseUS.c
 endif
 
