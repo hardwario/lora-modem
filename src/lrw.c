@@ -161,25 +161,25 @@ static void restore_state(void)
     memset(&s, 0, sizeof(s));
 
     p = part_mmap(&size, &nvm_parts.crypto);
-    if (p && size >= sizeof(s.Crypto)) memcpy(&s.Crypto, p, size);
+    if (p && size >= sizeof(s.Crypto)) memcpy(&s.Crypto, p, sizeof(s.Crypto));
 
     p = part_mmap(&size, &nvm_parts.mac1);
-    if (p && size >= sizeof(s.MacGroup1)) memcpy(&s.MacGroup1, p, size);
+    if (p && size >= sizeof(s.MacGroup1)) memcpy(&s.MacGroup1, p, sizeof(s.MacGroup1));
 
     p = part_mmap(&size, &nvm_parts.mac2);
-    if (p && size >= sizeof(s.MacGroup2)) memcpy(&s.MacGroup2, p, size);
+    if (p && size >= sizeof(s.MacGroup2)) memcpy(&s.MacGroup2, p, sizeof(s.MacGroup2));
 
     p = part_mmap(&size, &nvm_parts.se);
-    if (p && size >= sizeof(s.SecureElement)) memcpy(&s.SecureElement, p, size);
+    if (p && size >= sizeof(s.SecureElement)) memcpy(&s.SecureElement, p, sizeof(s.SecureElement));
 
     p = part_mmap(&size, &nvm_parts.region1);
-    if (p && size >= sizeof(s.RegionGroup1)) memcpy(&s.RegionGroup1, p, size);
+    if (p && size >= sizeof(s.RegionGroup1)) memcpy(&s.RegionGroup1, p, sizeof(s.RegionGroup1));
 
     p = part_mmap(&size, &nvm_parts.region2);
-    if (p && size >= sizeof(s.RegionGroup2)) memcpy(&s.RegionGroup2, p, size);
+    if (p && size >= sizeof(s.RegionGroup2)) memcpy(&s.RegionGroup2, p, sizeof(s.RegionGroup2));
 
     p = part_mmap(&size, &nvm_parts.classb);
-    if (p && size >= sizeof(s.ClassB)) memcpy(&s.ClassB, p, size);
+    if (p && size >= sizeof(s.ClassB)) memcpy(&s.ClassB, p, sizeof(s.ClassB));
 
     MibRequestConfirm_t r = {
         .Type = MIB_NVM_CTXS,
@@ -187,7 +187,7 @@ static void restore_state(void)
     };
     int rc = LoRaMacMibSetRequestConfirm(&r);
     if (rc != LORAMAC_STATUS_OK)
-        log_error("LoRaMac: Error while restoring contexts: %d", rc);
+        log_error("LoRaMac: Error while restoring NVM state: %d", rc);
 }
 
 
