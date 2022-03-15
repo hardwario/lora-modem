@@ -415,19 +415,14 @@ static void set_appskey(atci_param_t *param)
 
 static void get_appkey(void)
 {
-    // Since we emulate the original Type ABZ firmware which only supports 1.0,
-    // we must operate in a single root key backwards-compatible mode. In this
-    // mode, only the NwkKey is used and AppKey set to the same value as NwkKey.
-    // Thus, we return NwkKey here.
-
     LoRaMacNvmData_t *state = lrw_get_state();
     atci_print("+OK=");
-    atci_print_buffer_as_hex(&state->SecureElement.KeyList[NWK_KEY].KeyValue, SE_KEY_SIZE);
+    atci_print_buffer_as_hex(&state->SecureElement.KeyList[APP_KEY].KeyValue, SE_KEY_SIZE);
     EOL();
 }
 
 
-static void set_appkey(atci_param_t *param)
+static void set_appkey_10(atci_param_t *param)
 {
     uint8_t key[SE_KEY_SIZE];
 
@@ -451,6 +446,22 @@ static void set_appkey(atci_param_t *param)
     r.Param.AppKey = key;
     abort_on_error(LoRaMacMibSetRequestConfirm(&r));
 
+    OK_();
+}
+
+
+static void set_appkey_11(atci_param_t *param)
+{
+    uint8_t key[SE_KEY_SIZE];
+
+    if (atci_param_get_buffer_from_hex(param, key, SE_KEY_SIZE) != SE_KEY_SIZE)
+        abort(ERR_PARAM);
+
+    MibRequestConfirm_t r = {
+        .Type  = MIB_APP_KEY,
+        .Param = { .AppKey = key }
+    };
+    abort_on_error(LoRaMacMibSetRequestConfirm(&r));
     OK_();
 }
 
@@ -1131,60 +1142,170 @@ static void do_halt(atci_param_t *param)
 }
 
 
+static void get_nwkkey(void)
+{
+    LoRaMacNvmData_t *state = lrw_get_state();
+    atci_print("+OK=");
+    atci_print_buffer_as_hex(&state->SecureElement.KeyList[NWK_KEY].KeyValue, SE_KEY_SIZE);
+    EOL();
+}
+
+
+static void set_nwkkey(atci_param_t *param)
+{
+    uint8_t key[SE_KEY_SIZE];
+
+    if (atci_param_get_buffer_from_hex(param, key, SE_KEY_SIZE) != SE_KEY_SIZE)
+        abort(ERR_PARAM);
+
+    MibRequestConfirm_t r = {
+        .Type  = MIB_NWK_KEY,
+        .Param = { .NwkKey = key }
+    };
+    abort_on_error(LoRaMacMibSetRequestConfirm(&r));
+
+    OK_();
+}
+
+
+static void get_fnwksintkey(void)
+{
+    LoRaMacNvmData_t *state = lrw_get_state();
+    atci_print("+OK=");
+    atci_print_buffer_as_hex(&state->SecureElement.KeyList[F_NWK_S_INT_KEY].KeyValue, SE_KEY_SIZE);
+    EOL();
+}
+
+
+static void set_fnwksintkey(atci_param_t *param)
+{
+    uint8_t key[SE_KEY_SIZE];
+
+    if (atci_param_get_buffer_from_hex(param, key, SE_KEY_SIZE) != SE_KEY_SIZE)
+        abort(ERR_PARAM);
+
+    MibRequestConfirm_t r = {
+        .Type  = MIB_F_NWK_S_INT_KEY,
+        .Param = { .FNwkSIntKey = key }
+    };
+    abort_on_error(LoRaMacMibSetRequestConfirm(&r));
+
+    OK_();
+}
+
+
+static void get_snwksintkey(void)
+{
+    LoRaMacNvmData_t *state = lrw_get_state();
+    atci_print("+OK=");
+    atci_print_buffer_as_hex(&state->SecureElement.KeyList[S_NWK_S_INT_KEY].KeyValue, SE_KEY_SIZE);
+    EOL();
+}
+
+
+static void set_snwksintkey(atci_param_t *param)
+{
+    uint8_t key[SE_KEY_SIZE];
+
+    if (atci_param_get_buffer_from_hex(param, key, SE_KEY_SIZE) != SE_KEY_SIZE)
+        abort(ERR_PARAM);
+
+    MibRequestConfirm_t r = {
+        .Type  = MIB_S_NWK_S_INT_KEY,
+        .Param = { .SNwkSIntKey = key }
+    };
+    abort_on_error(LoRaMacMibSetRequestConfirm(&r));
+
+    OK_();
+}
+
+
+static void get_nwksenckey(void)
+{
+    LoRaMacNvmData_t *state = lrw_get_state();
+    atci_print("+OK=");
+    atci_print_buffer_as_hex(&state->SecureElement.KeyList[NWK_S_ENC_KEY].KeyValue, SE_KEY_SIZE);
+    EOL();
+}
+
+
+static void set_nwksenckey(atci_param_t *param)
+{
+    uint8_t key[SE_KEY_SIZE];
+
+    if (atci_param_get_buffer_from_hex(param, key, SE_KEY_SIZE) != SE_KEY_SIZE)
+        abort(ERR_PARAM);
+
+    MibRequestConfirm_t r = {
+        .Type  = MIB_NWK_S_ENC_KEY,
+        .Param = { .NwkSEncKey = key }
+    };
+    abort_on_error(LoRaMacMibSetRequestConfirm(&r));
+
+    OK_();
+}
+
+
 static const atci_command_t cmds[] = {
-    {"+UART",      NULL,          set_uart,      get_uart,         NULL, "Configure UART interface"},
-    {"+VER",       NULL,          NULL,          get_version_comp, NULL, "Firmware version and build time"},
-    {"+DEV",       NULL,          NULL,          get_model,        NULL, "Device model"},
-    {"+REBOOT",    reboot,        NULL,          NULL,             NULL, "Reboot"},
-    {"+FACNEW",    factory_reset, NULL,          NULL,             NULL, "Restore modem to factory"},
-    {"+BAND",      NULL,          set_band,      get_band,         NULL, "Configure radio band (region)"},
-    {"+CLASS",     NULL,          set_class,     get_class,        NULL, "Configure LoRaWAN class"},
-    {"+MODE",      NULL,          set_mode,      get_mode,         NULL, "Configure activation mode (1:OTTA 0:ABP)"},
-    {"+DEVADDR",   NULL,          set_devaddr,   get_devaddr,      NULL, "Configure DevAddr"},
-    {"+DEVEUI",    NULL,          set_deveui,    get_deveui,       NULL, "Configure DevEUI"},
-    {"+APPEUI",    NULL,          set_joineui,   get_joineui,      NULL, "Configure JoinEUI (AppEUI)"},
-    {"+NWKSKEY",   NULL,          set_nwkskey,   get_nwkskey,      NULL, "Configure NwkSKey"},
-    {"+APPSKEY",   NULL,          set_appskey,   get_appskey,      NULL, "Configure AppSKey"},
-    {"+APPKEY",    NULL,          set_appkey,    get_appkey,       NULL, "Configure AppKey"},
-    {"+JOIN",      join,          NULL,          NULL,             NULL, "Send OTAA Join packet"},
-    // {"+JOINDC",    NULL,          set_joindc,    get_joindc,       NULL, "Configure OTAA Join duty cycling"},
-    {"+LNCHECK",   lncheck,       lncheck,       NULL,             NULL, "Perform link check"},
-    // {"+RFPARAM",   NULL,          set_rfparam,   get_rfparam,      NULL, "Configure RF channel parameters"},
-    {"+RFPOWER",   NULL,          set_rfpower,   get_rfpower,      NULL, "Configure RF power"},
-    {"+NWK",       NULL,          set_nwk,       get_nwk,          NULL, "Configure public/private LoRa network setting"},
-    {"+ADR",       NULL,          set_adr,       get_adr,          NULL, "Configure adaptive data rate (ADR)"},
-    {"+DR",        NULL,          set_dr,        get_dr,           NULL, "Configure data rate (DR)"},
-    // {"+DELAY",     NULL,          set_delay,     get_delay,        NULL, "Configure receive window offsets"},
-    // {"+ADRACK",    NULL,          set_adrack,    get_adrack,       NULL, "Configure ADR ACK parameters"},
-    {"+RX2",       NULL,          set_rx2,       get_rx2,          NULL, "Configure RX2 window frequency and data rate"},
-    {"+DUTYCYCLE", NULL,          set_dutycycle, get_dutycycle,    NULL, "Configure duty cycling in EU868"},
-    {"+SLEEP",     NULL,          set_sleep,     get_sleep,        NULL, "Configure low power (sleep) mode"},
-    {"+PORT",      NULL,          set_port,      get_port,         NULL, "Configure default port number for uplink messages <1,223>"},
-    {"+REP",       NULL,          set_rep,       get_rep,          NULL, "Unconfirmed message repeats [1..15]"},
-    {"+DFORMAT",   NULL,          set_dformat,   get_dformat,      NULL, "Configure payload format used by the modem"},
-    {"+TO",        NULL,          set_to,        get_to,           NULL, "Configure UART port timeout"},
-    {"+UTX",       utx,           NULL,          NULL,             NULL, "Send unconfirmed uplink message"},
-    {"+CTX",       ctx,           NULL,          NULL,             NULL, "Send confirmed uplink message"},
-    // {"+MCAST",     NULL,          set_mcast,     get_mcast,        NULL, "Configure multicast addresses"},
-    {"+PUTX",      putx,          NULL,          NULL,             NULL, "Send unconfirmed uplink message to port"},
-    {"+PCTX",      pctx,          NULL,          NULL,             NULL, "Send confirmed uplink message to port"},
-    {"+FRMCNT",    NULL,          NULL,          get_frmcnt,       NULL, "Return current values for uplink and downlink counters"},
-    {"+MSIZE",     NULL,          NULL,          get_msize,        NULL, "Return maximum payload size for current data rate"},
-    {"+RFQ",       NULL,          NULL,          get_rfq,          NULL, "Return RSSI and SNR of the last received message"},
-    {"+DWELL",     NULL,          set_dwell,     get_dwell,        NULL, "Configure dwell setting for AS923"},
-    {"+MAXEIRP",   NULL,          set_maxeirp,   get_maxeirp,      NULL, "Configure maximum EIRP"},
-    // {"+RSSITH",    NULL,          set_rssith,    get_rssith,       NULL, "Configure RSSI threshold for LBT"},
-    // {"+CST",       NULL,          set_cst,       get_cst,          NULL, "Configure carrier sensor time (CST) for LBT"},
-    // {"+BACKOFF",   NULL,          NULL,          get_backoff,      NULL, "Return duty cycle backoff time for EU868"},
-    // {"+CHMASK",    NULL,          set_chmask,    get_chmask,       NULL, "Configure channel mask"},
-    {"+RTYNUM",    NULL,          set_rtynum,    get_rtynum,       NULL, "Configure number of confirmed uplink message retries"},
-    {"+NETID",     NULL,          set_netid,     get_netid,        NULL, "Configure LoRaWAN network identifier"},
-    // {"$CHANNELS",  NULL,          NULL,          get_channels,     NULL, ""},
-    {"$VER",       NULL,          NULL,          get_version,      NULL, "Firmware version and build time"},
-    {"$DBG",       dbg,           NULL,          NULL,             NULL, ""},
-    {"$PING",      ping,          NULL,          NULL,             NULL, "Send ping message"},
-    {"$ACTIVATED", NULL,          NULL,          activated,        NULL, "Returns network activation status (0: not activate, >0: activated"},
-    {"$HALT",      do_halt,       NULL,          NULL,             NULL, "Halt the modem"},
+    {"+UART",        NULL,          set_uart,        get_uart,         NULL, "Configure UART interface"},
+    {"+VER",         NULL,          NULL,            get_version_comp, NULL, "Firmware version and build time"},
+    {"+DEV",         NULL,          NULL,            get_model,        NULL, "Device model"},
+    {"+REBOOT",      reboot,        NULL,            NULL,             NULL, "Reboot"},
+    {"+FACNEW",      factory_reset, NULL,            NULL,             NULL, "Restore modem to factory"},
+    {"+BAND",        NULL,          set_band,        get_band,         NULL, "Configure radio band (region)"},
+    {"+CLASS",       NULL,          set_class,       get_class,        NULL, "Configure LoRaWAN class"},
+    {"+MODE",        NULL,          set_mode,        get_mode,         NULL, "Configure activation mode (1:OTTA 0:ABP)"},
+    {"+DEVADDR",     NULL,          set_devaddr,     get_devaddr,      NULL, "Configure DevAddr"},
+    {"+DEVEUI",      NULL,          set_deveui,      get_deveui,       NULL, "Configure DevEUI"},
+    {"+APPEUI",      NULL,          set_joineui,     get_joineui,      NULL, "Configure AppEUI (JoinEUI)"},
+    {"+NWKSKEY",     NULL,          set_nwkskey,     get_nwkskey,      NULL, "Configure NwkSKey (LoRaWAN 1.0)"},
+    {"+APPSKEY",     NULL,          set_appskey,     get_appskey,      NULL, "Configure AppSKey"},
+    {"+APPKEY",      NULL,          set_appkey_10,   get_appkey,       NULL, "Configure AppKey (LoRaWAN 1.0)"},
+    {"+JOIN",        join,          NULL,            NULL,             NULL, "Send OTAA Join packet"},
+    // {"+JOINDC",      NULL,          set_joindc,      get_joindc,       NULL, "Configure OTAA Join duty cycling"},
+    {"+LNCHECK",     lncheck,       lncheck,         NULL,             NULL, "Perform link check"},
+    // {"+RFPARAM",     NULL,          set_rfparam,     get_rfparam,      NULL, "Configure RF channel parameters"},
+    {"+RFPOWER",     NULL,          set_rfpower,     get_rfpower,      NULL, "Configure RF power"},
+    {"+NWK",         NULL,          set_nwk,         get_nwk,          NULL, "Configure public/private LoRa network setting"},
+    {"+ADR",         NULL,          set_adr,         get_adr,          NULL, "Configure adaptive data rate (ADR)"},
+    {"+DR",          NULL,          set_dr,          get_dr,           NULL, "Configure data rate (DR)"},
+    // {"+DELAY",       NULL,          set_delay,       get_delay,        NULL, "Configure receive window offsets"},
+    // {"+ADRACK",      NULL,          set_adrack,      get_adrack,       NULL, "Configure ADR ACK parameters"},
+    {"+RX2",         NULL,          set_rx2,         get_rx2,          NULL, "Configure RX2 window frequency and data rate"},
+    {"+DUTYCYCLE",   NULL,          set_dutycycle,   get_dutycycle,    NULL, "Configure duty cycling in EU868"},
+    {"+SLEEP",       NULL,          set_sleep,       get_sleep,        NULL, "Configure low power (sleep) mode"},
+    {"+PORT",        NULL,          set_port,        get_port,         NULL, "Configure default port number for uplink messages <1,223>"},
+    {"+REP",         NULL,          set_rep,         get_rep,          NULL, "Unconfirmed message repeats [1..15]"},
+    {"+DFORMAT",     NULL,          set_dformat,     get_dformat,      NULL, "Configure payload format used by the modem"},
+    {"+TO",          NULL,          set_to,          get_to,           NULL, "Configure UART port timeout"},
+    {"+UTX",         utx,           NULL,            NULL,             NULL, "Send unconfirmed uplink message"},
+    {"+CTX",         ctx,           NULL,            NULL,             NULL, "Send confirmed uplink message"},
+    // {"+MCAST",       NULL,          set_mcast,       get_mcast,        NULL, "Configure multicast addresses"},
+    {"+PUTX",        putx,          NULL,            NULL,             NULL, "Send unconfirmed uplink message to port"},
+    {"+PCTX",        pctx,          NULL,            NULL,             NULL, "Send confirmed uplink message to port"},
+    {"+FRMCNT",      NULL,          NULL,            get_frmcnt,       NULL, "Return current values for uplink and downlink counters"},
+    {"+MSIZE",       NULL,          NULL,            get_msize,        NULL, "Return maximum payload size for current data rate"},
+    {"+RFQ",         NULL,          NULL,            get_rfq,          NULL, "Return RSSI and SNR of the last received message"},
+    {"+DWELL",       NULL,          set_dwell,       get_dwell,        NULL, "Configure dwell setting for AS923"},
+    {"+MAXEIRP",     NULL,          set_maxeirp,     get_maxeirp,      NULL, "Configure maximum EIRP"},
+    // {"+RSSITH",      NULL,          set_rssith,      get_rssith,       NULL, "Configure RSSI threshold for LBT"},
+    // {"+CST",         NULL,          set_cst,         get_cst,          NULL, "Configure carrier sensor time (CST) for LBT"},
+    // {"+BACKOFF",     NULL,          NULL,            get_backoff,      NULL, "Return duty cycle backoff time for EU868"},
+    // {"+CHMASK",      NULL,          set_chmask,      get_chmask,       NULL, "Configure channel mask"},
+    {"+RTYNUM",      NULL,          set_rtynum,      get_rtynum,       NULL, "Configure number of confirmed uplink message retries"},
+    {"+NETID",       NULL,          set_netid,       get_netid,        NULL, "Configure LoRaWAN network identifier"},
+    // {"$CHANNELS",    NULL,          NULL,            get_channels,     NULL, ""},
+    {"$VER",         NULL,          NULL,            get_version,      NULL, "Firmware version and build time"},
+    {"$DBG",         dbg,           NULL,            NULL,             NULL, ""},
+    {"$PING",        ping,          NULL,            NULL,             NULL, "Send ping message"},
+    {"$ACTIVATED",   NULL,          NULL,            activated,        NULL, "Returns network activation status (0: not activate, >0: activated"},
+    {"$HALT",        do_halt,       NULL,            NULL,             NULL, "Halt the modem"},
+    {"$JOINEUI",     NULL,          set_joineui,     get_joineui,      NULL, "Configure JoinEUI"},
+    {"$NWKKEY",      NULL,          set_nwkkey,      get_nwkkey,       NULL, "Configure NwkKey (LoRaWAN 1.1)"},
+    {"$APPKEY",      NULL,          set_appkey_11,   get_appkey,       NULL, "Configure AppKey (LoRaWAN 1.1)"},
+    {"$FNWKSINTKEY", NULL,          set_fnwksintkey, get_fnwksintkey,  NULL, "Configure FNwkSIntKey (LoRaWAN 1.1)"},
+    {"$SNWKSINTKEY", NULL,          set_snwksintkey, get_snwksintkey,  NULL, "Configure SNwkSIntKey (LoRaWAN 1.1)"},
+    {"$NWKSENCKEY",  NULL,          set_nwksenckey,  get_nwksenckey,   NULL, "Configure NwkSEncKey (LoRaWAN 1.1)"},
     ATCI_COMMAND_CLAC,
     ATCI_COMMAND_HELP};
 
