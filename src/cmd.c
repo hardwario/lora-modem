@@ -339,7 +339,12 @@ static void get_nwkskey(void)
 {
     LoRaMacNvmData_t *state = lrw_get_state();
     atci_print("+OK=");
-    atci_print_buffer_as_hex(&state->SecureElement.KeyList[NWK_S_ENC_KEY].KeyValue, SE_KEY_SIZE);
+
+    // We operate in a backwards-compatible 1.0 mode here and in that mode, the
+    // various network session keys are the same and the canonical version is in
+    // FNwkSIntKey.
+
+    atci_print_buffer_as_hex(&state->SecureElement.KeyList[F_NWK_S_INT_KEY].KeyValue, SE_KEY_SIZE);
     EOL();
 }
 
@@ -351,19 +356,29 @@ static void set_nwkskey(atci_param_t *param)
     if (atci_param_get_buffer_from_hex(param, key, SE_KEY_SIZE) != SE_KEY_SIZE)
         abort(ERR_PARAM);
 
-    // Forwarding network session integrity key. This is the network session key for 1.0.x devices.
+    // We implement a mode compatible with the original Type ABZ firmware which
+    // only supports LoRaWAN 1.0. Thus, we need to operate in a LoRaWAN 1.0
+    // backwards-compatible mode here. In this mode, the NwkSKey becomes
+    // FNwkSIntKey (forwarding network session integrity key). The other two
+    // network keys required by our 1.1 implementation are set to the same
+    // value.
+
+    // Forwarding network session integrity key. This is the network session key
+    // for 1.0.x devices.
     MibRequestConfirm_t r = {
         .Type  = MIB_F_NWK_S_INT_KEY,
         .Param = { .FNwkSIntKey = key }
     };
     abort_on_error(LoRaMacMibSetRequestConfirm(&r));
 
-    // Service network session integrity key. This is not used in 1.0.x. Must be the same as the forwarding key above.
+    // Service network session integrity key. This is not used in 1.0.x. Must be
+    // the same as the forwarding key above.
     r.Type  = MIB_S_NWK_S_INT_KEY;
     r.Param.SNwkSIntKey = key;
     abort_on_error(LoRaMacMibSetRequestConfirm(&r));
 
-    // Network session encryption key. Not used by 1.0.x devices. Must be the same as the forwarding key above.
+    // Network session encryption key. Not used by 1.0.x devices. Must be the
+    // same as the forwarding key above.
     r.Type  = MIB_NWK_S_ENC_KEY;
     r.Param.NwkSEncKey = key;
     abort_on_error(LoRaMacMibSetRequestConfirm(&r));
@@ -444,8 +459,7 @@ static void join(atci_param_t *param)
 {
     (void)param;
 
-    abort_on_error(lrw_activate());
-
+    abort_on_error(lrw_join());
     OK_();
 }
 

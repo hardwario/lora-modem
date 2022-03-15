@@ -20,10 +20,6 @@
 static McpsConfirm_t tx_params;
 McpsIndication_t lrw_rx_params;
 
-// Remember activation mode in this variable. 0 means ABP, 1 means OTAA. This
-// variables does not need to be saved in NVM.
-unsigned int activation_mode;
-
 
 static struct {
     const char *name;
@@ -302,23 +298,43 @@ static int sync_device_class(void)
 }
 
 
+#ifdef LORAMAC_ABP_VERSION
+static int set_abp_mac_version(void)
+{
+    // If we are in ABP mode and the application has defined a specific MAC
+    // version to be used in this mode, set it now. There is no automatic
+    // version negotiation in ABP mode, so this needs to be done manually.
+    MibRequestConfirm_t r = {
+        .Type = MIB_ABP_LORAWAN_VERSION,
+        .Param = { .AbpLrWanVersion = { .Value = LORAMAC_ABP_VERSION }}};
+    return LoRaMacMibSetRequestConfirm(&r);
+}
+#endif
+
+
 static void mlme_confirm(MlmeConfirm_t *param)
 {
     log_debug("mlme_confirm: MlmeRequest: %d Status: %d", param->MlmeRequest, param->Status);
-
     tx_params.Status = param->Status;
 
     if (param->MlmeRequest == MLME_JOIN) {
+        MibRequestConfirm_t r = { .Type = MIB_NETWORK_ACTIVATION };
+        LoRaMacMibGetRequestConfirm(&r);
+
         if (param->Status == LORAMAC_EVENT_INFO_STATUS_OK) {
             // TODO: Restore channel mask from a previously saved version in
             // case the LNS has the wrong channel mask configured.
 
-            if (activation_mode)
-                cmd_event(CMD_EVENT_JOIN, CMD_JOIN_SUCCEEDED);
-        } else {
-            if (activation_mode)
-                cmd_event(CMD_EVENT_JOIN, CMD_JOIN_FAILED);
+#ifdef LORAMAC_ABP_VERSION
+            if (r.Param.NetworkActivation == ACTIVATION_TYPE_ABP)
+                set_abp_mac_version();
+#endif
         }
+
+        if (r.Param.NetworkActivation != ACTIVATION_TYPE_ABP)
+            cmd_event(CMD_EVENT_JOIN, param->Status == LORAMAC_EVENT_INFO_STATUS_OK
+                ? CMD_JOIN_SUCCEEDED
+                : CMD_JOIN_FAILED);
 
         // During the Join operation, LoRaMac internally switches the device
         // class to class A. Thus, we need to restore the original class from
@@ -394,6 +410,73 @@ error:
 }
 
 
+static void log_device_info(void)
+{
+    MibRequestConfirm_t r;
+
+    log_compose();
+    log_debug("LoRaMac: Device");
+
+    r.Type = MIB_DEV_EUI;
+    LoRaMacMibGetRequestConfirm(&r);
+    log_debug(" DevEUI: %02X%02X%02X%02X%02X%02X%02X%02X",
+        r.Param.DevEui[0], r.Param.DevEui[1], r.Param.DevEui[2], r.Param.DevEui[3],
+        r.Param.DevEui[4], r.Param.DevEui[5], r.Param.DevEui[6], r.Param.DevEui[7]);
+
+    r.Type = MIB_DEVICE_CLASS;
+    LoRaMacMibGetRequestConfirm(&r);
+    log_debug(" class: %c", r.Param.Class + 'A');
+
+    r.Type = MIB_ADR;
+    LoRaMacMibGetRequestConfirm(&r);
+    log_debug(" ADR: %d", r.Param.AdrEnable);
+
+    log_finish();
+}
+
+
+static void log_network_info(void)
+{
+    MibRequestConfirm_t r;
+
+    log_compose();
+    log_debug("LoRaMac: Network");
+
+    r.Type = MIB_PUBLIC_NETWORK;
+    LoRaMacMibGetRequestConfirm(&r);
+    log_debug(" public: %d", r.Param.EnablePublicNetwork);
+
+    r.Type = MIB_NETWORK_ACTIVATION;
+    LoRaMacMibGetRequestConfirm(&r);
+    log_debug(" activated: ");
+    switch(r.Param.NetworkActivation) {
+        case ACTIVATION_TYPE_NONE: log_debug("No");   break;
+        case ACTIVATION_TYPE_ABP : log_debug("ABP");  break;
+        case ACTIVATION_TYPE_OTAA: log_debug("OTAA"); break;
+        default: log_debug("?"); break;
+    }
+
+    if (r.Param.NetworkActivation != ACTIVATION_TYPE_NONE) {
+        r.Type = MIB_LORAWAN_VERSION;
+        LoRaMacMibGetRequestConfirm(&r);
+        log_debug(" MAC: %d.%d.%d",
+            r.Param.LrWanVersion.LoRaWan.Fields.Major,
+            r.Param.LrWanVersion.LoRaWan.Fields.Minor,
+            r.Param.LrWanVersion.LoRaWan.Fields.Patch);
+
+        r.Type = MIB_NET_ID;
+        LoRaMacMibGetRequestConfirm(&r);
+        log_debug(" NetID: %08lX", r.Param.NetID);
+
+        r.Type = MIB_DEV_ADDR;
+        LoRaMacMibGetRequestConfirm(&r);
+        log_debug(" DevAddr: %08lX", r.Param.DevAddr);
+    }
+
+    log_finish();
+}
+
+
 void lrw_init(const part_block_t *nvm_block)
 {
     static const uint8_t zero_eui[SE_EUI_SIZE];
@@ -429,42 +512,11 @@ void lrw_init(const part_block_t *nvm_block)
 
     restore_state();
 
+    r.Type = MIB_SYSTEM_MAX_RX_ERROR;
+    r.Param.SystemMaxRxError = 20;
+    LoRaMacMibSetRequestConfirm(&r);
+
     sync_device_class();
-
-    // See what activation mode LoRaMac is in and configure the activation_mode
-    // variable accordingly.
-    r.Type = MIB_NETWORK_ACTIVATION;
-    LoRaMacMibGetRequestConfirm(&r);
-    switch (r.Param.NetworkActivation) {
-        case ACTIVATION_TYPE_NONE:
-        case ACTIVATION_TYPE_ABP:
-        default:
-            activation_mode = 0;
-            break;
-
-        case ACTIVATION_TYPE_OTAA:
-            activation_mode = 1;
-            break;
-    }
-
-    r.Type = MIB_LORAWAN_VERSION;
-    LoRaMacMibGetRequestConfirm(&r);
-    uint32_t ver = r.Param.LrWanVersion.LoRaWan.Value;
-    log_debug("LoRaMac: MAC version: %ld.%ld.%ld",
-        ver >> 24, (ver >> 16) & 0xff, (ver >> 8) & 0xff);
-
-#ifdef LORAMAC_ABP_VERSION
-    r.Type = MIB_ABP_LORAWAN_VERSION;
-    r.Param.AbpLrWanVersion.Value = LORAMAC_ABP_VERSION;
-    rc = LoRaMacMibSetRequestConfirm(&r);
-    if (rc != LORAMAC_STATUS_OK)
-        log_error("LoRaMac: Error while setting LoRa MAC version for ABP: %d", rc);
-
-    log_debug("LoRaMac: ABP MAC version: %ld.%ld.%ld",
-        r.Param.AbpLrWanVersion.Value >> 24,
-        (r.Param.AbpLrWanVersion.Value >> 16) & 0xff,
-        (r.Param.AbpLrWanVersion.Value >> 8) & 0xff);
-#endif
 
     r.Type = MIB_DEV_EUI;
     LoRaMacMibGetRequestConfirm(&r);
@@ -479,6 +531,8 @@ void lrw_init(const part_block_t *nvm_block)
             log_error("LoRaMac: Error while setting DevEUI: %d", rc);
     }
 
+    log_device_info();
+
     r.Type = MIB_DEV_ADDR;
     LoRaMacMibGetRequestConfirm(&r);
     uint32_t devaddr = r.Param.DevAddr;
@@ -491,26 +545,7 @@ void lrw_init(const part_block_t *nvm_block)
             log_error("LoRaMac: Error while setting DevAddr: %d", rc);
     }
 
-    r.Type = MIB_ADR;
-    LoRaMacMibGetRequestConfirm(&r);
-    const int adr = r.Param.AdrEnable;
-
-    r.Type = MIB_PUBLIC_NETWORK;
-    LoRaMacMibGetRequestConfirm(&r);
-    const int public = r.Param.EnablePublicNetwork;
-
-    r.Type = MIB_DEVICE_CLASS;
-    LoRaMacMibGetRequestConfirm(&r);
-    const int class = r.Param.Class;
-
-    log_debug("LoRaMac: DevEUI: %02X%02X%02X%02X%02X%02X%02X%02X DevAddr: %08lX ADR: %d public: %d, class: %c",
-        deveui[0], deveui[1], deveui[2], deveui[3],
-        deveui[4], deveui[5], deveui[6], deveui[7],
-        devaddr, adr, public, class + 'A');
-
-    r.Type = MIB_SYSTEM_MAX_RX_ERROR;
-    r.Param.SystemMaxRxError = 20;
-    LoRaMacMibSetRequestConfirm(&r);
+    log_network_info();
 }
 
 
@@ -623,26 +658,24 @@ LoRaMacNvmData_t *lrw_get_state()
 }
 
 
-int lrw_activate()
+int lrw_join(void)
 {
-    int rc;
-    MlmeReq_t mlme;
+    MlmeReq_t mlme = { .Type = MLME_JOIN };
 
-    mlme.Type = MLME_JOIN;
-    mlme.Req.Join.Datarate = DR_0; // LoRaParamInit->tx_datarate;
+    MibRequestConfirm_t r = { .Type = MIB_NETWORK_ACTIVATION };
+    LoRaMacMibGetRequestConfirm(&r);
 
-    if (activation_mode == 1) {
-        if (LoRaMacIsBusy()) return LORAMAC_STATUS_BUSY;
-        mlme.Req.Join.NetworkActivation = ACTIVATION_TYPE_OTAA;
-    } else {
+    if (r.Param.NetworkActivation == ACTIVATION_TYPE_ABP) {
+        // LoRaMac uses the same approach for both types of activation. In ABP
+        // one still needs to invoke MLME_JOIN, although no actual Join will be
+        // sent. The library will simply use the opportunity to perform internal
+        // initialization.
         mlme.Req.Join.NetworkActivation = ACTIVATION_TYPE_ABP;
+    } else {
+        mlme.Req.Join.NetworkActivation = ACTIVATION_TYPE_OTAA;
+        mlme.Req.Join.Datarate = DR_0;
     }
-
-    rc = LoRaMacMlmeRequest(&mlme);
-    if (rc != LORAMAC_STATUS_OK)
-        log_error("LoRaMac: Activation failed: %d", rc);
-
-    return rc;
+    return LoRaMacMlmeRequest(&mlme);
 }
 
 
@@ -700,7 +733,18 @@ int lrw_set_region(unsigned int region)
 
 unsigned int lrw_get_mode(void)
 {
-    return activation_mode;
+    MibRequestConfirm_t r = { .Type = MIB_NETWORK_ACTIVATION };
+    LoRaMacMibGetRequestConfirm(&r);
+
+    switch(r.Param.NetworkActivation) {
+        case ACTIVATION_TYPE_NONE: // If the value is None, we are in OTAA mode prior to Join
+        case ACTIVATION_TYPE_OTAA:
+            return 1;
+
+        case ACTIVATION_TYPE_ABP:
+        default:
+            return 0;
+    }
 }
 
 
@@ -708,9 +752,30 @@ int lrw_set_mode(unsigned int mode)
 {
     if (mode > 1) return LORAMAC_STATUS_PARAMETER_INVALID;
 
-    activation_mode = mode;
-    if (mode == 0) lrw_activate();
-    return 0;
+    MibRequestConfirm_t r = { .Type = MIB_NETWORK_ACTIVATION };
+    LoRaMacMibGetRequestConfirm(&r);
+
+    if (mode == 0) {
+        // ABP mode. Invoke lrw_activate right away. No Join will be sent, but
+        // the library will perform any necessary internal initialization.
+
+        // If we are in ABP mode already, there is nothing to do
+        if (r.Param.NetworkActivation != ACTIVATION_TYPE_ABP) {
+            r.Type = MIB_NETWORK_ACTIVATION;
+            r.Param.NetworkActivation = ACTIVATION_TYPE_ABP;
+            LoRaMacMibSetRequestConfirm(&r);
+            return lrw_join();
+        }
+    } else {
+        if (r.Param.NetworkActivation != ACTIVATION_TYPE_OTAA) {
+            // If we are in ABP mode or have no activation mode, set the mode to
+            // none util a Join is executed.
+            r.Param.NetworkActivation = ACTIVATION_TYPE_NONE;
+            return LoRaMacMibSetRequestConfirm(&r);
+        }
+    }
+
+    return LORAMAC_STATUS_OK;
 }
 
 
@@ -751,7 +816,7 @@ int lrw_check_link(bool piggyback)
         MibRequestConfirm_t mbr = { .Type = MIB_CHANNELS_DATARATE };
         LoRaMacMibGetRequestConfirm(&mbr);
 
-        // Send an empty frame frame to piggy-back the link check operation on
+        // Send an empty frame to piggy-back the link check operation on
         McpsReq_t mcr;
         memset(&mcr, 0, sizeof(mcr));
         mcr.Type = MCPS_UNCONFIRMED;
@@ -766,7 +831,7 @@ int lrw_check_link(bool piggyback)
 }
 
 
-LoRaMacStatus_t lrw_set_class(DeviceClass_t device_class)
+int lrw_set_class(DeviceClass_t device_class)
 {
     sysconf.device_class = device_class;
     sysconf_modified = true;

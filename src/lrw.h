@@ -44,7 +44,7 @@ int lrw_isack_get(void);
 
 //! @brief Activate LoRaMac according to the selected mode (OTAA or ABP)
 //! @retval Negative number on error, 0 on success
-int lrw_activate();
+int lrw_join();
 
 //! @brief Activate given LoRaWAN region
 //! @param[in] region LoRaWAN region identifier
@@ -66,7 +66,7 @@ int lrw_set_dwell(uint8_t uplink, uint8_t downlink);
 
 int lrw_check_link(bool piggyback);
 
-LoRaMacStatus_t lrw_set_class(DeviceClass_t device_class);
+int lrw_set_class(DeviceClass_t device_class);
 DeviceClass_t lrw_get_class(void);
 
 #endif // _LRW_H
