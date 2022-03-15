@@ -400,9 +400,14 @@ static void set_appskey(atci_param_t *param)
 
 static void get_appkey(void)
 {
+    // Since we emulate the original Type ABZ firmware which only supports 1.0,
+    // we must operate in a single root key backwards-compatible mode. In this
+    // mode, only the NwkKey is used and AppKey set to the same value as NwkKey.
+    // Thus, we return NwkKey here.
+
     LoRaMacNvmData_t *state = lrw_get_state();
     atci_print("+OK=");
-    atci_print_buffer_as_hex(&state->SecureElement.KeyList[APP_KEY].KeyValue, SE_KEY_SIZE);
+    atci_print_buffer_as_hex(&state->SecureElement.KeyList[NWK_KEY].KeyValue, SE_KEY_SIZE);
     EOL();
 }
 
@@ -414,14 +419,21 @@ static void set_appkey(atci_param_t *param)
     if (atci_param_get_buffer_from_hex(param, key, SE_KEY_SIZE) != SE_KEY_SIZE)
         abort(ERR_PARAM);
 
+    // The original firmware supports LoRaWAN 1.0 and does not provide an AT
+    // command to set the other root key (NwkKey). Hence, we must assume that we
+    // will be operating in the backwards-compatible single root key scheme
+    // documented in LoRaWAN 1.1 Section 6.1.1.3. In that scheme, AppSKey is
+    // derived from NwkKey and not from AppKey. Thus, we need to set the value
+    // configured here to both AppKey and NwkKey.
+
     MibRequestConfirm_t r = {
-        .Type  = MIB_APP_KEY,
-        .Param = { .AppKey = key }
+        .Type  = MIB_NWK_KEY,
+        .Param = { .NwkKey = key }
     };
     abort_on_error(LoRaMacMibSetRequestConfirm(&r));
 
-    r.Type = MIB_NWK_KEY;
-    r.Param.NwkKey = key;
+    r.Type = MIB_APP_KEY;
+    r.Param.AppKey = key;
     abort_on_error(LoRaMacMibSetRequestConfirm(&r));
 
     OK_();
