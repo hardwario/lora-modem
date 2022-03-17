@@ -1,4 +1,5 @@
 #include "console.h"
+#include <LoRaWAN/Utilities/utilities.h>
 #include "system.h"
 #include "fifo.h"
 #include "lpuart.h"
@@ -72,9 +73,11 @@ size_t console_read(char *buffer, size_t length)
 
 void console_flush(void)
 {
-    while (_console.vcom_ready != SET)
-    {
-        HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFI);
+    while (_console.vcom_ready != SET) {
+        CRITICAL_SECTION_BEGIN();
+        if (_console.vcom_ready != SET)
+            HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFI);
+        CRITICAL_SECTION_END();
     }
 }
 
