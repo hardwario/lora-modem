@@ -10,7 +10,7 @@ TYPE ?= debug
 # The default speed (baudrate) of the AT UART interface. This value will be used
 # unless the system configuration stored in EEPROM provides an alternative
 # value.
-DEFAULT_UART_BAUDRATE ?= 9600
+DEFAULT_UART_BAUDRATE ?= 19200
 
 # Select the regional parameter files that you wish to have included in the
 # firmware. By default the full set is included. Please note that the full set
