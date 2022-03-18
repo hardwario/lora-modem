@@ -494,6 +494,11 @@ static void set_defaults(void)
     r.Type = MIB_ADR;
     r.Param.AdrEnable = 1;
     LoRaMacMibSetRequestConfirm(&r);
+
+    /// The original firmware configures the TRX with 14 dBm in RFO mode
+    r.Type  = MIB_CHANNELS_TX_POWER;
+    r.Param.ChannelsTxPower = 1;
+    LoRaMacMibSetRequestConfirm(&r);
 }
 
 

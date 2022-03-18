@@ -519,13 +519,25 @@ static void get_rfpower(void)
 {
     MibRequestConfirm_t r = { .Type  = MIB_CHANNELS_TX_POWER };
     abort_on_error(LoRaMacMibGetRequestConfirm(&r));
-    OK("%d", r.Param.ChannelsTxPower);
+    OK("0,%d", r.Param.ChannelsTxPower);
 }
 
 
 static void set_rfpower(atci_param_t *param)
 {
+
     uint32_t val;
+
+    int paboost = parse_enabled(param);
+    if (paboost == -1) abort(ERR_PARAM);
+
+    if (paboost == 1) {
+        log_warning("PA boost currently unsupported");
+        abort(ERR_PARAM);
+    }
+
+    if (!atci_param_is_comma(param)) abort(ERR_PARAM);
+
     if (!atci_param_get_uint(param, &val)) abort(ERR_PARAM);
     if (val > 15) abort(ERR_PARAM);
 
