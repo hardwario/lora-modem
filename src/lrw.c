@@ -477,6 +477,26 @@ static void log_network_info(void)
 }
 
 
+/* This function applies default settings according to the original Type ABZ
+ * firmware. It is meant to be called after the MIB has been initialized from
+ * the defaults built in LoRaMac-node and before settings are restored from NVM.
+ */
+static void set_defaults(void)
+{
+    // The original firmware has AppEUI set to 0101010101010101
+    MibRequestConfirm_t r = {
+        .Type  = MIB_JOIN_EUI,
+        .Param = { .JoinEui = (uint8_t *)"\1\1\1\1\1\1\1\1" }
+    };
+    LoRaMacMibSetRequestConfirm(&r);
+
+    // The original firmware has ADR enabled by default
+    r.Type = MIB_ADR;
+    r.Param.AdrEnable = 1;
+    LoRaMacMibSetRequestConfirm(&r);
+}
+
+
 void lrw_init(const part_block_t *nvm_block)
 {
     static const uint8_t zero_eui[SE_EUI_SIZE];
@@ -510,6 +530,7 @@ void lrw_init(const part_block_t *nvm_block)
             return;
     }
 
+    set_defaults();
     restore_state();
 
     r.Type = MIB_SYSTEM_MAX_RX_ERROR;
