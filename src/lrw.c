@@ -499,6 +499,20 @@ static void set_defaults(void)
     r.Type  = MIB_CHANNELS_TX_POWER;
     r.Param.ChannelsTxPower = 1;
     LoRaMacMibSetRequestConfirm(&r);
+
+#ifdef LORAMAC_ABP_VERSION
+    // If we are in ABP mode and the application has defined a specific MAC
+    // version to be used in this mode, set it now. There is no automatic
+    // version negotiation in ABP mode, so this needs to be done manually.
+    r.Type = MIB_ABP_LORAWAN_VERSION;
+    r.Param.AbpLrWanVersion.Value = LORAMAC_ABP_VERSION;
+    LoRaMacMibSetRequestConfirm(&r);
+#endif
+
+    /// The original firmware configures the node in ABP mode by default
+    r.Type  = MIB_NETWORK_ACTIVATION;
+    r.Param.NetworkActivation = ACTIVATION_TYPE_ABP;
+    LoRaMacMibSetRequestConfirm(&r);
 }
 
 
@@ -792,8 +806,8 @@ int lrw_set_mode(unsigned int mode)
     LoRaMacMibGetRequestConfirm(&r);
 
     if (mode == 0) {
-        // ABP mode. Invoke lrw_activate right away. No Join will be sent, but
-        // the library will perform any necessary internal initialization.
+        // ABP mode. Invoke lrw_join right away. No Join will be sent, but the
+        // library will perform any necessary internal initialization.
 
         // If we are in ABP mode already, there is nothing to do
         if (r.Param.NetworkActivation != ACTIVATION_TYPE_ABP) {
