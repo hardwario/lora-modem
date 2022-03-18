@@ -1111,27 +1111,6 @@ static void dbg(atci_param_t *param)
 }
 
 
-static void ping(atci_param_t *param)
-{
-    int confirm = 0;
-    if (param != NULL) {
-        confirm = parse_enabled(param);
-        if (confirm == -1) abort(ERR_PARAM);
-    }
-
-    abort_on_error(lrw_send(sysconf.default_port, "ping", 4, confirm == 1));
-    OK_();
-}
-
-
-static void activated(void)
-{
-    MibRequestConfirm_t r = { .Type = MIB_NETWORK_ACTIVATION };
-    abort_on_error(LoRaMacMibGetRequestConfirm(&r));
-    OK("%d", r.Param.NetworkActivation);
-}
-
-
 static void do_halt(atci_param_t *param)
 {
     (void)param;
@@ -1297,8 +1276,6 @@ static const atci_command_t cmds[] = {
     // {"$CHANNELS",    NULL,          NULL,            get_channels,     NULL, ""},
     {"$VER",         NULL,          NULL,            get_version,      NULL, "Firmware version and build time"},
     {"$DBG",         dbg,           NULL,            NULL,             NULL, ""},
-    {"$PING",        ping,          NULL,            NULL,             NULL, "Send ping message"},
-    {"$ACTIVATED",   NULL,          NULL,            activated,        NULL, "Returns network activation status (0: not activate, >0: activated"},
     {"$HALT",        do_halt,       NULL,            NULL,             NULL, "Halt the modem"},
     {"$JOINEUI",     NULL,          set_joineui,     get_joineui,      NULL, "Configure JoinEUI"},
     {"$NWKKEY",      NULL,          set_nwkkey,      get_nwkkey,       NULL, "Configure NwkKey (LoRaWAN 1.1)"},
