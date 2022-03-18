@@ -608,17 +608,61 @@ static void set_dr(atci_param_t *param)
 }
 
 
-// static void get_delay(void)
-// {
-//     abort(ERR_UNKNOWN_CMD);
-// }
+static void get_delay(void)
+{
+    MibRequestConfirm_t r;
+
+    r.Type = MIB_JOIN_ACCEPT_DELAY_1;
+    LoRaMacMibGetRequestConfirm(&r);
+    int join1 = r.Param.JoinAcceptDelay1;
+
+    r.Type = MIB_JOIN_ACCEPT_DELAY_2;
+    LoRaMacMibGetRequestConfirm(&r);
+    int join2 = r.Param.JoinAcceptDelay2;
+
+    r.Type = MIB_RECEIVE_DELAY_1;
+    LoRaMacMibGetRequestConfirm(&r);
+    int rx1 = r.Param.ReceiveDelay1;
+
+    r.Type = MIB_RECEIVE_DELAY_2;
+    LoRaMacMibGetRequestConfirm(&r);
+    int rx2 = r.Param.ReceiveDelay2;
+
+    OK("%d,%d,%d,%d", join1, join2, rx1, rx2);
+}
 
 
-// static void set_delay(atci_param_t *param)
-// {
-//     (void)param;
-//     abort(ERR_UNKNOWN_CMD);
-// }
+static void set_delay(atci_param_t *param)
+{
+    MibRequestConfirm_t r;
+    uint32_t join1, join2, rx1, rx2;
+
+    if (!atci_param_get_uint(param, &join1)) abort(ERR_PARAM);
+    if (!atci_param_is_comma(param)) abort(ERR_PARAM);
+    if (!atci_param_get_uint(param, &join2)) abort(ERR_PARAM);
+    if (!atci_param_is_comma(param)) abort(ERR_PARAM);
+    if (!atci_param_get_uint(param, &rx1)) abort(ERR_PARAM);
+    if (!atci_param_is_comma(param)) abort(ERR_PARAM);
+    if (!atci_param_get_uint(param, &rx2)) abort(ERR_PARAM);
+
+    r.Type = MIB_JOIN_ACCEPT_DELAY_1;
+    r.Param.JoinAcceptDelay1 = join1;
+    abort_on_error(LoRaMacMibSetRequestConfirm(&r));
+
+    r.Type = MIB_JOIN_ACCEPT_DELAY_2;
+    r.Param.JoinAcceptDelay2 = join2;
+    abort_on_error(LoRaMacMibSetRequestConfirm(&r));
+
+    r.Type = MIB_RECEIVE_DELAY_1;
+    r.Param.ReceiveDelay1 = rx1;
+    abort_on_error(LoRaMacMibSetRequestConfirm(&r));
+
+    r.Type = MIB_RECEIVE_DELAY_2;
+    r.Param.ReceiveDelay2 = rx2;
+    abort_on_error(LoRaMacMibSetRequestConfirm(&r));
+
+    OK_();
+}
 
 
 // static void get_adrack(void)
@@ -1247,7 +1291,7 @@ static const atci_command_t cmds[] = {
     {"+NWK",         NULL,          set_nwk,         get_nwk,          NULL, "Configure public/private LoRa network setting"},
     {"+ADR",         NULL,          set_adr,         get_adr,          NULL, "Configure adaptive data rate (ADR)"},
     {"+DR",          NULL,          set_dr,          get_dr,           NULL, "Configure data rate (DR)"},
-    // {"+DELAY",       NULL,          set_delay,       get_delay,        NULL, "Configure receive window offsets"},
+    {"+DELAY",       NULL,          set_delay,       get_delay,        NULL, "Configure receive window offsets"},
     // {"+ADRACK",      NULL,          set_adrack,      get_adrack,       NULL, "Configure ADR ACK parameters"},
     {"+RX2",         NULL,          set_rx2,         get_rx2,          NULL, "Configure RX2 window frequency and data rate"},
     {"+DUTYCYCLE",   NULL,          set_dutycycle,   get_dutycycle,    NULL, "Configure duty cycling in EU868"},
