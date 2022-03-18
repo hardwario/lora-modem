@@ -1054,34 +1054,52 @@ static void set_maxeirp(atci_param_t *param)
 // }
 
 
-// static void get_chmask(void)
-// {
-// }
+static int chmask_size(void)
+{
+    LoRaMacNvmData_t *state = lrw_get_state();
+
+    // If there is a better way to translate a region to a channel mask size, I
+    // have not found it. It's a bit unfortunate that we have to duplicate the
+    // code from RegionNvm.h here, but there appears to be no other way.
+    switch (state->MacGroup2.Region) {
+        case LORAMAC_REGION_CN470:
+        case LORAMAC_REGION_US915:
+        case LORAMAC_REGION_AU915:
+            return 6;
+
+        default:
+            return 1;
+    }
+}
 
 
-// static void set_chmask(atci_param_t *param)
-// {
-//     uint16_t chmask[LRW_CHMASK_LENGTH];
-//     memset(chmask, 0, sizeof(chmask));
+static void get_chmask(void)
+{
+    MibRequestConfirm_t r = { .Type = MIB_CHANNELS_MASK };
+    abort_on_error(LoRaMacMibGetRequestConfirm(&r));
+    atci_print("+OK=");
+    atci_print_buffer_as_hex(r.Param.ChannelsMask, chmask_size() * sizeof(r.Param.ChannelsMask[0]));
+    EOL();
+}
 
-//     size_t length = atci_param_get_buffer_from_hex(param, chmask, sizeof(chmask));
 
-//     if (length == 0)
-//     {
-//         abort(ERR_PARAM);
-//         return;
-//     }
+static void set_chmask(atci_param_t *param)
+{
+    uint16_t chmask[REGION_NVM_CHANNELS_MASK_SIZE];
 
-//     if (lrw_chmask_set(chmask))
-//     {
-//         config_save();
-//         OK_();
-//     }
-//     else
-//     {
-//         abort(ERR_PARAM);
-//     }
-// }
+    memset(chmask, 0, sizeof(chmask));
+    size_t len = atci_param_get_buffer_from_hex(param, chmask, sizeof(chmask));
+    if (len != chmask_size() * sizeof(chmask[0]))
+        abort(ERR_PARAM);
+
+    MibRequestConfirm_t r = {
+        .Type  = MIB_CHANNELS_MASK,
+        .Param = { .ChannelsMask = chmask }
+    };
+
+    abort_on_error(LoRaMacMibSetRequestConfirm(&r));
+    OK_();
+}
 
 
 static void get_rtynum(void)
@@ -1325,7 +1343,7 @@ static const atci_command_t cmds[] = {
     // {"+RSSITH",      NULL,    set_rssith,      get_rssith,       NULL, "Configure RSSI threshold for LBT"},
     // {"+CST",         NULL,    set_cst,         get_cst,          NULL, "Configure carrier sensor time (CST) for LBT"},
     // {"+BACKOFF",     NULL,    NULL,            get_backoff,      NULL, "Return duty cycle backoff time for EU868"},
-    // {"+CHMASK",      NULL,    set_chmask,      get_chmask,       NULL, "Configure channel mask"},
+    {"+CHMASK",      NULL,    set_chmask,      get_chmask,       NULL, "Configure channel mask"},
     {"+RTYNUM",      NULL,    set_rtynum,      get_rtynum,       NULL, "Configure number of confirmed uplink message retries"},
     {"+NETID",       NULL,    set_netid,       get_netid,        NULL, "Configure LoRaWAN network identifier"},
     // {"$CHANNELS",    NULL,    NULL,            get_channels,     NULL, ""},
