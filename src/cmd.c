@@ -724,9 +724,7 @@ static void set_port(atci_param_t *param)
 
 static void get_rep(void)
 {
-    MibRequestConfirm_t r = { .Type = MIB_CHANNELS_NB_TRANS };
-    abort_on_error(LoRaMacMibGetRequestConfirm(&r));
-    OK("%d", r.Param.ChannelsNbTrans);
+    OK("%d", sysconf.unconfirmed_retransmissions);
 }
 
 
@@ -734,15 +732,10 @@ static void set_rep(atci_param_t *param)
 {
     uint32_t v;
     if (!atci_param_get_uint(param, &v)) abort(ERR_PARAM);
+    if (v < 1 || v > 15) abort(ERR_PARAM);
 
-    if (v > 15) abort(ERR_PARAM);
-
-    MibRequestConfirm_t r = {
-        .Type  = MIB_CHANNELS_NB_TRANS,
-        .Param = { .ChannelsNbTrans = v }
-    };
-    abort_on_error(LoRaMacMibSetRequestConfirm(&r));
-
+    sysconf.unconfirmed_retransmissions = v;
+    sysconf_modified = true;
     OK_();
 }
 
@@ -1037,13 +1030,19 @@ static void set_maxeirp(atci_param_t *param)
 
 static void get_rtynum(void)
 {
-    get_rep();
+    OK("%d", sysconf.confirmed_retransmissions);
 }
 
 
 static void set_rtynum(atci_param_t *param)
 {
-    set_rep(param);
+    uint32_t v;
+    if (!atci_param_get_uint(param, &v)) abort(ERR_PARAM);
+    if (v < 1 || v > 15) abort(ERR_PARAM);
+
+    sysconf.confirmed_retransmissions = v;
+    sysconf_modified = true;
+    OK_();
 }
 
 

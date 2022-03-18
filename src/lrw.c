@@ -562,7 +562,7 @@ int lrw_send(uint8_t port, void *buffer, uint8_t length, bool confirmed)
     if (rc != LORAMAC_STATUS_OK) {
         // The payload is too long to fit into the message or there is some
         // other error.
-        log_debug("Cannot transmit %d bytes", length);
+        log_debug("Could not transmit %d bytes", length);
 
         // Send an empty frame in order to flush MAC commands
         mr.Type = MCPS_UNCONFIRMED;
@@ -584,6 +584,16 @@ int lrw_send(uint8_t port, void *buffer, uint8_t length, bool confirmed)
         mr.Req.Confirmed.fBufferSize = length;
         mr.Req.Confirmed.fBuffer = buffer;
         mr.Req.Unconfirmed.Datarate = r.Param.ChannelsDatarate;
+    }
+
+    r.Type = MIB_CHANNELS_NB_TRANS;
+    r.Param.ChannelsNbTrans = confirmed
+        ? sysconf.confirmed_retransmissions
+        : sysconf.unconfirmed_retransmissions;
+    rc = LoRaMacMibSetRequestConfirm(&r);
+    if (rc != LORAMAC_STATUS_OK) {
+        log_debug("Could not configure retransmissions: %d", rc);
+        return rc;
     }
 
     rc = LoRaMacMcpsRequest(&mr);

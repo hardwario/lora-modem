@@ -25,7 +25,9 @@ sysconf_t sysconf = {
     .default_port = 2,
     .data_format = 0,
     .sleep = 1,
-    .device_class = CLASS_A
+    .device_class = CLASS_A,
+    .unconfirmed_retransmissions = 1,
+    .confirmed_retransmissions = 8
 };
 
 static part_t sysconf_part;

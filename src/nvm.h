@@ -42,6 +42,16 @@ typedef struct sysconf
      */
     uint8_t device_class;
 
+    /* The maximum number of retransmissions of unconfirmed uplink messages.
+     * Receiving a downlink message from the network stops retransmissions.
+     */
+    uint8_t unconfirmed_retransmissions;
+
+    /* The maximum number of retransmissions of confirmed uplink messages.
+     * Receiving a downlink message from the network stops retransmissions.
+     */
+    uint8_t confirmed_retransmissions;
+
     uint32_t crc32;
 } sysconf_t;
 
