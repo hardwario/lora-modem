@@ -27,7 +27,7 @@ DEFAULT_ACTIVE_REGION ?= EU868
 # version to be used in this case manually here. Set the following variable to
 # 0x01010100 (LoRaWAN 1.1.1) if your network is 1.1 compatible. Set the variable
 # to 0x01000400 (LoRaWAN 1.0.4) if you are on a 1.0 network.
-LORAMAC_ABP_VERSION ?= 0x01010100
+LORAMAC_ABP_VERSION ?= 0x01000400
 
 # The version string to be returned by AT+VER. The version string is meant to be
 # compatible with the version string returned by the original Murata firmware.
