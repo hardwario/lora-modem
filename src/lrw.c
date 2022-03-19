@@ -653,12 +653,6 @@ void lrw_process()
 }
 
 
-int lrw_isack_get(void)
-{
-    return tx_params.AckReceived;
-}
-
-
 // lrw_channel_list_t lrw_get_channel_list(void)
 // {
 //     lrw_channel_list_t result;
@@ -838,13 +832,11 @@ void lrw_set_maxeirp(unsigned int maxeirp)
 }
 
 
-int lrw_set_dwell(uint8_t uplink, uint8_t downlink)
+int lrw_set_dwell(bool uplink, bool downlink)
 {
-    if (uplink > 1 || downlink > 1) return LORAMAC_STATUS_PARAMETER_INVALID;
-
     LoRaMacNvmData_t *state = lrw_get_state();
-    state->MacGroup2.MacParams.UplinkDwellTime = uplink;
-    state->MacGroup2.MacParams.DownlinkDwellTime = downlink;
+    state->MacGroup2.MacParams.UplinkDwellTime = uplink == true ? 1 : 0;
+    state->MacGroup2.MacParams.DownlinkDwellTime = downlink == true ? 1 : 0;
     state->MacGroup2.Crc32 = Crc32((uint8_t *)&state->MacGroup2, sizeof(state->MacGroup2) - 4);
     nvm_data_change(LORAMAC_NVM_NOTIFY_FLAG_MAC_GROUP2);
     return 0;
@@ -881,6 +873,12 @@ int lrw_check_link(bool piggyback)
 }
 
 
+DeviceClass_t lrw_get_class(void)
+{
+    return sysconf.device_class;
+}
+
+
 int lrw_set_class(DeviceClass_t device_class)
 {
     sysconf.device_class = device_class;
@@ -889,7 +887,3 @@ int lrw_set_class(DeviceClass_t device_class)
 }
 
 
-DeviceClass_t lrw_get_class(void)
-{
-    return sysconf.device_class;
-}

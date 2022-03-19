@@ -981,11 +981,11 @@ static void get_dwell(void)
 
 static void set_dwell(atci_param_t *param)
 {
-    uint8_t uplink, downlink;
+    bool uplink, downlink;
 
     switch (param->txt[param->offset++]) {
-        case '0': uplink = 0; break;
-        case '1': uplink = 1; break;
+        case '0': uplink = false; break;
+        case '1': uplink = true; break;
         default : abort(ERR_PARAM);
     }
 
@@ -993,8 +993,8 @@ static void set_dwell(atci_param_t *param)
         abort(ERR_PARAM);
 
     switch (param->txt[param->offset++]) {
-        case '0': downlink = 0; break;
-        case '1': downlink = 1; break;
+        case '0': downlink = false; break;
+        case '1': downlink = true; break;
         default : abort(ERR_PARAM);
     }
 
