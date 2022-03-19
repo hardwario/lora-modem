@@ -1073,12 +1073,19 @@ static void set_chmask(atci_param_t *param)
     if (len != lrw_get_chmask_length() * sizeof(chmask[0]))
         abort(ERR_PARAM);
 
+    // First set the default channel mask. The default channel mask is the
+    // channel mask used before Join or ADR.
     MibRequestConfirm_t r = {
-        .Type  = MIB_CHANNELS_MASK,
-        .Param = { .ChannelsMask = chmask }
+        .Type  = MIB_CHANNELS_DEFAULT_MASK,
+        .Param = { .ChannelsDefaultMask = chmask }
     };
-
     abort_on_error(LoRaMacMibSetRequestConfirm(&r));
+
+    // Then update the channel mask currently in use
+    r.Type = MIB_CHANNELS_MASK;
+    r.Param.ChannelsMask = chmask;
+    abort_on_error(LoRaMacMibSetRequestConfirm(&r));
+
     OK_();
 }
 
