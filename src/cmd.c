@@ -1054,31 +1054,12 @@ static void set_maxeirp(atci_param_t *param)
 // }
 
 
-static int chmask_size(void)
-{
-    LoRaMacNvmData_t *state = lrw_get_state();
-
-    // If there is a better way to translate a region to a channel mask size, I
-    // have not found it. It's a bit unfortunate that we have to duplicate the
-    // code from RegionNvm.h here, but there appears to be no other way.
-    switch (state->MacGroup2.Region) {
-        case LORAMAC_REGION_CN470:
-        case LORAMAC_REGION_US915:
-        case LORAMAC_REGION_AU915:
-            return 6;
-
-        default:
-            return 1;
-    }
-}
-
-
 static void get_chmask(void)
 {
     MibRequestConfirm_t r = { .Type = MIB_CHANNELS_MASK };
     abort_on_error(LoRaMacMibGetRequestConfirm(&r));
     atci_print("+OK=");
-    atci_print_buffer_as_hex(r.Param.ChannelsMask, chmask_size() * sizeof(r.Param.ChannelsMask[0]));
+    atci_print_buffer_as_hex(r.Param.ChannelsMask, lrw_get_chmask_length() * sizeof(r.Param.ChannelsMask[0]));
     EOL();
 }
 
@@ -1089,7 +1070,7 @@ static void set_chmask(atci_param_t *param)
 
     memset(chmask, 0, sizeof(chmask));
     size_t len = atci_param_get_buffer_from_hex(param, chmask, sizeof(chmask));
-    if (len != chmask_size() * sizeof(chmask[0]))
+    if (len != lrw_get_chmask_length() * sizeof(chmask[0]))
         abort(ERR_PARAM);
 
     MibRequestConfirm_t r = {
@@ -1144,31 +1125,30 @@ static void set_netid(atci_param_t *param)
 }
 
 
-// static void get_channels(void)
-// {
-//     lrw_channel_list_t list = lrw_get_channel_list();
+static void get_channels(void)
+{
+    lrw_channel_list_t list = lrw_get_channel_list();
 
-//     // log_debug("%d %d", list.length, list.chmask_length);
-//     // log_dump(list.chmask, list.chmask_length * 2, "masks");
-//     // log_dump(list.chmask_default, list.chmask_length * 2, "default_mask");
+    // log_debug("%d %d", list.length, list.chmask_length);
+    // log_dump(list.chmask, list.chmask_length * 2, "masks");
+    // log_dump(list.chmask_default, list.chmask_length * 2, "default_mask");
 
-//     for (uint8_t i = 0; i < list.length; i++)
-//     {
-//         if (list.channels[i].Frequency == 0)
-//             continue;
+    for (unsigned int i = 0; i < list.length; i++) {
+        if (list.channels[i].Frequency == 0)
+            continue;
 
-//         uint8_t is_enable = (i / 16) < list.chmask_length ? (list.chmask[i / 16] >> (i % 16)) & 0x01 : 0;
+        int is_enabled = (i / 16) < list.chmask_length ? (list.chmask[i / 16] >> (i % 16)) & 0x01 : 0;
 
-//         atci_printf("$CHANNELS: %d,%d,%d,%d,%d,%d\r\n",
-//                     is_enable,
-//                     list.channels[i].Frequency,
-//                     list.channels[i].Rx1Frequency,
-//                     list.channels[i].DrRange.Fields.Min,
-//                     list.channels[i].DrRange.Fields.Max,
-//                     list.channels[i].Band);
-//     }
-//     OK_();
-// }
+        atci_printf("$CHANNELS: %d,%ld,%ld,%d,%d,%d\r\n",
+            is_enabled,
+            list.channels[i].Frequency,
+            list.channels[i].Rx1Frequency,
+            list.channels[i].DrRange.Fields.Min,
+            list.channels[i].DrRange.Fields.Max,
+            list.channels[i].Band);
+    }
+    OK_();
+}
 
 
 static void dbg(atci_param_t *param)
@@ -1346,7 +1326,7 @@ static const atci_command_t cmds[] = {
     {"+CHMASK",      NULL,    set_chmask,      get_chmask,       NULL, "Configure channel mask"},
     {"+RTYNUM",      NULL,    set_rtynum,      get_rtynum,       NULL, "Configure number of confirmed uplink message retries"},
     {"+NETID",       NULL,    set_netid,       get_netid,        NULL, "Configure LoRaWAN network identifier"},
-    // {"$CHANNELS",    NULL,    NULL,            get_channels,     NULL, ""},
+    {"$CHANNELS",    NULL,    NULL,            get_channels,     NULL, ""},
     {"$VER",         NULL,    NULL,            get_version,      NULL, "Firmware version and build time"},
     {"$DBG",         dbg,     NULL,            NULL,             NULL, ""},
     {"$HALT",        do_halt, NULL,            NULL,             NULL, "Halt the modem"},

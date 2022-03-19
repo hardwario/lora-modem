@@ -653,47 +653,6 @@ void lrw_process()
 }
 
 
-// lrw_channel_list_t lrw_get_channel_list(void)
-// {
-//     lrw_channel_list_t result;
-
-//     result.chmask_length = lrw_get_chmask_length();
-
-//     GetPhyParams_t phy = {.Attribute = PHY_MAX_NB_CHANNELS};
-//     PhyParam_t resp = RegionGetPhyParam(lrw_region_get(), &phy);
-//     result.length = resp.Value;
-
-//     req.Type = MIB_CHANNELS;
-//     LoRaMacMibGetRequestConfirm(&req);
-//     result.channels = req.Param.ChannelList;
-
-//     req.Type = MIB_CHANNELS_MASK;
-//     LoRaMacMibGetRequestConfirm(&req);
-//     result.chmask = req.Param.ChannelsMask;
-
-//     req.Type = MIB_CHANNELS_DEFAULT_MASK;
-//     LoRaMacMibGetRequestConfirm(&req);
-//     result.chmask_default = req.Param.ChannelsDefaultMask;
-
-//     return result;
-// }
-
-
-// bool lrw_chmask_set(uint16_t chmask[LRW_CHMASK_LENGTH])
-// {
-//     memcpy(config->chmask, chmask, sizeof(config->chmask));
-
-//     req.Type = MIB_CHANNELS_MASK;
-//     req.Param.ChannelsMask = config->chmask;
-//     if (LoRaMacMibSetRequestConfirm(&req) != LORAMAC_STATUS_OK)
-//         return false;
-
-//     req.Type = MIB_CHANNELS_DEFAULT_MASK;
-//     req.Param.ChannelsDefaultMask = config->chmask;
-//     return LoRaMacMibSetRequestConfirm(&req) == LORAMAC_STATUS_OK;
-// }
-
-
 LoRaMacNvmData_t *lrw_get_state()
 {
     MibRequestConfirm_t r = { .Type = MIB_NVM_CTXS };
@@ -886,4 +845,50 @@ int lrw_set_class(DeviceClass_t device_class)
     return sync_device_class();
 }
 
+
+int lrw_get_chmask_length(void)
+{
+    LoRaMacNvmData_t *state = lrw_get_state();
+
+    // If there is a better way to translate a region to a channel mask size, I
+    // have not found it. It's a bit unfortunate that we have to duplicate the
+    // code from RegionNvm.h here, but there appears to be no other way.
+    switch (state->MacGroup2.Region) {
+        case LORAMAC_REGION_CN470:
+        case LORAMAC_REGION_US915:
+        case LORAMAC_REGION_AU915:
+            return 6;
+
+        default:
+            return 1;
+    }
+}
+
+
+lrw_channel_list_t lrw_get_channel_list(void)
+{
+    lrw_channel_list_t result;
+    LoRaMacNvmData_t *state = lrw_get_state();
+    MibRequestConfirm_t r;
+
+    result.chmask_length = lrw_get_chmask_length();
+
+    GetPhyParams_t req = { .Attribute = PHY_MAX_NB_CHANNELS };
+    PhyParam_t resp = RegionGetPhyParam(state->MacGroup2.Region, &req);
+    result.length = resp.Value;
+
+    r.Type = MIB_CHANNELS;
+    LoRaMacMibGetRequestConfirm(&r);
+    result.channels = r.Param.ChannelList;
+
+    r.Type = MIB_CHANNELS_MASK;
+    LoRaMacMibGetRequestConfirm(&r);
+    result.chmask = r.Param.ChannelsMask;
+
+    r.Type = MIB_CHANNELS_DEFAULT_MASK;
+    LoRaMacMibGetRequestConfirm(&r);
+    result.chmask_default = r.Param.ChannelsDefaultMask;
+
+    return result;
+}
 

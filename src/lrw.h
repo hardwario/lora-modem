@@ -163,4 +163,16 @@ void lrw_set_maxeirp(unsigned int maxeirp);
 int lrw_set_dwell(bool uplink, bool downlink);
 
 
+/** @brief Return the length in words of the channel mask for the current region
+ * @return Current region's channel mask length in words
+ */
+int lrw_get_chmask_length(void);
+
+
+/** @brief Return a descriptor structure with information about configured RF channels
+ * @return Channel descriptor structure
+ */
+lrw_channel_list_t lrw_get_channel_list(void);
+
+
 #endif // _LRW_H
