@@ -717,14 +717,19 @@ static void set_rx2(atci_param_t *param)
     if (dr > 15) abort(ERR_PARAM);
 
     MibRequestConfirm_t r = {
-        .Type = MIB_RX2_CHANNEL,
+        .Type = MIB_RX2_DEFAULT_CHANNEL,
         .Param = {
-            .Rx2Channel = {
+            .Rx2DefaultChannel = {
                 .Frequency = freq,
                 .Datarate = dr
             }
         }
     };
+    abort_on_error(LoRaMacMibSetRequestConfirm(&r));
+
+    r.Type = MIB_RX2_CHANNEL;
+    r.Param.Rx2Channel.Frequency = freq;
+    r.Param.Rx2Channel.Datarate = dr;
     abort_on_error(LoRaMacMibSetRequestConfirm(&r));
 
     OK_();
