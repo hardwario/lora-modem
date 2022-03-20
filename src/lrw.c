@@ -599,16 +599,17 @@ int lrw_send(uint8_t port, void *buffer, uint8_t length, bool confirmed)
     LoRaMacMibGetRequestConfirm(&r);
 
     rc = LoRaMacQueryTxPossible(length, &txi);
-    if (rc != LORAMAC_STATUS_OK) {
-        // The payload is too long to fit into the message or there is some
-        // other error.
-        log_debug("Could not transmit %d bytes", length);
+    if (rc == LORAMAC_STATUS_LENGTH_ERROR) {
+        log_info("Payload too long. Sending empty frame to flush MAC commands");
 
         // Send an empty frame in order to flush MAC commands
         mr.Type = MCPS_UNCONFIRMED;
+        mr.Req.Unconfirmed.fPort = 0;
         mr.Req.Unconfirmed.fBuffer = NULL;
         mr.Req.Unconfirmed.fBufferSize = 0;
         mr.Req.Unconfirmed.Datarate = r.Param.ChannelsDatarate;
+        LoRaMacMcpsRequest(&mr);
+
         return rc;
     }
 
