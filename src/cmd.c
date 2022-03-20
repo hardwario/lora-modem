@@ -611,9 +611,13 @@ static void set_dr(atci_param_t *param)
     if (val > 15) abort(ERR_PARAM);
 
     MibRequestConfirm_t r = {
-        .Type  = MIB_CHANNELS_DATARATE,
-        .Param = { .ChannelsDatarate = val }
+        .Type  = MIB_CHANNELS_DEFAULT_DATARATE,
+        .Param = { .ChannelsDefaultDatarate = val }
     };
+    abort_on_error(LoRaMacMibSetRequestConfirm(&r));
+
+    r.Type = MIB_CHANNELS_DATARATE;
+    r.Param.ChannelsDatarate = val;
     abort_on_error(LoRaMacMibSetRequestConfirm(&r));
 
     OK_();
