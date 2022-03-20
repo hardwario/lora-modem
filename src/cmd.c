@@ -698,7 +698,8 @@ static void set_delay(atci_param_t *param)
 // }
 
 
-static void get_rx2(void)
+// A version compatible with the original Type ABZ firmware
+static void get_rx2_comp(void)
 {
     MibRequestConfirm_t r = { .Type = MIB_RX2_CHANNEL };
     abort_on_error(LoRaMacMibGetRequestConfirm(&r));
@@ -707,7 +708,8 @@ static void get_rx2(void)
 }
 
 
-static void set_rx2(atci_param_t *param)
+// A version compatible with the original Type ABZ firmware
+static void set_rx2_comp(atci_param_t *param)
 {
     uint32_t freq, dr;
 
@@ -1348,6 +1350,56 @@ static void set_chmask(atci_param_t *param)
     OK_();
 }
 
+
+static void get_rx2(void)
+{
+    MibRequestConfirm_t r1 = { .Type = MIB_RX2_CHANNEL };
+    LoRaMacMibGetRequestConfirm(&r1);
+
+    MibRequestConfirm_t r2 = { .Type = MIB_RX2_DEFAULT_CHANNEL };
+    LoRaMacMibGetRequestConfirm(&r2);
+
+    OK("%ld,%d,%ld,%d", r1.Param.Rx2Channel.Frequency, r1.Param.Rx2Channel.Datarate,
+        r2.Param.Rx2DefaultChannel.Frequency, r2.Param.Rx2DefaultChannel.Datarate);
+}
+
+
+static void set_rx2(atci_param_t *param)
+{
+    uint32_t freq1, dr1, freq2, dr2;
+
+    if (!atci_param_get_uint(param, &freq1)) abort(ERR_PARAM);
+    if (!atci_param_is_comma(param)) abort(ERR_PARAM);
+    if (!atci_param_get_uint(param, &dr1)) abort(ERR_PARAM);
+
+    if (!atci_param_is_comma(param)) abort(ERR_PARAM);
+
+    if (!atci_param_get_uint(param, &freq2)) abort(ERR_PARAM);
+    if (!atci_param_is_comma(param)) abort(ERR_PARAM);
+    if (!atci_param_get_uint(param, &dr2)) abort(ERR_PARAM);
+
+    if (dr1 > 15 || dr2 > 15) abort(ERR_PARAM);
+
+    MibRequestConfirm_t r = {
+        .Type = MIB_RX2_DEFAULT_CHANNEL,
+        .Param = {
+            .Rx2DefaultChannel = {
+                .Frequency = freq2,
+                .Datarate = dr2
+            }
+        }
+    };
+    abort_on_error(LoRaMacMibSetRequestConfirm(&r));
+
+    r.Type = MIB_RX2_CHANNEL;
+    r.Param.Rx2Channel.Frequency = freq1;
+    r.Param.Rx2Channel.Datarate = dr1;
+    abort_on_error(LoRaMacMibSetRequestConfirm(&r));
+
+    OK_();
+}
+
+
 static const atci_command_t cmds[] = {
     {"+UART",        NULL,    set_uart,        get_uart,         NULL, "Configure UART interface"},
     {"+VER",         NULL,    NULL,            get_version_comp, NULL, "Firmware version and build time"},
@@ -1373,7 +1425,7 @@ static const atci_command_t cmds[] = {
     {"+DR",          NULL,    set_dr,          get_dr,           NULL, "Configure data rate (DR)"},
     {"+DELAY",       NULL,    set_delay,       get_delay,        NULL, "Configure receive window offsets"},
     // {"+ADRACK",      NULL,    set_adrack,      get_adrack,       NULL, "Configure ADR ACK parameters"},
-    {"+RX2",         NULL,    set_rx2,         get_rx2,          NULL, "Configure RX2 window frequency and data rate"},
+    {"+RX2",         NULL,    set_rx2_comp,    get_rx2_comp,     NULL, "Configure RX2 window frequency and data rate"},
     {"+DUTYCYCLE",   NULL,    set_dutycycle,   get_dutycycle,    NULL, "Configure duty cycling in EU868"},
     {"+SLEEP",       NULL,    set_sleep,       get_sleep,        NULL, "Configure low power (sleep) mode"},
     {"+PORT",        NULL,    set_port,        get_port,         NULL, "Configure default port number for uplink messages <1,223>"},
@@ -1407,6 +1459,7 @@ static const atci_command_t cmds[] = {
     {"$SNWKSINTKEY", NULL,    set_snwksintkey, get_snwksintkey,  NULL, "Configure SNwkSIntKey (LoRaWAN 1.1)"},
     {"$NWKSENCKEY",  NULL,    set_nwksenckey,  get_nwksenckey,   NULL, "Configure NwkSEncKey (LoRaWAN 1.1)"},
     {"$CHMASK",      NULL,    set_chmask,      get_chmask,       NULL, "Configure channel mask"},
+    {"$RX2",         NULL,    set_rx2,         get_rx2,          NULL, "Configure RX2 window frequency and data rate"},
     ATCI_COMMAND_CLAC,
     ATCI_COMMAND_HELP};
 
