@@ -1067,7 +1067,8 @@ static void set_maxeirp(atci_param_t *param)
 // }
 
 
-static void get_chmask(void)
+// A version compatible with the original Type ABZ firmware
+static void get_chmask_comp(void)
 {
     MibRequestConfirm_t r = { .Type = MIB_CHANNELS_MASK };
     abort_on_error(LoRaMacMibGetRequestConfirm(&r));
@@ -1077,7 +1078,8 @@ static void get_chmask(void)
 }
 
 
-static void set_chmask(atci_param_t *param)
+// A version compatible with the original Type ABZ firmware
+static void set_chmask_comp(atci_param_t *param)
 {
     uint16_t chmask[REGION_NVM_CHANNELS_MASK_SIZE];
 
@@ -1298,6 +1300,54 @@ static void set_nwksenckey(atci_param_t *param)
 }
 
 
+static void get_chmask(void)
+{
+    atci_print("+OK=");
+
+    MibRequestConfirm_t r = { .Type = MIB_CHANNELS_MASK };
+    LoRaMacMibGetRequestConfirm(&r);
+    atci_print_buffer_as_hex(r.Param.ChannelsMask, lrw_get_chmask_length() * sizeof(r.Param.ChannelsMask[0]));
+
+    atci_print(",");
+
+    r.Type = MIB_CHANNELS_DEFAULT_MASK;
+    LoRaMacMibGetRequestConfirm(&r);
+    atci_print_buffer_as_hex(r.Param.ChannelsDefaultMask, lrw_get_chmask_length() * sizeof(r.Param.ChannelsDefaultMask[0]));
+
+    EOL();
+}
+
+
+static void set_chmask(atci_param_t *param)
+{
+    uint16_t chmask1[REGION_NVM_CHANNELS_MASK_SIZE];
+    uint16_t chmask2[REGION_NVM_CHANNELS_MASK_SIZE];
+    unsigned int len = lrw_get_chmask_length() * sizeof(chmask1[0]);
+    memset(chmask1, 0, sizeof(chmask1));
+    memset(chmask2, 0, sizeof(chmask2));
+
+    size_t len1 = atci_param_get_buffer_from_hex(param, chmask1, sizeof(chmask1));
+    if (len1 != len) abort(ERR_PARAM);
+
+    if (!atci_param_is_comma(param)) abort(ERR_PARAM);
+
+    size_t len2 = atci_param_get_buffer_from_hex(param, chmask2, sizeof(chmask2));
+    if (len2 != len) abort(ERR_PARAM);
+
+    MibRequestConfirm_t r = {
+        .Type  = MIB_CHANNELS_DEFAULT_MASK,
+        .Param = { .ChannelsDefaultMask = chmask2 }
+    };
+    abort_on_error(LoRaMacMibSetRequestConfirm(&r));
+
+    // Then update the channel mask currently in use
+    r.Type = MIB_CHANNELS_MASK;
+    r.Param.ChannelsMask = chmask1;
+    abort_on_error(LoRaMacMibSetRequestConfirm(&r));
+
+    OK_();
+}
+
 static const atci_command_t cmds[] = {
     {"+UART",        NULL,    set_uart,        get_uart,         NULL, "Configure UART interface"},
     {"+VER",         NULL,    NULL,            get_version_comp, NULL, "Firmware version and build time"},
@@ -1343,7 +1393,7 @@ static const atci_command_t cmds[] = {
     // {"+RSSITH",      NULL,    set_rssith,      get_rssith,       NULL, "Configure RSSI threshold for LBT"},
     // {"+CST",         NULL,    set_cst,         get_cst,          NULL, "Configure carrier sensor time (CST) for LBT"},
     // {"+BACKOFF",     NULL,    NULL,            get_backoff,      NULL, "Return duty cycle backoff time for EU868"},
-    {"+CHMASK",      NULL,    set_chmask,      get_chmask,       NULL, "Configure channel mask"},
+    {"+CHMASK",      NULL,    set_chmask_comp, get_chmask_comp,  NULL, "Configure channel mask"},
     {"+RTYNUM",      NULL,    set_rtynum,      get_rtynum,       NULL, "Configure number of confirmed uplink message retries"},
     {"+NETID",       NULL,    set_netid,       get_netid,        NULL, "Configure LoRaWAN network identifier"},
     {"$CHANNELS",    NULL,    NULL,            get_channels,     NULL, ""},
@@ -1356,6 +1406,7 @@ static const atci_command_t cmds[] = {
     {"$FNWKSINTKEY", NULL,    set_fnwksintkey, get_fnwksintkey,  NULL, "Configure FNwkSIntKey (LoRaWAN 1.1)"},
     {"$SNWKSINTKEY", NULL,    set_snwksintkey, get_snwksintkey,  NULL, "Configure SNwkSIntKey (LoRaWAN 1.1)"},
     {"$NWKSENCKEY",  NULL,    set_nwksenckey,  get_nwksenckey,   NULL, "Configure NwkSEncKey (LoRaWAN 1.1)"},
+    {"$CHMASK",      NULL,    set_chmask,      get_chmask,       NULL, "Configure channel mask"},
     ATCI_COMMAND_CLAC,
     ATCI_COMMAND_HELP};
 
