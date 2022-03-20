@@ -525,7 +525,6 @@ static void get_rfpower(void)
 
 static void set_rfpower(atci_param_t *param)
 {
-
     uint32_t val;
 
     int paboost = parse_enabled(param);
@@ -542,10 +541,15 @@ static void set_rfpower(atci_param_t *param)
     if (val > 15) abort(ERR_PARAM);
 
     MibRequestConfirm_t r = {
-        .Type  = MIB_CHANNELS_TX_POWER,
-        .Param = { .ChannelsTxPower = val }
+        .Type  = MIB_CHANNELS_DEFAULT_TX_POWER,
+        .Param = { .ChannelsDefaultTxPower = val }
     };
     abort_on_error(LoRaMacMibSetRequestConfirm(&r));
+
+    r.Type = MIB_CHANNELS_TX_POWER;
+    r.Param.ChannelsTxPower = val;
+    abort_on_error(LoRaMacMibSetRequestConfirm(&r));
+
     OK_();
 }
 
