@@ -439,7 +439,7 @@ $(BIN): $(ELF) $(ALLDEP)
 define compile
 $(Q)$(ECHO) "Compiling: $<"
 $(Q)mkdir -p $(@D)
-$(Q)$(CC) -MMD -MP -MT "$@ $(@:.o=.d)" -c $(CFLAGS) $(1) -isystem $(LIB_DIR) $< -o $@
+$(Q)$(CC) -MD -MP -MT "$@ $(@:.o=.d)" -c $(CFLAGS) $(1) -isystem $(LIB_DIR) $< -o $@
 endef
 
 $(OBJ_DIR)/$(TYPE)/src/%.o: src/%.c $(ALLDEP)
@@ -498,7 +498,7 @@ $(OBJ_DIR)/$(TYPE)/cfg/%.o: cfg/%.c $(ALLDEP)
 $(OBJ_DIR)/$(TYPE)/%.o: %.s $(ALLDEP)
 	$(Q)$(ECHO) "Compiling: $<"
 	$(Q)mkdir -p $(@D)
-	$(Q)$(CC) -MMD -MP -MT "$@ $(@:.o=.d)" -c $(ASFLAGS) $< -o $@
+	$(Q)$(CC) -c $(ASFLAGS) $< -o $@
 
 ################################################################################
 # Include dependencies                                                         #
