@@ -1,4 +1,5 @@
 #include "nvm.h"
+#include <assert.h>
 #include <stm/include/stm32l072xx.h>
 #include <loramac-node/src/mac/LoRaMacTypes.h>
 #include "log.h"
@@ -7,6 +8,7 @@
 #include "halt.h"
 #include "utils.h"
 
+static_assert(sizeof(sysconf) <= SYSCONF_PART_SIZE, "sysconf_t too long to fit in part");
 
 // We currently store all non-volatile state in the EEPROM, so there is only one
 // partitioned block that maps to the EEPROM on the STM32 platform. We export
@@ -55,7 +57,7 @@ void nvm_init(void)
             return;
         }
     } else {
-        if (part_create(&sysconf_part, &nvm, "sysconf", sizeof(sysconf)))
+        if (part_create(&sysconf_part, &nvm, "sysconf", SYSCONF_PART_SIZE))
             halt("Could not create EEPROM system config partition");
     }
     log_debug("Stored system configuration not found, using defaults");

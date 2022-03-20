@@ -3,6 +3,8 @@
 
 #include "part.h"
 
+#define SYSCONF_PART_SIZE 128
+
 /* The sysconf data structure is meant to be used for platform configuration
  * (UART parameters, etc.) and for configuration that cannot be stored
  * elsewhere, e.g., the LoRaMAC MIB. Some of the parameters, e.g., device_class,

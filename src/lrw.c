@@ -1,4 +1,5 @@
 #include "lrw.h"
+#include <assert.h>
 #include <LoRaWAN/Utilities/timeServer.h>
 #include <LoRaWAN/Utilities/utilities.h>
 #include <loramac-node/src/mac/LoRaMac.h>
@@ -12,9 +13,47 @@
 #include "log.h"
 #include "part.h"
 #include "utils.h"
+#include "eeprom.h"
 #include "nvm.h"
 
 #define MAX_BAT 254
+
+/* The following partition sizes have been derived from the in-memory size of
+ * the corresponding data structure in LoRaMac-node v4.6.0. The sizes have been
+ * rounded up to leave some space for expansion in future versions.
+ */
+#define CRYPTO_PART_SIZE 128
+#define MAC1_PART_SIZE 64
+#define MAC2_PART_SIZE 512
+#define SE_PART_SIZE 640
+#define REGION1_PART_SIZE 32
+#define REGION2_PART_SIZE 1536
+#define CLASSB_PART_SIZE 32
+
+
+// Make sure each data structure fits into its fixed-size partition
+static_assert(sizeof(LoRaMacCryptoNvmData_t) <= CRYPTO_PART_SIZE, "Crypto NVM data too long");
+static_assert(sizeof(LoRaMacNvmDataGroup1_t) <= MAC1_PART_SIZE, "MacGroup1 NVM data too long");
+static_assert(sizeof(LoRaMacNvmDataGroup2_t) <= MAC2_PART_SIZE, "MacGroup2 NVM data too long");
+static_assert(sizeof(SecureElementNvmData_t) <= SE_PART_SIZE, "SecureElement NVM data too long");
+static_assert(sizeof(RegionNvmDataGroup1_t) <= REGION1_PART_SIZE, "RegionGroup1 NVM data too long");
+static_assert(sizeof(RegionNvmDataGroup2_t) <= REGION2_PART_SIZE, "RegionGroup2 NVM data too long");
+static_assert(sizeof(LoRaMacClassBNvmData_t) <= CLASSB_PART_SIZE, "ClassB NVM data too long");
+
+
+// And also make sure that NVM data fits into a single EEPROM bank. This is
+// useful in case we wanted to implement atomic writes or data mirroring.
+static_assert(
+    SYSCONF_PART_SIZE +
+    CRYPTO_PART_SIZE  +
+    MAC1_PART_SIZE    +
+    MAC2_PART_SIZE    +
+    SE_PART_SIZE      +
+    REGION1_PART_SIZE +
+    REGION2_PART_SIZE +
+    CLASSB_PART_SIZE
+    <= DATA_EEPROM_BANK1_END - DATA_EEPROM_BASE + 1,
+    "NVM data does not fit into a single EEPROM bank");
 
 
 static McpsConfirm_t tx_params;
@@ -388,31 +427,31 @@ static LoRaMacCallback_t callbacks = {
 static void init_nvm(const part_block_t *nvm_block)
 {
     if (part_find(&nvm_parts.crypto, nvm_block, "crypto") &&
-        part_create(&nvm_parts.crypto, nvm_block, "crypto", sizeof(LoRaMacCryptoNvmData_t)))
+        part_create(&nvm_parts.crypto, nvm_block, "crypto", CRYPTO_PART_SIZE))
         goto error;
 
     if (part_find(&nvm_parts.mac1, nvm_block, "mac1") &&
-        part_create(&nvm_parts.mac1, nvm_block, "mac1", sizeof(LoRaMacNvmDataGroup1_t)))
+        part_create(&nvm_parts.mac1, nvm_block, "mac1", MAC1_PART_SIZE))
         goto error;
 
     if (part_find(&nvm_parts.mac2, nvm_block, "mac2") &&
-        part_create(&nvm_parts.mac2, nvm_block, "mac2", sizeof(LoRaMacNvmDataGroup2_t)))
+        part_create(&nvm_parts.mac2, nvm_block, "mac2", MAC2_PART_SIZE))
         goto error;
 
     if (part_find(&nvm_parts.se, nvm_block, "se") &&
-        part_create(&nvm_parts.se, nvm_block, "se", sizeof(SecureElementNvmData_t)))
+        part_create(&nvm_parts.se, nvm_block, "se", SE_PART_SIZE))
         goto error;
 
     if (part_find(&nvm_parts.region1, nvm_block, "region1") &&
-        part_create(&nvm_parts.region1, nvm_block, "region1", sizeof(RegionNvmDataGroup1_t)))
+        part_create(&nvm_parts.region1, nvm_block, "region1", REGION1_PART_SIZE))
         goto error;
 
     if (part_find(&nvm_parts.region2, nvm_block, "region2") &&
-        part_create(&nvm_parts.region2, nvm_block, "region2", sizeof(RegionNvmDataGroup2_t)))
+        part_create(&nvm_parts.region2, nvm_block, "region2", REGION2_PART_SIZE))
         goto error;
 
     if (part_find(&nvm_parts.classb, nvm_block, "classb") &&
-        part_create(&nvm_parts.classb, nvm_block, "classb", sizeof(LoRaMacClassBNvmData_t)))
+        part_create(&nvm_parts.classb, nvm_block, "classb", CLASSB_PART_SIZE))
         goto error;
 
     return;
