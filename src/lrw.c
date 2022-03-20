@@ -89,6 +89,11 @@ static struct {
 } nvm_parts;
 
 
+#ifdef RESTORE_CHMASK_AFTER_JOIN
+static uint16_t saved_chmask[REGION_NVM_CHANNELS_MASK_SIZE];
+#endif
+
+
 static int region2id(const char *name)
 {
     if (name == NULL) return -1;
@@ -361,6 +366,30 @@ static int set_abp_mac_version(void)
 #endif
 
 
+#ifdef RESTORE_CHMASK_AFTER_JOIN
+static void save_chmask(void)
+{
+    MibRequestConfirm_t r = { .Type = MIB_CHANNELS_DEFAULT_MASK };
+    LoRaMacMibGetRequestConfirm(&r);
+    memcpy(saved_chmask, r.Param.ChannelsMask, sizeof(saved_chmask));
+}
+
+
+static void restore_chmask(void)
+{
+    MibRequestConfirm_t r = {
+        .Type  = MIB_CHANNELS_DEFAULT_MASK,
+        .Param = { .ChannelsDefaultMask = saved_chmask }
+    };
+    LoRaMacMibSetRequestConfirm(&r);
+
+    r.Type = MIB_CHANNELS_MASK;
+    r.Param.ChannelsMask = saved_chmask;
+    LoRaMacMibSetRequestConfirm(&r);
+}
+#endif
+
+
 static void mlme_confirm(MlmeConfirm_t *param)
 {
     log_debug("mlme_confirm: MlmeRequest: %d Status: %d", param->MlmeRequest, param->Status);
@@ -389,6 +418,12 @@ static void mlme_confirm(MlmeConfirm_t *param)
         // class to class A. Thus, we need to restore the original class from
         // sysconf.device_class here.
         sync_device_class();
+
+#ifdef RESTORE_CHMASK_AFTER_JOIN
+        if (r.Param.NetworkActivation == ACTIVATION_TYPE_OTAA)
+            restore_chmask();
+#endif
+
     } else if (param->MlmeRequest == MLME_LINK_CHECK) {
         if (param->Status == LORAMAC_EVENT_INFO_STATUS_OK) {
             cmd_event(CMD_EVENT_NETWORK, CMD_NET_ANSWER);
@@ -728,6 +763,9 @@ int lrw_join(void)
     } else {
         mlme.Req.Join.NetworkActivation = ACTIVATION_TYPE_OTAA;
         mlme.Req.Join.Datarate = DR_0;
+#ifdef RESTORE_CHMASK_AFTER_JOIN
+        save_chmask();
+#endif
     }
     return LoRaMacMlmeRequest(&mlme);
 }

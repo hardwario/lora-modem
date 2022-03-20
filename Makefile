@@ -34,6 +34,14 @@ LORAMAC_ABP_VERSION ?= 0x01000400
 # It must be of the form x.x.xx.
 VERSION_COMPAT ?= 1.1.06
 
+# The LoRaWAN network server may reconfigure the node's channel mask in the Join
+# Accept message. If you want to prevent that from happening, e.g., if you work
+# with an incorrectly configured LoRaWAN network server, uncomment the following
+# variable. Use with caution. This feature is designed as a work-around for
+# incorrectly configured LoRa networks. If you are unsure, leave the variable
+# commented out.
+#RESTORE_CHMASK_AFTER_JOIN ?= 1
+
 ELF ?= $(OUT_DIR)/$(TYPE)/$(OUT).elf
 MAP ?= $(OUT_DIR)/$(TYPE)/$(OUT).map
 BIN ?= $(OUT_DIR)/$(TYPE)/$(OUT).bin
@@ -258,6 +266,10 @@ CFLAGS += -DLIB_VERSION='"$(lib_version)"'
 
 ifneq (,$(LORAMAC_ABP_VERSION))
 CFLAGS += -DLORAMAC_ABP_VERSION=$(LORAMAC_ABP_VERSION)
+endif
+
+ifdef RESTORE_CHMASK_AFTER_JOIN
+CFLAGS += -DRESTORE_CHMASK_AFTER_JOIN
 endif
 
 ################################################################################
