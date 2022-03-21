@@ -24,10 +24,8 @@ extern McpsIndication_t lrw_rx_params;
  * If previously-saved state is found in NVM, the state will be restored and
  * LoRaMac will continue where it lef off. Otherwise, LoRaMac is initialized
  * with default parameter values.
- *
- * @param[in] nvm NVM memory block for persistent LoRaMac data
  */
-void lrw_init(const part_block_t *nvm);
+void lrw_init(void);
 
 
 /** @brief Obtain a pointer to internal LoRaMac state

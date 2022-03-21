@@ -3,7 +3,6 @@
 
 #include "part.h"
 
-#define SYSCONF_PART_SIZE 128
 
 /* The sysconf data structure is meant to be used for platform configuration
  * (UART parameters, etc.) and for configuration that cannot be stored
@@ -58,10 +57,22 @@ typedef struct sysconf
 } sysconf_t;
 
 
-extern part_block_t nvm;
+struct nvm_parts {
+    part_t sysconf;
+    part_t crypto;
+    part_t mac1;
+    part_t mac2;
+    part_t se;
+    part_t region1;
+    part_t region2;
+    part_t classb;
+};
 
+
+extern struct nvm_parts nvm_parts;
 extern sysconf_t sysconf;
 extern bool sysconf_modified;
+extern uint16_t nvm_flags;
 
 void nvm_init(void);
 

@@ -39,7 +39,7 @@ int main(void)
     sx1276io_init();
 
     nvm_init();
-    lrw_init(&nvm);
+    lrw_init();
     cmd_init(sysconf.uart_baudrate);
 
     log_debug("LoRaMac: Starting");
