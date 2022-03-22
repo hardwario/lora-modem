@@ -204,7 +204,8 @@ static int restore_region()
 
     memcpy(&crc, &p->Crc32, sizeof(crc));
 
-    if (check_block_crc(p, size) || Crc32((uint8_t *)&p->Region, sizeof(p->Region)) == crc) {
+    if (check_block_crc(p, sizeof(LoRaMacNvmDataGroup2_t)) ||
+        Crc32((uint8_t *)&p->Region, sizeof(p->Region)) == crc) {
         memcpy(&region, &p->Region, sizeof(region));
         return region;
     }
@@ -893,4 +894,3 @@ lrw_channel_list_t lrw_get_channel_list(void)
 
     return result;
 }
-

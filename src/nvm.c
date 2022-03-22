@@ -7,21 +7,23 @@
 #include "part.h"
 #include "eeprom.h"
 #include "halt.h"
+#include "part.h"
 #include "utils.h"
 
+#define NUMBER_OF_PARTS 8
 
 /* The following partition sizes have been derived from the in-memory size of
  * the corresponding data structure in LoRaMac-node v4.6.0. The sizes have been
  * rounded up to leave some space for expansion in future versions.
  */
-#define SYSCONF_PART_SIZE  128
-#define CRYPTO_PART_SIZE   128
-#define MAC1_PART_SIZE      64
-#define MAC2_PART_SIZE     512
-#define SE_PART_SIZE       640
-#define REGION1_PART_SIZE   32
-#define REGION2_PART_SIZE 1536
-#define CLASSB_PART_SIZE    32
+#define SYSCONF_PART_SIZE  128  // sizeof(sysconf_t)              ==   16
+#define CRYPTO_PART_SIZE   128  // sizeof(LoRaMacCryptoNvmData_t) ==   56
+#define MAC1_PART_SIZE      64  // sizeof(LoRaMacNvmDataGroup1_t) ==   32
+#define MAC2_PART_SIZE     512  // sizeof(LoRaMacNvmDataGroup2_t) ==  384
+#define SE_PART_SIZE       512  // sizeof(SecureElementNvmData_t) ==  416
+#define REGION1_PART_SIZE   32  // sizeof(RegionNvmDataGroup1_t)  ==   20
+#define REGION2_PART_SIZE 1536  // sizeof(RegionNvmDataGroup2_t)  == 1184
+#define CLASSB_PART_SIZE    32  // sizeof(LoRaMacClassBNvmData_t) ==   24
 
 
 // Make sure each data structure fits into its fixed-size partition
@@ -35,7 +37,7 @@ static_assert(sizeof(RegionNvmDataGroup2_t) <= REGION2_PART_SIZE, "RegionGroup2 
 static_assert(sizeof(LoRaMacClassBNvmData_t) <= CLASSB_PART_SIZE, "ClassB NVM data too long");
 
 
-// And also make sure that NVM data fits into a single EEPROM bank. This is
+// And also make sure that NVM data fits into the EEPROM twice. This is
 // useful in case we wanted to implement atomic writes or data mirroring.
 static_assert(
     SYSCONF_PART_SIZE +
@@ -46,7 +48,7 @@ static_assert(
     REGION1_PART_SIZE +
     REGION2_PART_SIZE +
     CLASSB_PART_SIZE
-    <= DATA_EEPROM_BANK1_END - DATA_EEPROM_BASE + 1,
+    <= (DATA_EEPROM_BANK2_END - DATA_EEPROM_BASE + 1 - PART_TABLE_SIZE(NUMBER_OF_PARTS)) / 2,
     "NVM data does not fit into a single EEPROM bank");
 
 
@@ -90,10 +92,12 @@ void nvm_init(void)
     int erased = 0;
 
 start:
+    memset(&nvm_parts, 0, sizeof(nvm_parts));
+
     // Format the EEPROM if it does not contain a part table yet
     if (part_open_block(&nvm) != 0) {
         log_debug("Formatting EEPROM");
-        if (part_format_block(&nvm, 8) != 0) halt("Could not format EEPROM");
+        if (part_format_block(&nvm, NUMBER_OF_PARTS) != 0) halt("Could not format EEPROM");
         if (part_open_block(&nvm) != 0) halt("EEPROM I/O error");
     }
 
@@ -139,9 +143,9 @@ start:
 
     size_t size;
     const uint8_t *p = part_mmap(&size, &nvm_parts.sysconf);
-    if (check_block_crc(p, size)) {
+    if (check_block_crc(p, sizeof(sysconf))) {
         log_debug("Restoring system configuration from NVM");
-        memcpy(&sysconf, p, size);
+        memcpy(&sysconf, p, sizeof(sysconf));
     } else {
         log_debug("Invalid system configuration checksum, using defaults");
     }

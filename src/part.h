@@ -7,6 +7,13 @@
 
 #define MAX_LABEL_SIZE 16
 
+#define PART_ALIGNMENT 4
+#define PART_ALIGN(v) (((v) + PART_ALIGNMENT - 1) / PART_ALIGNMENT * PART_ALIGNMENT)
+
+#define FIXED_PART_TABLE_SIZE (PART_ALIGN(sizeof(part_table_t)))
+#define VARIABLE_PART_TABLE_SIZE(n) ((n) * PART_ALIGN(sizeof(part_dsc_t)))
+#define PART_TABLE_SIZE(n) (FIXED_PART_TABLE_SIZE + VARIABLE_PART_TABLE_SIZE((n)))
+
 
 typedef struct part_dsc {
     uint32_t start;

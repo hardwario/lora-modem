@@ -4,12 +4,7 @@
 
 #define PART_BLOCK_SIGNATURE ((uint32_t)0x1ABE11ED)
 
-#define ALIGNMENT 4
-#define ALIGN(v) (((v) + ALIGNMENT - 1) / ALIGNMENT * ALIGNMENT)
-
 #define EMPTY 0xffffffff
-
-#define FIXED_PART_TABLE_SIZE (ALIGN(sizeof(part_table_t)))
 
 #define MAX_PARTS(t) (((t)->size - FIXED_PART_TABLE_SIZE) / sizeof(part_dsc_t))
 
@@ -152,9 +147,9 @@ int part_create(part_t *part, const part_block_t *block, const char *label, size
 
     if (block->table->num_parts > 0) {
         const part_dsc_t *last_part = &block->parts[block->table->num_parts - 1];
-        first_aligned_byte = ALIGN(last_part->start + last_part->size);
+        first_aligned_byte = PART_ALIGN(last_part->start + last_part->size);
     } else {
-        first_aligned_byte = ALIGN(block->table->size);
+        first_aligned_byte = PART_ALIGN(block->table->size);
     }
 
     // Make sure that there is enough space in the block for the new partition
