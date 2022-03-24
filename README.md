@@ -1,23 +1,24 @@
-# LoRaWAN firmware
+# Open Firmware for Murata Type ABZ LoRa Module
 
-picocom -b 9600 --echo /dev/ttyUSB0
+The aim of this project is to develop open source firmware for the [Type ABZ](https://www.murata.com/en-us/products/connectivitymodule/lpwa/overview/lineup/type-abz-093) LoRa module by Murata. The firmware provides an AT command interface largely compatible with Murata's proprietary LoRa modem firmware. Although the firmware was primarily developed with the HARDWARIO [LoRa Module](https://shop.hardwario.com/lora-module/) in mind, it should be usable in any device based on the Type ABZ module.
 
+## Main Features
+
+* Support for LoRaWAN 1.0.4 and 1.1.1
+* Based on the most recent version (4.6.0) of [LoRaMac-node](https://github.com/Lora-net/LoRaMac-node) by Semtech
+* Support for multiple regions configurable at runtime
+* All persistent LoRaWAN MAC data stored in NVM (EEPROM)
+
+## Building
+
+You will need the the embedded gcc toolchain for ARM (arm-none-eabi), git, and make to build the firmware from the source code. First, clone the repository and initialize git submodules:
+```sh
+git clone https://github.com/hardwario/lora-modem-abz
+cd lora-modem-abz
+git submodule update --init
 ```
-AT+CLASS Class mode
-AT+BAND Radio band
-AT+NWK Public network
-AT+MODE Activation mode 1:OTTA 0:ABP
-AT+DUTYCYCLE Dutycycle
-AT+DR Data rate
-AT+RFQ RF parameter of last received message
-AT+DEVEUI Device identifier
-AT+APPEUI Application identifier
-AT+APPKEY Application key
-AT+DEVADDR Device address
-AT+JOIN Send OTAA Join packet
-AT+PUTX Send string frame with port
-AT+PCTX Send string frame with port
-AT+REBOOT Reboot
-AT+CLAC
-AT$HELP This help
+If you wish to customize the build, edit the variables at the beginning of the Makefile. Next, build the firmware:
+```sh
+make
 ```
+By default the firmware is built in development mode with debugging messages and symbols enabled. To build a release version without debugging symbols or logging run `make release` instead.
