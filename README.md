@@ -22,3 +22,6 @@ If you wish to customize the build, edit the variables at the beginning of the M
 make
 ```
 By default the firmware is built in development mode with debugging messages and symbols enabled. To build a release version without debugging symbols or logging run `make release` instead.
+
+## Installation
+Follow the steps outlined in [this wiki page](https://github.com/hardwario/lora-modem-abz/wiki/LoRa-Module-Firmware-Replacement) to replace the proprietary Murata firmware in HARDWARIO's [LoRa Module](https://shop.hardwario.com/lora-module/) with the open firmware.
