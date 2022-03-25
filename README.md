@@ -4,7 +4,7 @@ The aim of this project is to develop open source firmware for the [Type ABZ](ht
 
 ## Main Features
 
-* Support for LoRaWAN 1.0.4 and 1.1.1
+* Support for LoRaWAN 1.0.4 and 1.1.1, regional parameters RP002-1.0.1
 * Based on the most recent version (4.6.0) of [LoRaMac-node](https://github.com/Lora-net/LoRaMac-node) by Semtech
 * Support for multiple regions configurable at runtime
 * All persistent LoRaWAN MAC data stored in NVM (EEPROM)
