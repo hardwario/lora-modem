@@ -594,6 +594,25 @@ int lrw_send(uint8_t port, void *buffer, uint8_t length, bool confirmed)
     LoRaMacTxInfo_t txi;
     LoRaMacStatus_t rc;
 
+    memset(&mr, 0, sizeof(mr));
+
+    // McpsReq_t provides an attribute called Datarate through which the caller
+    // can select the datarate to be used for the request. However, that value
+    // will only be considered by the MAC under certain conditions, e.g., when
+    // ADR is off or when the device is activated with ABP. In ther cases, the
+    // value provided here is ignored and the MAC uses the MIB datarate value,
+    // subject to various regional restrictions.
+    //
+    // We want to allow the caller to select the datarate simply by modifying
+    // the MIB value without having to worry about the state of the ADR. Thus,
+    // we set the Datarate parameter of the request here to the value from MIB.
+    // This will allow the caller to specify the Datarate to be used both with
+    // ADR on and off simply by modifying the corresponding MIB value.
+    //
+    // If we didn't set it to the MIB value here, the Datarate parameter would
+    // be implicitly set to 0 (DR0) which would be always used when ADR is off,
+    // making it possible for the caller to override the value in that case.
+
     MibRequestConfirm_t r = { .Type = MIB_CHANNELS_DATARATE };
     LoRaMacMibGetRequestConfirm(&r);
 
@@ -601,7 +620,16 @@ int lrw_send(uint8_t port, void *buffer, uint8_t length, bool confirmed)
     if (rc == LORAMAC_STATUS_LENGTH_ERROR) {
         log_info("Payload too long. Sending empty frame to flush MAC commands");
 
-        // Send an empty frame in order to flush MAC commands
+        // This branch may be triggered when the caller attempts to send a
+        // packet with the slowest spreading factor and there are some MAC
+        // commands that need to be transmitted via the FOpts header field.
+        // Since the minimum payload size with the slowest spreading factor is
+        // about 11 bytes (without MAC commands), it is easy for the optional
+        // MAC commands to exhaust most of the available space.
+        //
+        // Sertting the port to 0, the payload buffer to NULL, and buffer size
+        // to 0 will send an uplink message with FOpts but no port or payload.
+
         mr.Type = MCPS_UNCONFIRMED;
         mr.Req.Unconfirmed.fPort = 0;
         mr.Req.Unconfirmed.fBuffer = NULL;
@@ -609,6 +637,8 @@ int lrw_send(uint8_t port, void *buffer, uint8_t length, bool confirmed)
         mr.Req.Unconfirmed.Datarate = r.Param.ChannelsDatarate;
         LoRaMacMcpsRequest(&mr);
 
+        // Return the original status to the caller to indicate that we haven't
+        // sent the requested payload.
         return rc;
     }
 
@@ -824,6 +854,8 @@ int lrw_check_link(bool piggyback)
         McpsReq_t mcr;
         memset(&mcr, 0, sizeof(mcr));
         mcr.Type = MCPS_UNCONFIRMED;
+        // See the comments in lrw_send on why the following parameter is set to
+        // the value from MIB
         mcr.Req.Unconfirmed.Datarate = mbr.Param.ChannelsDatarate;
 
         rc = LoRaMacMcpsRequest(&mcr);
