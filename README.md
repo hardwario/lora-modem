@@ -29,7 +29,8 @@ By default the firmware is built in development mode with debugging messages and
 Follow the steps outlined in this [wiki page](https://github.com/hardwario/lora-modem-abz/wiki/LoRa-Module-Firmware-Replacement) to replace the proprietary firmware in HARDWARIO's [LoRa Module](https://shop.hardwario.com/lora-module/) with the open firmware.
 
 ## Documentation
-* [The Things Network (TTN) Provisioning](https://github.com/hardwario/lora-modem-abz/wiki/TTN-Provisioning)
+* [The Things Network (TTN) provisioning](https://github.com/hardwario/lora-modem-abz/wiki/TTN-Provisioning)
+* [AT command interface](https://github.com/hardwario/lora-modem-abz/wiki/AT-Command-Interface)
 
 ## License
 
