@@ -240,7 +240,9 @@ static void set_class(atci_param_t *param)
     uint32_t v;
     if (!atci_param_get_uint(param, &v)) abort(ERR_PARAM);
 
-    if (v > 2) abort(ERR_PARAM);
+    // In original firmware compatiblity mode, only class A (0) and class C (2)
+    // can be configured with this command.
+    if (v != 0 && v != 2) abort(ERR_PARAM);
 
     abort_on_error(lrw_set_class(v));
     OK_();
