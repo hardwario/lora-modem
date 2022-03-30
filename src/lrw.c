@@ -202,6 +202,10 @@ static int restore_region()
     // but the entire block should not be restored. This is used to
     // re-initialize the parameters from defaults when switching regions.
 
+    // Read the checksum into a local variable in the case p->Crc32 isn't
+    // properly aligned in memory. In the current implementation the returned
+    // pointer will be properly aligned, but better be safe than sorry in case
+    // that changes in the future.
     memcpy(&crc, &p->Crc32, sizeof(crc));
 
     if (check_block_crc(p, sizeof(LoRaMacNvmDataGroup2_t)) ||
