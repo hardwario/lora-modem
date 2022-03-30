@@ -97,6 +97,11 @@ static int status2error(int status)
 }
 
 
+/*
+ * Use this function to parse a single argument that must be either 0 or 1. Note
+ * that if the AT command accepts multiple arguments separated by commas, this
+ * function cannot be used.
+ */
 static int parse_enabled(atci_param_t *param)
 {
     if (param->offset >= param->length) return -1;
@@ -527,12 +532,10 @@ static void get_rfpower_comp(void)
 // A version compatible with the original Type ABZ firmware
 static void set_rfpower_comp(atci_param_t *param)
 {
-    uint32_t val;
+    uint32_t paboost, val;
 
-    int paboost = parse_enabled(param);
-    if (paboost == -1) abort(ERR_PARAM);
-
-    if (paboost == 1) {
+    if (!atci_param_get_uint(param, &paboost)) abort(ERR_PARAM);
+    if (paboost != 0) {
         log_warning("PA boost currently unsupported");
         abort(ERR_PARAM);
     }
@@ -1454,12 +1457,10 @@ static void get_rfpower(void)
 
 static void set_rfpower(atci_param_t *param)
 {
-    uint32_t val1, val2;
+    uint32_t paboost1, paboost2, val1, val2;
 
-    int paboost1 = parse_enabled(param);
-    if (paboost1 == -1) abort(ERR_PARAM);
-
-    if (paboost1 == 1) {
+    if (!atci_param_get_uint(param, &paboost1)) abort(ERR_PARAM);
+    if (paboost1 != 0) {
         log_warning("PA boost currently unsupported");
         abort(ERR_PARAM);
     }
@@ -1471,10 +1472,8 @@ static void set_rfpower(atci_param_t *param)
 
     if (!atci_param_is_comma(param)) abort(ERR_PARAM);
 
-    int paboost2 = parse_enabled(param);
-    if (paboost2 == -1) abort(ERR_PARAM);
-
-    if (paboost2 == 1) {
+    if (!atci_param_get_uint(param, &paboost2)) abort(ERR_PARAM);
+    if (paboost2 != 0) {
         log_warning("PA boost currently unsupported");
         abort(ERR_PARAM);
     }
