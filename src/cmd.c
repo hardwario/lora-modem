@@ -1499,6 +1499,26 @@ static void set_rfpower(atci_param_t *param)
 }
 
 
+static void get_loglevel(void)
+{
+    OK("%d", log_get_level());
+}
+
+
+static void set_loglevel(atci_param_t *param)
+{
+    (void)param;
+    uint32_t level;
+
+    if (!atci_param_get_uint(param, &level))
+        abort(ERR_PARAM);
+
+    if (level > 5) abort(ERR_PARAM);
+
+    log_set_level(level);
+    OK_();
+}
+
 static const atci_command_t cmds[] = {
     {"+UART",        NULL,    set_uart,         get_uart,         NULL, "Configure UART interface"},
     {"+VER",         NULL,    NULL,             get_version_comp, NULL, "Firmware version and build time"},
@@ -1561,6 +1581,7 @@ static const atci_command_t cmds[] = {
     {"$RX2",         NULL,    set_rx2,          get_rx2,          NULL, "Configure RX2 window frequency and data rate"},
     {"$DR",          NULL,    set_dr,           get_dr,           NULL, "Configure data rate (DR)"},
     {"$RFPOWER",     NULL,    set_rfpower,      get_rfpower,      NULL, "Configure RF power"},
+    {"$LOGLEVEL",    NULL,    set_loglevel,     get_loglevel,     NULL, "Configure logging on USART port"},
     ATCI_COMMAND_CLAC,
     ATCI_COMMAND_HELP};
 

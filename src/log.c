@@ -49,6 +49,16 @@ void log_init(log_level_t level, log_timestamp_t timestamp)
     #endif
 }
 
+log_level_t log_get_level(void)
+{
+    return _log.level;
+}
+
+void log_set_level(log_level_t level)
+{
+    _log.level = level;
+}
+
 static void _write(const char *buf, size_t len)
 {
     #if LOG_TO_USART != 0

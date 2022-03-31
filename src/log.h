@@ -62,6 +62,10 @@ typedef enum
 
 void log_init(log_level_t level, log_timestamp_t timestamp);
 
+log_level_t log_get_level(void);
+
+void log_set_level(log_level_t level);
+
 //! @brief Log DUMP message (annotated in log as <X>)
 //! @param[in] buffer Pointer to source buffer
 //! @param[in] length Number of bytes to be printed

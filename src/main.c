@@ -24,7 +24,12 @@
 int main(void)
 {
     system_init();
+
+#ifdef DEBUG
     log_init(LOG_LEVEL_DUMP, LOG_TIMESTAMP_ABS);
+#else
+    log_init(LOG_LEVEL_OFF, LOG_TIMESTAMP_ABS);
+#endif
 
 #ifdef DEBUG
     // If we are in debugging mode, delay initialization a bit so that we won't
