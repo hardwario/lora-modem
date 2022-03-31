@@ -235,6 +235,7 @@ void atci_clac_action(atci_param_t *param)
     for (size_t i = 0; i < _atci.commands_length; i++)
     {
         atci_printf("AT%s\r\n", _atci.commands[i].command);
+        console_flush();
     }
     console_write("\r\n", 2);
 }
@@ -245,6 +246,7 @@ void atci_help_action(atci_param_t *param)
     for (size_t i = 0; i < _atci.commands_length; i++)
     {
         atci_printf("AT%s %s\r\n", _atci.commands[i].command, _atci.commands[i].hint);
+        console_flush();
     }
     console_write("\r\n", 2);
 }
