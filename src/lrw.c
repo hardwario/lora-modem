@@ -580,9 +580,15 @@ void lrw_init(void)
     LoRaMacMibGetRequestConfirm(&r);
     uint32_t devaddr = r.Param.DevAddr;
 
-    // If we get a zero DevAddr, generate a unique one from the MCU's unique ID.
+    // If we get a zero DevAddr, generate a unique one randomly in one of the
+    // two prefixes allocated for experimental or private nodes:
+    //   00000000/7 : 00000000 - 01ffffff
+    //   02000000/7 : 02000000 - 03ffffff
+    // We choose the second range in the code below to make sure that the
+    // generated DevAddr cannot be all zeroes.
+    // https://www.thethingsnetwork.org/docs/lorawan/prefix-assignments/
     if (devaddr == 0) {
-        r.Param.DevAddr = devaddr = randr(0, 0x01FFFFFF);
+        r.Param.DevAddr = devaddr = randr(0x02000000, 0x03ffffff);
         rc = LoRaMacMibSetRequestConfirm(&r);
         if (rc != LORAMAC_STATUS_OK)
             log_error("LoRaMac: Error while setting DevAddr: %d", rc);
