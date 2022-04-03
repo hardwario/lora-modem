@@ -537,10 +537,8 @@ static void set_rfpower_comp(atci_param_t *param)
     uint32_t paboost, val;
 
     if (!atci_param_get_uint(param, &paboost)) abort(ERR_PARAM);
-    if (paboost != 0) {
-        log_warning("PA boost currently unsupported");
+    if (paboost != 0 && paboost != 1)
         abort(ERR_PARAM);
-    }
 
     if (!atci_param_is_comma(param)) abort(ERR_PARAM);
 
