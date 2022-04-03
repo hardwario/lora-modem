@@ -388,6 +388,11 @@ ozone: debug $(ALLDEP)
 	$(Q)$(ECHO) "Launching Ozone debugger..."
 	$(Q)Ozone tools/ozone/ozone.jdebug
 
+.PHONY: openocd
+openocd: $(ALLDEP)
+	$(Q)$(ECHO) "Launching OpenOCD..."
+	$(Q)openocd -f interface/stlink.cfg -c "transport select hla_swd"  -f target/stm32l0_dual_bank.cfg
+
 
 ################################################################################
 # git submodule                                                                #
