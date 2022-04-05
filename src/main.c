@@ -24,7 +24,6 @@
 int main(void)
 {
     system_init();
-    cmd_init(sysconf.uart_baudrate);
 
 #ifdef DEBUG
     log_init(LOG_LEVEL_DUMP, LOG_TIMESTAMP_ABS);
@@ -33,13 +32,14 @@ int main(void)
 #endif
     log_info("LoRa Module %s [LoRaMac %s] built on %s", VERSION, LIB_VERSION, BUILD_DATE);
 
+    nvm_init();
+    cmd_init(sysconf.uart_baudrate);
+
     adc_init();
     spi_init(10000000);
     sx1276io_init();
 
-    nvm_init();
     lrw_init();
-
     log_debug("LoRaMac: Starting");
     LoRaMacStart();
     cmd_event(CMD_EVENT_MODULE, CMD_MODULE_BOOT);
