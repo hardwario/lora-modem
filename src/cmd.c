@@ -962,8 +962,18 @@ static void pctx(atci_param_t *param)
 
 static void get_frmcnt(void)
 {
+    uint32_t down;
     LoRaMacNvmData_t *state = lrw_get_state();
-    OK("%ld,%ld", state->Crypto.FCntList.FCntUp ,state->Crypto.FCntList.FCntDown);
+
+    MibRequestConfirm_t r = { .Type = MIB_LORAWAN_VERSION };
+    LoRaMacMibGetRequestConfirm(&r);
+
+    if (r.Param.LrWanVersion.LoRaWan.Fields.Minor == 0)
+        down = state->Crypto.FCntList.FCntDown;
+    else
+        down = state->Crypto.FCntList.AFCntDown;
+
+    OK("%lu,%lu", state->Crypto.FCntList.FCntUp, down);
 }
 
 
