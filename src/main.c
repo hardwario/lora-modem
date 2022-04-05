@@ -24,20 +24,14 @@
 int main(void)
 {
     system_init();
+    cmd_init(sysconf.uart_baudrate);
 
 #ifdef DEBUG
     log_init(LOG_LEVEL_DUMP, LOG_TIMESTAMP_ABS);
 #else
     log_init(LOG_LEVEL_OFF, LOG_TIMESTAMP_ABS);
 #endif
-
-#ifdef DEBUG
-    // If we are in debugging mode, delay initialization a bit so that we won't
-    // miss any debugging or warning messages sent to the UART interface by the
-    // initialization code that follow.
-    rtc_delay_ms(1000);
     log_info("LoRa Module %s [LoRaMac %s] built on %s", VERSION, LIB_VERSION, BUILD_DATE);
-#endif
 
     adc_init();
     spi_init(10000000);
@@ -45,7 +39,6 @@ int main(void)
 
     nvm_init();
     lrw_init();
-    cmd_init(sysconf.uart_baudrate);
 
     log_debug("LoRaMac: Starting");
     LoRaMacStart();
