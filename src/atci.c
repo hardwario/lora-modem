@@ -4,8 +4,17 @@
 #include "halt.h"
 #include "system.h"
 
+#define UNKNOWN_CMD "+ERR=-1\r\n\r\n"
+
+enum parser_state
+{
+    ATCI_START_STATE = 0,
+    ATCI_PREFIX_STATE,
+    ATCI_ATTENTION_STATE
+};
+
 static void _atci_process_character(char character);
-static void _atci_process_line(void);
+static void _atci_process_command(void);
 static void finish_next_data(atci_data_status_t status);
 
 static struct
@@ -16,6 +25,7 @@ static struct
     size_t rx_length;
     bool rx_error;
     bool aborted;
+    enum parser_state state;
 
     char tmp[256];
 
@@ -251,7 +261,7 @@ void atci_help_action(atci_param_t *param)
     console_write("\r\n", 2);
 }
 
-static void _atci_process_line(void)
+static void _atci_process_command(void)
 {
     log_debug("ATCI: %s", _atci.rx_buffer);
 
@@ -268,7 +278,7 @@ static void _atci_process_line(void)
 
     _atci.rx_buffer[_atci.rx_length] = 0;
 
-    char *line = _atci.rx_buffer + 2;
+    char *name = _atci.rx_buffer + 2;
 
     size_t length = _atci.rx_length - 2;
 
@@ -287,7 +297,7 @@ static void _atci_process_line(void)
             continue;
         }
 
-        if (strncmp(line, command->command, command_len) != 0)
+        if (strncmp(name, command->command, command_len) != 0)
         {
             continue;
         }
@@ -300,9 +310,9 @@ static void _atci_process_line(void)
                 return;
             }
         }
-        else if (line[command_len] == '=')
+        else if (name[command_len] == '=')
         {
-            if ((line[command_len + 1]) == '?' && (command_len + 2 == length))
+            if ((name[command_len + 1]) == '?' && (command_len + 2 == length))
             {
                 if (command->help != NULL)
                 {
@@ -314,7 +324,7 @@ static void _atci_process_line(void)
             if (command->set != NULL)
             {
                 atci_param_t param = {
-                    .txt = line + command_len + 1,
+                    .txt = name + command_len + 1,
                     .length = length - command_len - 1,
                     .offset = 0};
 
@@ -322,7 +332,7 @@ static void _atci_process_line(void)
                 return;
             }
         }
-        else if (line[command_len] == '?' && command_len + 1 == length)
+        else if (name[command_len] == '?' && command_len + 1 == length)
         {
             if (command->read != NULL)
             {
@@ -330,12 +340,12 @@ static void _atci_process_line(void)
                 return;
             }
         }
-        else if (line[command_len] == ' ' && command_len + 1 < length)
+        else if (name[command_len] == ' ' && command_len + 1 < length)
         {
             if (command->action != NULL)
             {
                 atci_param_t param = {
-                    .txt = line + command_len + 1,
+                    .txt = name + command_len + 1,
                     .length = length - command_len - 1,
                     .offset = 0};
 
@@ -343,15 +353,9 @@ static void _atci_process_line(void)
                 return;
             }
         }
-        // else
-        // {
-        //     atci_printf("Unknown: %s", command->command);
-        //     return;
-        // }
-        // break;
     }
 
-    console_write("+ERR=-1\r\n\r\n", 11);
+    console_write(UNKNOWN_CMD, sizeof(UNKNOWN_CMD) - 1);
 }
 
 static void finish_next_data(atci_data_status_t status)
@@ -373,82 +377,122 @@ static void finish_next_data(atci_data_status_t status)
     _atci.rx_length = 0;
 }
 
-static void _atci_process_character(char character)
+static void _atci_process_data(char character)
 {
     int c;
     static bool even = true;
-    // log_debug("c %c %d %d", character, character, _atci.read_next_data.length);
 
+    switch(_atci.read_next_data.encoding)
+    {
+        case ATCI_ENCODING_BIN:
+            _atci.rx_buffer[_atci.rx_length++] = character;
+            break;
+
+        case ATCI_ENCODING_HEX:
+            c = hex2bin(character);
+            if (c < 0) {
+                _atci.rx_error = true;
+                break;
+            }
+            if (even)
+            {
+                _atci.rx_buffer[_atci.rx_length] = c << 4;
+                even = false;
+            }
+            else
+            {
+                _atci.rx_buffer[_atci.rx_length++] |= c;
+                even = true;
+            }
+            break;
+
+        default:
+            halt("Unsupported payload encoding");
+            break;
+    }
+
+    if (_atci.read_next_data.length == _atci.rx_length || _atci.rx_error)
+    {
+        even = true;
+        finish_next_data(_atci.rx_error ? ATCI_DATA_ENCODING_ERROR : ATCI_DATA_OK);
+        _atci.rx_error = false;
+    }
+}
+
+static void reset(void)
+{
+    _atci.rx_length = 0;
+    _atci.state = ATCI_START_STATE;
+}
+
+static int append_to_buffer(char c)
+{
+    if (_atci.rx_length >= sizeof(_atci.rx_buffer) - 1)
+    {
+        return -1;
+    }
+
+    _atci.rx_buffer[_atci.rx_length++] = c;
+    return 0;
+}
+
+static void _atci_process_character(char character)
+{
     if (_atci.read_next_data.length != 0)
     {
-        switch(_atci.read_next_data.encoding)
-        {
-            case ATCI_ENCODING_BIN:
-                _atci.rx_buffer[_atci.rx_length++] = character;
-                break;
-
-            case ATCI_ENCODING_HEX:
-                c = hex2bin(character);
-                if (c < 0) {
-                    _atci.rx_error = true;
-                    break;
-                }
-                if (even)
-                {
-                    _atci.rx_buffer[_atci.rx_length] = c << 4;
-                    even = false;
-                }
-                else
-                {
-                    _atci.rx_buffer[_atci.rx_length++] |= c;
-                    even = true;
-                }
-                break;
-
-            default:
-                halt("Unsupported payload encoding");
-                break;
-        }
-
-        if (_atci.read_next_data.length == _atci.rx_length || _atci.rx_error)
-        {
-            even = true;
-            finish_next_data(_atci.rx_error ? ATCI_DATA_ENCODING_ERROR : ATCI_DATA_OK);
-            _atci.rx_error = false;
-        }
+        _atci_process_data(character);
         return;
     }
 
-    if (character == '\r')
+    if (character == '\n')
     {
-        if (_atci.rx_error)
-        {
-            console_write("+ERR=-1\r\n\r\n", 11);
-        }
-        else if (_atci.rx_length > 0)
-        {
-            _atci.rx_buffer[_atci.rx_length] = 0;
-            _atci_process_line();
-        }
-
-        _atci.rx_length = 0;
-        _atci.rx_error = false;
-    }
-    else if (character == '\n')
-    {
+        // Ignore LF characters, AT commands are terminated with CR
         return;
     }
     else if (character == '\x1b')
     {
-        _atci.rx_length = 0;
-        _atci.rx_error = false;
+        // If we get an ESC character, reset the buffer
+        reset();
+        return;
     }
-    else if (_atci.rx_length == sizeof(_atci.rx_buffer) - 1)
-    {
-        _atci.rx_error = true;
-    }
-    else if (!_atci.rx_error)
-    {
-        _atci.rx_buffer[_atci.rx_length++] = character;
+
+    switch (_atci.state) {
+        case ATCI_START_STATE:
+            if (character == 'A')
+            {
+                append_to_buffer(character);
+                _atci.state = ATCI_PREFIX_STATE;
+            }
+            break;
+
+        case ATCI_PREFIX_STATE:
+            if (character == 'T')
+            {
+                append_to_buffer(character);
+                _atci.state = ATCI_ATTENTION_STATE;
+            }
+            else
+            {
+                reset();
+            }
+            break;
+
+        case ATCI_ATTENTION_STATE:
+            if (character == '\r')
+            {
+                _atci.rx_buffer[_atci.rx_length] = 0;
+                _atci_process_command();
+                reset();
+            }
+            else if (append_to_buffer(character) < 0)
+            {
+                console_write(UNKNOWN_CMD, sizeof(UNKNOWN_CMD) - 1);
+                reset();
+            }
+            break;
+
+        default:
+            halt("Bug: Invalid state in ATCI parser");
+            break;
     }
 }
