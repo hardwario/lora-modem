@@ -227,7 +227,24 @@ void RNG_LPUART1_IRQHandler(void)
     if (LL_LPUART_IsEnabledIT_RXNE(port.Instance)) {
         LL_LPUART_DisableIT_RXNE(port.Instance);
         system_disallow_stop_mode(SYSTEM_MODULE_LPUART_RX);
+        return;
     }
+
+    // If the event wasn't handled by the code above, delegate to the HAL. But
+    // before we do that, check and clear the error flags, otherwise the HAL
+    // would abort the DMA transfer.
+
+    if (LL_LPUART_IsActiveFlag_PE(port.Instance))
+        LL_LPUART_ClearFlag_PE(port.Instance);
+
+    if (LL_LPUART_IsActiveFlag_FE(port.Instance))
+        LL_LPUART_ClearFlag_FE(port.Instance);
+
+    if (LL_LPUART_IsActiveFlag_ORE(port.Instance))
+        LL_LPUART_ClearFlag_ORE(port.Instance);
+
+    if (LL_LPUART_IsActiveFlag_NE(port.Instance))
+        LL_LPUART_ClearFlag_NE(port.Instance);
 
     HAL_UART_IRQHandler(&port);
 }
