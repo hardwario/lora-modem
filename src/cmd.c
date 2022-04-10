@@ -1607,11 +1607,6 @@ void cmd_init(unsigned int baudrate)
 
 void cmd_event(unsigned int type, unsigned int subtype)
 {
-    // If this is a boot event, print an EOL first to make sure the event starts
-    // at the beginning of a new line.
-    if (type == CMD_EVENT_MODULE && subtype == CMD_MODULE_BOOT)
-        atci_printf("\r\n");
-
     atci_printf("+EVENT=%d,%d\r\n\r\n", type, subtype);
 }
 
