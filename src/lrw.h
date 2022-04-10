@@ -16,9 +16,6 @@ typedef struct
 } lrw_channel_list_t;
 
 
-extern McpsIndication_t lrw_rx_params;
-
-
 /** @brief Initialize the LoRaMac stack
  *
  * If previously-saved state is found in NVM, the state will be restored and

@@ -14,6 +14,11 @@
 #include "console.h"
 #include "halt.h"
 
+// These are global variables exported by radio.c that store the RSSI and SNR of
+// the most recent received packet.
+extern int16_t radio_rssi;
+extern int8_t radio_snr;
+
 
 typedef enum cmd_errno {
     ERR_UNKNOWN_CMD   =  -1,  // Unknown command
@@ -999,7 +1004,7 @@ static void get_msize(void)
 
 static void get_rfq(void)
 {
-    OK("%d,%d", lrw_rx_params.Rssi, lrw_rx_params.Snr);
+    OK("%d,%d", radio_rssi, radio_snr);
 }
 
 

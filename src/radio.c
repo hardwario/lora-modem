@@ -3,6 +3,14 @@
 #include "sx1276io.h"
 #include "log.h"
 
+int16_t radio_rssi;
+int8_t radio_snr;
+
+// Below, we replace the RxDone callback given to us by LoRaMac-node with our
+// own version so that we can save the RSSI and SNR if each received packet.
+// The original callback (the one from LoRaMac-node) is kept here.
+static void (*OrigRxDone)(uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr);
+
 
 static const char *modem2str(RadioModems_t modem)
 {
@@ -116,9 +124,30 @@ void SetRxConfig(RadioModems_t modem, uint32_t bandwidth, uint32_t datarate,
     log_finish();
 }
 
+
+// This is our custom RxDone callback. We save the RSSI and SNR in global static
+// variables so that they could be accessed from the application and delegate to
+// the original callback.
+static void RxDone(uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr)
+{
+    radio_rssi = rssi;
+    radio_snr = snr;
+    if (OrigRxDone != NULL) OrigRxDone(payload, size, rssi, snr);
+}
+
+
+static void Init(RadioEvents_t *events)
+{
+    // Save the original RxDone callback and replace it with our own version
+    OrigRxDone = events->RxDone;
+    events->RxDone = RxDone;
+    SX1276Init(events);
+}
+
+
 // Radio driver structure initialization
 const struct Radio_s Radio = {
-    .Init = SX1276Init,
+    .Init = Init,
     .GetStatus = SX1276GetStatus,
     .SetModem = SX1276SetModem,
     .SetChannel = SetChannel,
