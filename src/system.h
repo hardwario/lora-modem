@@ -32,7 +32,8 @@ typedef enum
     SYSTEM_MODULE_LPUART_TX = (1 << 2),
     SYSTEM_MODULE_USART     = (1 << 3),
     SYSTEM_MODULE_RADIO     = (1 << 5),
-    SYSTEM_MODULE_ATCI      = (1 << 6)
+    SYSTEM_MODULE_ATCI      = (1 << 6),
+    SYSTEM_MODULE_NVM       = (1 << 7)
 } system_module_t;
 
 
