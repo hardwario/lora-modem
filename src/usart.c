@@ -1,4 +1,5 @@
 #include "usart.h"
+#include <LoRaWAN/Utilities/utilities.h>
 #include "cbuf.h"
 #include "irq.h"
 #include "system.h"
@@ -66,6 +67,26 @@ size_t usart_write(const char *buffer, size_t length)
     irq_enable();
 
     return stored;
+}
+
+
+void usart_write_blocking(const char *buffer, size_t length)
+{
+    size_t written;
+    while (length) {
+        written = usart_write(buffer, length);
+        buffer += written;
+        length -= written;
+
+        if (written == 0) {
+            while (tx_fifo.max_length == tx_fifo.length) {
+                CRITICAL_SECTION_BEGIN();
+                if (tx_fifo.max_length == tx_fifo.length)
+                    HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFI);
+                CRITICAL_SECTION_END();
+            }
+        }
+    }
 }
 
 

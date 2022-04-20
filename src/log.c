@@ -61,7 +61,7 @@ void log_set_level(log_level_t level)
 static void _write(const char *buf, size_t len)
 {
     #if LOG_TO_USART != 0
-    usart_write(buf, len);
+    usart_write_blocking(buf, len);
     #endif
 
     #if LOG_TO_RTT != 0
