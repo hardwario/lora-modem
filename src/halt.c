@@ -1,5 +1,5 @@
 #include "halt.h"
-#include "console.h"
+#include "lpuart.h"
 #include "log.h"
 #include "system.h"
 #include "cmd.h"
@@ -18,7 +18,7 @@ void halt(const char *msg)
         log_error("%s: %s\r\n", prefix, msg);
     }
 
-    console_flush();
+    lpuart_flush();
     irq_disable();
     while (1) {
         system_low_power();

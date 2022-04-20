@@ -1,32 +1,99 @@
-#ifndef __LPUART_H
-#define __LPUART_H
+#ifndef __LPUART_H__
+#define __LPUART_H__
 
-#include "common.h"
+#include <stddef.h>
+#include "cbuf.h"
 
-typedef void (*lpuart_rx_callback_f)(const uint8_t *data, size_t len);
+
+extern volatile cbuf_t lpuart_tx_fifo;
+extern volatile cbuf_t lpuart_rx_fifo;
 
 
-//! @brief Init lpuart
-//! @param[in] callback when Tx buffer has been sent
 
-void lpuart_init(unsigned int baudrate, void (*Txcb)(void));
+/*! @brief Initialize LPUART1
+ *
+ * Initialize the LPUART1 port for buffered DMA-based I/O. Both transmission and
+ * reception will use DMA. Two fixed-size FIFOs backed by circular buffers are
+ * used to enque outgoing and incoming data.
+ *
+ * @param[in] baudrate The baudrate to be configured
+ */
+void lpuart_init(unsigned int baudrate);
 
-//! @brief Init receiver of lpuart
-//! @param[in] callback When Rx char is received
 
-void lpuart_set_rx_callback(lpuart_rx_callback_f cb);
+/*! @brief Write up to @p bytes to LPUART1
+ *
+ * Schedule up to @p length bytes of data from @p buffer for transmission over
+ * LPUART1. The data is copied into an internal queue and will be transmitted as
+ * soon as possible. If there is not enough space to store @p length bytes in
+ * the internal queue, the function enqueues as many bytes as possible.
+ *
+ * This is non-blocking function.
+ *
+ * @param[in] buffer A pointer to a memory buffer with data to be sent
+ * @param[in] length The number of bytes from @p buffer to be sent
+ * @return Number of bytes from @p buffer enqueued (less than or equal to @p length )
+ */
+size_t lpuart_write(const char *buffer, size_t length);
 
-//! @brief Write buffer data in dma mode
-//! @param[in] buffer pointer to buffer
-//! @param[in] length of buffer p_data to be sent
 
-void lpuart_async_write(uint8_t *buffer, size_t length);
+/*! @brief Write @p bytes to LPUART1
+ *
+ * Schedule @p length bytes of data from @p buffer for transmission over
+ * LPUART1. This is a blocking version of lpuart_write. This function blocks
+ * until all data have been written into the internal memory queue.
+ *
+ * Note: If you with to wait until all data have been transmitted over the port,
+ * invoke lpuart_flush after this function.
+ *
+ * @param[in] buffer A pointer to a memory buffer with data to be sent
+ * @param[in] length The number of bytes from @p buffer to be sent
+ */
+void lpuart_write_blocking(const char *buffer, size_t length);
 
-//! @brief DeInit
 
-void lpuart_deinit(void);
+/*! @brief Read up to @p length bytes from LPUART1
+ *
+ * This function reads up to @p length bytes from the LPUART1 port and copies
+ * the data into the destination buffer @p buffer . If there is not enough data
+ * in the internal queue, the function will read fewer than @p length bytes.
+ * Number of bytes actually read is returned.
+ *
+ * This is a non-blocking function.
+ *
+ * @param[in] buffer A pointer to the destination buffer
+ * @param[in] length The maximum number of bytes to read
+ * @return The number of bytes read (less than or equal to @p length )
+ */
+size_t lpuart_read(char *buffer, size_t length);
 
+
+/*! @brief Wait for all data from internal queue to be sent
+ *
+ * This function blocks until all data from the internal queue have been
+ * transmited.
+ */
+void lpuart_flush(void);
+
+
+/*! @brief Pause DMA and re-enable IRQ on LPUART1
+ *
+ * This function is meant to be invoked by the system before it enters the Stop
+ * low-power mode. In this mode, DMA is paused, but its registers are retained.
+ * To be able to receive data in Stop mode, we pause DMA and re-eneable IRQ mode
+ * of operation. The IRQ will wake the system up from Stop mode.
+ */
 void lpuart_disable_rx_dma(void);
+
+
+/*! @brief Disable IRQ and resume DMA on LPUART1
+ *
+ * This function is meant to be invoked shortly after the system has left Stop
+ * mode. It disables IRQ on LPUART1 and resumes DMA-based operation. This
+ * function can only be used with low-power modes that retain DMA register
+ * values, e.g., the Stop mode.
+ */
 void lpuart_enable_rx_dma(void);
 
-#endif // __LPUART_H
+
+#endif /* __LPUART_H__ */

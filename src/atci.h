@@ -2,12 +2,14 @@
 #define _ATCI_H
 
 #include "common.h"
+#include "lpuart.h"
 
 #define ATCI_COMMANDS_LENGTH(COMMANDS) (sizeof(COMMANDS) / sizeof(COMMANDS[0]))
 
 #define ATCI_COMMAND_CLAC {"+CLAC", atci_clac_action, NULL, NULL, NULL, ""}
 #define ATCI_COMMAND_HELP {"$HELP", atci_help_action, NULL, NULL, NULL, "This help"}
 
+#define atci_flush lpuart_flush
 
 //! @brief AT param struct
 typedef struct

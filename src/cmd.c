@@ -11,7 +11,6 @@
 #include "log.h"
 #include "rtc.h"
 #include "nvm.h"
-#include "console.h"
 #include "halt.h"
 
 // These are global variables exported by radio.c that store the RSSI and SNR of
@@ -185,7 +184,7 @@ static void reboot(atci_param_t *param)
     (void)param;
     OK_();
     schedule_reset = true;
-    console_flush();
+    atci_flush();
 }
 
 
@@ -200,7 +199,7 @@ static void facnew(atci_param_t *param)
     if (nvm_erase() == 0) {
         cmd_event(CMD_EVENT_MODULE, CMD_MODULE_FACNEW);
         schedule_reset = true;
-        console_flush();
+        atci_flush();
     }
 }
 
@@ -228,7 +227,7 @@ static void set_band(atci_param_t *param)
         // of the internal state (this is to match the original firmware which
         // does full factory reset on band change).
         cmd_event(CMD_EVENT_MODULE, CMD_MODULE_FACNEW);
-        console_flush();
+        atci_flush();
         schedule_reset = true;
     }
 }
@@ -1214,7 +1213,7 @@ static void do_halt(atci_param_t *param)
 {
     (void)param;
     OK_();
-    console_flush();
+    atci_flush();
 
     halt(NULL);
 }

@@ -1,8 +1,9 @@
 #include "atci.h"
-#include "console.h"
+#include "lpuart.h"
 #include "log.h"
 #include "halt.h"
 #include "system.h"
+#include "irq.h"
 
 #define UNKNOWN_CMD "+ERR=-1\r\n\r\n"
 
@@ -42,7 +43,7 @@ void atci_init(unsigned int baudrate, const atci_command_t *commands, int length
 {
     memset(&_atci, 0, sizeof(_atci));
 
-    console_init(baudrate);
+    lpuart_init(baudrate);
 
     _atci.commands = commands;
     _atci.commands_length = length;
@@ -50,34 +51,47 @@ void atci_init(unsigned int baudrate, const atci_command_t *commands, int length
 
 void atci_process(void)
 {
+    cbuf_view_t data;
     system_allow_sleep(SYSTEM_MODULE_ATCI);
 
     while (true)
     {
-        static char buffer[16];
-
-        if (_atci.aborted) {
+        if (_atci.aborted)
+        {
             finish_next_data(ATCI_DATA_ABORTED);
             _atci.aborted = false;
         }
 
-        size_t length = console_read(buffer, sizeof(buffer));
+        irq_disable();
+        cbuf_head(&lpuart_rx_fifo, &data);
+        irq_enable();
 
-        if (length == 0)
+        if ((data.len[0] + data.len[1]) == 0)
         {
             break;
         }
 
-        for (size_t i = 0; i < length; i++)
+        for (size_t i = 0; i < data.len[0]; i++)
         {
-            _atci_process_character((char)buffer[i]);
+            _atci_process_character((char)data.ptr[0][i]);
         }
+
+        for (size_t i = 0; i < data.len[1]; i++)
+        {
+            _atci_process_character((char)data.ptr[1][i]);
+        }
+
+        irq_disable();
+        cbuf_consume(&lpuart_rx_fifo, data.len[0] + data.len[1]);
+        irq_enable();
     }
 }
 
 size_t atci_print(const char *message)
 {
-    return console_write(message, strlen(message));
+    size_t len = strlen(message);
+    lpuart_write_blocking(message, len);
+    return len;
 }
 
 size_t atci_printf(const char *format, ...)
@@ -93,7 +107,8 @@ size_t atci_printf(const char *format, ...)
         length = sizeof(_atci.tmp);
     }
 
-    return console_write(_atci.tmp, length);
+    lpuart_write_blocking(_atci.tmp, length);
+    return length;
 }
 
 size_t atci_print_buffer_as_hex(const void *buffer, size_t length)
@@ -112,12 +127,14 @@ size_t atci_print_buffer_as_hex(const void *buffer, size_t length)
         _atci.tmp[on_write++] = lower < 10 ? lower + '0' : lower - 10 + 'A';
     }
 
-    return console_write(_atci.tmp, on_write);
+    lpuart_write_blocking(_atci.tmp, on_write);
+    return on_write;
 }
 
 size_t atci_write(const char *buffer, size_t length)
 {
-    return console_write(buffer, length);
+    lpuart_write_blocking(buffer, length);
+    return length;
 }
 
 static int hex2bin(char c)
@@ -245,9 +262,8 @@ void atci_clac_action(atci_param_t *param)
     for (size_t i = 0; i < _atci.commands_length; i++)
     {
         atci_printf("AT%s\r\n", _atci.commands[i].command);
-        console_flush();
     }
-    console_write("\r\n", 2);
+    lpuart_write_blocking("\r\n", 2);
 }
 
 void atci_help_action(atci_param_t *param)
@@ -256,9 +272,8 @@ void atci_help_action(atci_param_t *param)
     for (size_t i = 0; i < _atci.commands_length; i++)
     {
         atci_printf("AT%s %s\r\n", _atci.commands[i].command, _atci.commands[i].hint);
-        console_flush();
     }
-    console_write("\r\n", 2);
+    lpuart_write_blocking("\r\n", 2);
 }
 
 static void _atci_process_command(void)
@@ -272,7 +287,7 @@ static void _atci_process_command(void)
 
     if (_atci.rx_length == 2)
     {
-        console_write("+OK\r\n\r\n", 7);
+        lpuart_write_blocking("+OK\r\n\r\n", 7);
         return;
     }
 
@@ -355,7 +370,7 @@ static void _atci_process_command(void)
         }
     }
 
-    console_write(UNKNOWN_CMD, sizeof(UNKNOWN_CMD) - 1);
+    lpuart_write_blocking(UNKNOWN_CMD, sizeof(UNKNOWN_CMD) - 1);
 }
 
 static void finish_next_data(atci_data_status_t status)
@@ -486,7 +501,7 @@ static void _atci_process_character(char character)
             }
             else if (append_to_buffer(character) < 0)
             {
-                console_write(UNKNOWN_CMD, sizeof(UNKNOWN_CMD) - 1);
+                lpuart_write_blocking(UNKNOWN_CMD, sizeof(UNKNOWN_CMD) - 1);
                 reset();
             }
             break;

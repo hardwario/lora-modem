@@ -2,7 +2,6 @@
 #include <rtt/segger_rtt.h>
 #include "rtc.h"
 #include "system.h"
-#include "console.h"
 #include "usart.h"
 
 enum log_state

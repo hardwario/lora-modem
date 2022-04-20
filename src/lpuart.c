@@ -1,44 +1,70 @@
 #include "lpuart.h"
 #include <stm/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_dma.h>
 #include <stm/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_lpuart.h>
+#include <LoRaWAN/Utilities/utilities.h>
 #include "io.h"
 #include "halt.h"
 #include "utils.h"
+#include "cbuf.h"
 #include "log.h"
+#include "irq.h"
 #include "system.h"
 
 
-static uint8_t rx_buffer[64];
+#ifndef LPUART_BUFFER_SIZE
+#define LPUART_BUFFER_SIZE 512
+#endif
+
+#ifndef LPUART_DMA_BUFFER_SIZE
+#define LPUART_DMA_BUFFER_SIZE 64
+#endif
 
 
 static UART_HandleTypeDef port;
-static void (*on_tx_done)(void);
 
-static lpuart_rx_callback_f rx_callback;
+static unsigned char tx_buffer[LPUART_BUFFER_SIZE];
+static __IO ITStatus tx_idle;
+static volatile size_t tx_len;
+volatile cbuf_t lpuart_tx_fifo;
+
+static unsigned char dma_buffer[LPUART_DMA_BUFFER_SIZE];
+static unsigned char rx_buffer[LPUART_BUFFER_SIZE];
+volatile cbuf_t lpuart_rx_fifo;
 
 
-static void rx(void)
+// This function is invoked from the IRQ handler context
+static void enqueue(unsigned char *data, size_t len)
+{
+    size_t stored = cbuf_put(&lpuart_rx_fifo, data, len);
+    if (stored != len)
+        log_warning("lpuart: Read overrun, %d bytes discarded", len - stored);
+}
+
+
+// This function is invoked from the IRQ handler context
+static void rx_callback(void)
 {
     static size_t old_pos;
     size_t pos;
 
-    pos = ARRAY_LEN(rx_buffer) - LL_DMA_GetDataLength(DMA1, LL_DMA_CHANNEL_6);
+    pos = ARRAY_LEN(dma_buffer) - LL_DMA_GetDataLength(DMA1, LL_DMA_CHANNEL_6);
     if (pos == old_pos) return;
-    if (rx_callback == NULL) return;
 
     if (pos > old_pos) {
-        rx_callback(&rx_buffer[old_pos], pos - old_pos);
+        enqueue(&dma_buffer[old_pos], pos - old_pos);
     } else {
-        rx_callback(&rx_buffer[old_pos], ARRAY_LEN(rx_buffer) - old_pos);
-        if (pos > 0) rx_callback(&rx_buffer[0], pos);
+        enqueue(&dma_buffer[old_pos], ARRAY_LEN(dma_buffer) - old_pos);
+        if (pos > 0) enqueue(&dma_buffer[0], pos);
     }
     old_pos = pos;
 }
 
 
-void lpuart_init(unsigned int baudrate, void (*tx)(void))
+void lpuart_init(unsigned int baudrate)
 {
-    on_tx_done = tx;
+    cbuf_init(&lpuart_tx_fifo, tx_buffer, sizeof(tx_buffer));
+    cbuf_init(&lpuart_rx_fifo, rx_buffer, sizeof(rx_buffer));
+    tx_idle = 1;
 
     port.Instance = LPUART1;
     port.Init.Mode = UART_MODE_TX_RX;
@@ -49,19 +75,22 @@ void lpuart_init(unsigned int baudrate, void (*tx)(void))
     port.Init.HwFlowCtl = UART_HWCONTROL_NONE;
 
     if (HAL_UART_Init(&port) != HAL_OK)
-        halt("Error while initializing UART");
+        halt("Error while initializing LPUART");
 
     LL_LPUART_EnableIT_IDLE(port.Instance);
+
+    // Wake the MCU up from stop mode if we start receiving data over LPUART1
+    UART_WakeUpTypeDef wake = { .WakeUpEvent = LL_LPUART_WAKEUP_ON_STARTBIT };
+    HAL_UARTEx_StopModeWakeUpSourceConfig(&port, wake);
+
+    if (HAL_UART_Receive_DMA(&port, dma_buffer, ARRAY_LEN(dma_buffer)) != HAL_OK)
+        halt("Couldn't start DMA for LPUART1 rx path");
+
+    HAL_UARTEx_EnableStopMode(&port);
 }
 
 
-void lpuart_deinit(void)
-{
-    HAL_UART_DeInit(&port);
-}
-
-
-void init_gpio(void)
+static void init_gpio(void)
 {
     GPIO_InitTypeDef gpio = {
         .Mode = GPIO_MODE_AF_PP,
@@ -83,7 +112,7 @@ void init_gpio(void)
 }
 
 
-void deinit_gpio(void)
+static void deinit_gpio(void)
 {
     GPIO_InitTypeDef gpio = {
         .Mode = GPIO_MODE_ANALOG,
@@ -187,31 +216,78 @@ void HAL_UART_MspDeInit(UART_HandleTypeDef *port)
 }
 
 
-void lpuart_async_write(uint8_t *buffer, size_t length)
+size_t lpuart_write(const char *buffer, size_t length)
 {
-    HAL_UART_Transmit_DMA(&port, buffer, length);
+    cbuf_view_t v;
+
+    irq_disable();
+    cbuf_tail(&lpuart_tx_fifo, &v);
+    irq_enable();
+
+    size_t written = cbuf_copy_in(&v, buffer, length);
+
+    irq_disable();
+    cbuf_produce(&lpuart_tx_fifo, written);
+
+    if (tx_idle && lpuart_tx_fifo.length > 0) {
+        tx_idle = 0;
+        system_disallow_stop_mode(SYSTEM_MODULE_LPUART_TX);
+
+        cbuf_head(&lpuart_tx_fifo, &v);
+        if (v.len[0]) {
+            HAL_UART_Transmit_DMA(&port, (unsigned char *)v.ptr[0], v.len[0]);
+            tx_len = v.len[0];
+        } else {
+            HAL_UART_Transmit_DMA(&port, (unsigned char *)v.ptr[1], v.len[1]);
+            tx_len = v.len[1];
+        }
+    }
+
+    irq_enable();
+    return written;
+}
+
+
+void lpuart_write_blocking(const char *buffer, size_t length)
+{
+    size_t written;
+    while (length) {
+        written = lpuart_write(buffer, length);
+        buffer += written;
+        length -= written;
+
+        if (written == 0) {
+            while (lpuart_tx_fifo.max_length == lpuart_tx_fifo.length) {
+                CRITICAL_SECTION_BEGIN();
+                if (lpuart_tx_fifo.max_length == lpuart_tx_fifo.length)
+                    HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFI);
+                CRITICAL_SECTION_END();
+            }
+        }
+    }
 }
 
 
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *port)
 {
-    (void)port;
-    if (NULL != on_tx_done) on_tx_done();
-}
+    cbuf_view_t v;
 
+    if (tx_len) cbuf_consume(&lpuart_tx_fifo, tx_len);
 
-void lpuart_set_rx_callback(lpuart_rx_callback_f cb)
-{
-    rx_callback = cb;
-
-    // Wake the MCU up from stop mode if we start receiving data over LPUART1
-    UART_WakeUpTypeDef wake = { .WakeUpEvent = LL_LPUART_WAKEUP_ON_STARTBIT };
-    HAL_UARTEx_StopModeWakeUpSourceConfig(&port, wake);
-
-    if (HAL_UART_Receive_DMA(&port, rx_buffer, ARRAY_LEN(rx_buffer)) != HAL_OK)
-        halt("Couldn't start DMA for LPUART1 rx path");
-
-    HAL_UARTEx_EnableStopMode(&port);
+    if (lpuart_tx_fifo.length) {
+        cbuf_head(&lpuart_tx_fifo, &v);
+        if (v.len[0]) {
+            HAL_UART_Transmit_DMA(port, (unsigned char *)v.ptr[0], v.len[0]);
+            tx_len = v.len[0];
+        } else {
+            HAL_UART_Transmit_DMA(port, (unsigned char *)v.ptr[1], v.len[1]);
+            tx_len = v.len[1];
+        }
+    } else {
+        system_allow_stop_mode(SYSTEM_MODULE_LPUART_TX);
+        tx_len = 0;
+        tx_idle = 1;
+    }
 }
 
 
@@ -219,7 +295,7 @@ void RNG_LPUART1_IRQHandler(void)
 {
     if (LL_LPUART_IsEnabledIT_IDLE(port.Instance) && LL_LPUART_IsActiveFlag_IDLE(port.Instance)) {
         LL_LPUART_ClearFlag_IDLE(port.Instance);
-        rx();
+        rx_callback();
         system_allow_stop_mode(SYSTEM_MODULE_LPUART_RX);
         return;
     }
@@ -253,14 +329,14 @@ void RNG_LPUART1_IRQHandler(void)
 void HAL_UART_RxHalfCpltCallback(UART_HandleTypeDef *port)
 {
     (void)port;
-    rx();
+    rx_callback();
 }
 
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *handle)
 {
     (void)handle;
-    rx();
+    rx_callback();
 }
 
 
@@ -281,4 +357,33 @@ void lpuart_disable_rx_dma(void)
 void lpuart_enable_rx_dma(void)
 {
     HAL_UART_DMAResume(&port);
+}
+
+
+size_t lpuart_read(char *buffer, size_t length)
+{
+    cbuf_view_t v;
+
+    irq_disable();
+    cbuf_head(&lpuart_rx_fifo, &v);
+    irq_enable();
+
+    size_t rv = cbuf_copy_out(buffer, &v, length);
+
+    irq_disable();
+    cbuf_consume(&lpuart_rx_fifo, rv);
+    irq_enable();
+
+    return rv;
+}
+
+
+void lpuart_flush(void)
+{
+    while (!tx_idle) {
+        CRITICAL_SECTION_BEGIN();
+        if (!tx_idle)
+            HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFI);
+        CRITICAL_SECTION_END();
+    }
 }

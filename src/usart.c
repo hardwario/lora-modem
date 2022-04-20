@@ -1,27 +1,22 @@
 #include "usart.h"
-#include "fifo.h"
+#include "cbuf.h"
 #include "irq.h"
 #include "system.h"
 #include "io.h"
 
-typedef struct
-{
-    fifo_t tx_fifo;
-    fifo_t rx_fifo;
-    uint8_t tx_buffer[USART_TX_BUFFER_SIZE];
-    // uint8_t rx_buffer[USART_RX_BUFFER_SIZE];
 
-} usart_t;
+#ifndef USART_TX_BUFFER_SIZE
+#define USART_TX_BUFFER_SIZE 256
+#endif
 
-static usart_t usart;
+
+static char tx_buffer[USART_TX_BUFFER_SIZE];
+static cbuf_t tx_fifo;
+
 
 void usart_init(void)
 {
-    memset(&usart, 0, sizeof(usart));
-
-    fifo_init(&usart.tx_fifo, usart.tx_buffer, sizeof(usart.tx_buffer));
-    // fifo_init(&usart.rx_fifo, usart.rx_buffer, sizeof(usart.rx_buffer));
-
+    cbuf_init(&tx_fifo, tx_buffer, sizeof(tx_buffer));
     HAL_NVIC_EnableIRQ(USART1_IRQn);
 
     irq_disable();
@@ -34,43 +29,12 @@ void usart_init(void)
     USART1->BRR = 0x116; // 115200
     USART1->CR1 |= USART_CR1_UE;
 
-    irq_enable();
+    GPIO_InitTypeDef GPIO_InitStruct = { 0 };
 
-    usart_io_init();
-}
-
-size_t usart_write(const char *buffer, size_t length)
-{
-    if (length > fifo_get_spaces(&usart.tx_fifo))
-    {
-        return 0;
-    }
-
-    size_t ret = fifo_write(&usart.tx_fifo, buffer, length);
-
-    system_wait_hsi();
-
-    irq_disable();
-    system_disallow_stop_mode(SYSTEM_MODULE_USART);
-    USART1->CR1 |= USART_CR1_TXEIE;
-    irq_enable();
-
-    return ret;
-}
-
-size_t usart_read(char *buffer, size_t length)
-{
-    (void) buffer;
-    (void) length;
-    return 0;// fifo_read(&usart.rx_fifo, buffer, length);
-}
-
-void usart_io_init(void)
-{
-    GPIO_InitTypeDef GPIO_InitStruct = {0};
     // Enable GPIO TX/RX clock
     __GPIOA_CLK_ENABLE();
     __GPIOA_CLK_ENABLE();
+
     // UART TX GPIO pin configuration
     GPIO_InitStruct.Pin = USART_TX_PIN;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
@@ -80,68 +44,52 @@ void usart_io_init(void)
 
     HAL_GPIO_Init(USART_TX_GPIO_PORT, &GPIO_InitStruct);
 
-    // UART RX GPIO pin configuration
-    // GPIO_InitStruct.Pin = USART_RX_PIN;
-    // GPIO_InitStruct.Alternate = USART_RX_AF;
-
-    // HAL_GPIO_Init(USART_RX_GPIO_PORT, &GPIO_InitStruct);
+    irq_enable();
 }
 
-void usart_io_deinit(void)
+
+size_t usart_write(const char *buffer, size_t length)
 {
-    GPIO_InitTypeDef GPIO_InitStructure = {0};
+    cbuf_view_t v;
+    irq_disable();
+    cbuf_tail(&tx_fifo, &v);
+    irq_enable();
 
-    __GPIOA_CLK_ENABLE();
+    size_t stored = cbuf_copy_in(&v, buffer, length);
 
-    GPIO_InitStructure.Mode = GPIO_MODE_ANALOG;
-    GPIO_InitStructure.Pull = GPIO_NOPULL;
+    system_wait_hsi();
 
-    GPIO_InitStructure.Pin = USART_TX_PIN;
-    HAL_GPIO_Init(USART_TX_GPIO_PORT, &GPIO_InitStructure);
+    irq_disable();
+    cbuf_produce(&tx_fifo, stored);
+    system_disallow_stop_mode(SYSTEM_MODULE_USART);
+    USART1->CR1 |= USART_CR1_TXEIE;
+    irq_enable();
 
-    // GPIO_InitStructure.Pin = USART_RX_PIN;
-    // HAL_GPIO_Init(USART_RX_GPIO_PORT, &GPIO_InitStructure);
+    return stored;
 }
+
 
 void USART1_IRQHandler(void)
 {
     static bool block = false;
 
-    // if ((USART1->CR1 & USART_CR1_RXNEIE) != 0 && (USART1->ISR & USART_ISR_RXNE) != 0)
-    // {
-    //     uint8_t c = USART1->RDR;
-
-    //     fifo_write(&usart.rx_fifo, &c, 1);
-    // }
-
-    if ((USART1->CR1 & USART_CR1_TXEIE) != 0 && (USART1->ISR & USART_ISR_TXE) != 0)
-    {
+    if ((USART1->CR1 & USART_CR1_TXEIE) && (USART1->ISR & USART_ISR_TXE)) {
         uint8_t c;
 
-        if (fifo_read(&usart.tx_fifo, &c, 1) != 0)
-        {
-            if (!block)
-            {
-                block = true;
-            }
-
+        if (cbuf_get(&tx_fifo, &c, 1) != 0) {
+            if (!block) block = true;
             USART1->TDR = c;
-        }
-        else
-        {
+        } else {
             USART1->CR1 &= ~USART_CR1_TXEIE;
             USART1->CR1 |= USART_CR1_TCIE;
         }
     }
 
-    if ((USART1->CR1 & USART_CR1_TCIE) != 0 && (USART1->ISR & USART_ISR_TC) != 0)
-    {
+    if ((USART1->CR1 & USART_CR1_TCIE) && (USART1->ISR & USART_ISR_TC)) {
         USART1->CR1 &= ~USART_CR1_TCIE;
 
-        if (block)
-        {
+        if (block) {
             block = false;
-
             system_allow_stop_mode(SYSTEM_MODULE_USART);
         }
     }
