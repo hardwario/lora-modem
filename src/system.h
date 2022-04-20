@@ -45,6 +45,8 @@ bool system_is_stop_mode_allowed(void);
 
 unsigned system_get_stop_mode_mask(void);
 
+int system_sleep_allowed(void);
+
 void system_allow_sleep(system_module_t module);
 
 void system_disallow_sleep(system_module_t module);

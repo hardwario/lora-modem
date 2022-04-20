@@ -50,7 +50,13 @@ int main(void)
         sysconf_process();
 
         CRITICAL_SECTION_BEGIN();
-        if (schedule_reset) system_reset();
+
+        // If the application scheduled a reset, perform it as soon as the MCU
+        // is allowed to sleep, which indicates that there is no more work to be
+        // done (e.g., NVM updates).
+        if (schedule_reset && system_sleep_allowed())
+            system_reset();
+
         else if (sysconf.sleep) system_low_power();
         CRITICAL_SECTION_END();
     }

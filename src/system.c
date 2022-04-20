@@ -105,6 +105,11 @@ unsigned system_get_stop_mode_mask(void)
     return mask;
 }
 
+int system_sleep_allowed(void)
+{
+    return sleep_mask == 0;
+}
+
 void system_allow_sleep(system_module_t module)
 {
     irq_disable();
