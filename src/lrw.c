@@ -854,6 +854,7 @@ void lrw_set_maxeirp(unsigned int maxeirp)
 {
     LoRaMacNvmData_t *state = lrw_get_state();
     state->MacGroup2.MacParams.MaxEirp = maxeirp;
+    state->MacGroup2.MacParamsDefaults.MaxEirp = maxeirp;
     state->MacGroup2.Crc32 = Crc32((uint8_t *)&state->MacGroup2, sizeof(state->MacGroup2) - 4);
     state_changed(LORAMAC_NVM_NOTIFY_FLAG_MAC_GROUP2);
 }
