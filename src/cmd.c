@@ -486,17 +486,21 @@ static void join(atci_param_t *param)
 }
 
 
-// static void get_joindc(void)
-// {
-//     abort(ERR_UNKNOWN_CMD);
-// }
+static void get_joindc(void)
+{
+    LoRaMacNvmData_t *state = lrw_get_state();
+    OK("%d", state->MacGroup2.JoinDutyCycleOn);
+}
 
 
-// static void set_joindc(atci_param_t *param)
-// {
-//     (void)param;
-//     abort(ERR_UNKNOWN_CMD);
-// }
+static void set_joindc(atci_param_t *param)
+{
+    int enabled = parse_enabled(param);
+    if (enabled == -1) abort(ERR_PARAM);
+
+    LoRaMacTestSetJoinDutyCycleOn(enabled);
+    OK_();
+}
 
 
 static void lncheck(atci_param_t *param)
@@ -1547,7 +1551,7 @@ static const atci_command_t cmds[] = {
     {"+APPSKEY",     NULL,    set_appskey,      get_appskey,      NULL, "Configure AppSKey"},
     {"+APPKEY",      NULL,    set_appkey_10,    get_appkey,       NULL, "Configure AppKey (LoRaWAN 1.0)"},
     {"+JOIN",        join,    NULL,             NULL,             NULL, "Send OTAA Join packet"},
-    // {"+JOINDC",      NULL,    set_joindc,       get_joindc,       NULL, "Configure OTAA Join duty cycling"},
+    {"+JOINDC",      NULL,    set_joindc,       get_joindc,       NULL, "Configure OTAA Join duty cycling"},
     {"+LNCHECK",     lncheck, lncheck,          NULL,             NULL, "Perform link check"},
     // {"+RFPARAM",     NULL,    set_rfparam,      get_rfparam,      NULL, "Configure RF channel parameters"},
     {"+RFPOWER",     NULL,    set_rfpower_comp, get_rfpower_comp, NULL, "Configure RF power"},
