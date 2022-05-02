@@ -1535,6 +1535,31 @@ static void set_loglevel(atci_param_t *param)
     OK_();
 }
 
+
+static void get_cert(void)
+{
+    MibRequestConfirm_t r = { .Type = MIB_IS_CERT_FPORT_ON };
+    abort_on_error(LoRaMacMibGetRequestConfirm(&r));
+
+    OK("%d", r.Param.IsCertPortOn);
+}
+
+
+static void set_cert(atci_param_t *param)
+{
+    int enabled = parse_enabled(param);
+    if (enabled == -1) abort(ERR_PARAM);
+
+    MibRequestConfirm_t r = {
+        .Type  = MIB_IS_CERT_FPORT_ON,
+        .Param = { .IsCertPortOn = enabled }
+    };
+    abort_on_error(LoRaMacMibSetRequestConfirm(&r));
+    OK_();
+}
+
+
+
 static const atci_command_t cmds[] = {
     {"+UART",        NULL,    set_uart,         get_uart,         NULL, "Configure UART interface"},
     {"+VER",         NULL,    NULL,             get_version_comp, NULL, "Firmware version and build time"},
@@ -1598,6 +1623,7 @@ static const atci_command_t cmds[] = {
     {"$DR",          NULL,    set_dr,           get_dr,           NULL, "Configure data rate (DR)"},
     {"$RFPOWER",     NULL,    set_rfpower,      get_rfpower,      NULL, "Configure RF power"},
     {"$LOGLEVEL",    NULL,    set_loglevel,     get_loglevel,     NULL, "Configure logging on USART port"},
+    {"$CERT",        NULL,    set_cert,         get_cert,         NULL, "Enable or disable LoRaWAN certification port"},
     ATCI_COMMAND_CLAC,
     ATCI_COMMAND_HELP};
 
