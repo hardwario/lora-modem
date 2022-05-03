@@ -45,8 +45,8 @@ int main(void)
     cmd_event(CMD_EVENT_MODULE, CMD_MODULE_BOOT);
 
     while (1) {
-        cmd_process();
         lrw_process();
+        cmd_process();
         sysconf_process();
 
         CRITICAL_SECTION_BEGIN();
