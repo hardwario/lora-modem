@@ -45,8 +45,8 @@ int main(void)
     cmd_event(CMD_EVENT_MODULE, CMD_MODULE_BOOT);
 
     while (1) {
-        lrw_process();
         cmd_process();
+        lrw_process();
         sysconf_process();
 
         CRITICAL_SECTION_BEGIN();
@@ -59,6 +59,10 @@ int main(void)
 
         else if (sysconf.sleep) system_low_power();
         CRITICAL_SECTION_END();
+
+        // Invoke lrw_process as the first thing after waking up to give the MAC
+        // a chance to timestamp incoming downlink as quickly as possible.
+        lrw_process();
     }
 }
 
