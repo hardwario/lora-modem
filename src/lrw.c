@@ -21,6 +21,8 @@
 
 
 static McpsConfirm_t tx_params;
+static int joins_left = 0;
+static TimerEvent_t join_retry_timer;
 
 
 static struct {
@@ -373,47 +375,124 @@ static void restore_chmask(void)
 #endif
 
 
+static void linkcheck_callback(MlmeConfirm_t *param)
+{
+    if (param->Status == LORAMAC_EVENT_INFO_STATUS_OK) {
+        cmd_event(CMD_EVENT_NETWORK, CMD_NET_ANSWER);
+        cmd_ans(param->DemodMargin, param->NbGateways);
+    } else {
+        cmd_event(CMD_EVENT_NETWORK, CMD_NET_NOANSWER);
+    }
+}
+
+
+static void join_callback_abp(MlmeConfirm_t *param)
+{
+#ifdef LORAMAC_ABP_VERSION
+    if (param->Status == LORAMAC_EVENT_INFO_STATUS_OK)
+        set_abp_mac_version();
+#endif
+
+    // During the Join operation, LoRaMac internally switches the device class
+    // to class A. Thus, we need to restore the original class from
+    // sysconf.device_class here.
+    sync_device_class();
+}
+
+
+static int send_join(void)
+{
+    MlmeReq_t mlme = { .Type = MLME_JOIN };
+    mlme.Req.Join.NetworkActivation = ACTIVATION_TYPE_OTAA;
+    mlme.Req.Join.Datarate = DR_0;
+    return LoRaMacMlmeRequest(&mlme);
+}
+
+
+static void stop_join(unsigned int status)
+{
+    TimerStop(&join_retry_timer);
+    joins_left = 0;
+
+    cmd_event(CMD_EVENT_JOIN, status);
+
+    // During the Join operation, LoRaMac internally switches the device class
+    // to class A. Thus, we need to restore the original class from
+    // sysconf.device_class here.
+    sync_device_class();
+
+#ifdef RESTORE_CHMASK_AFTER_JOIN
+    MibRequestConfirm_t r = { .Type = MIB_NETWORK_ACTIVATION };
+    LoRaMacMibGetRequestConfirm(&r);
+
+    if (r.Param.NetworkActivation == ACTIVATION_TYPE_OTAA)
+        restore_chmask();
+#endif
+}
+
+
+static void on_join_timer(void *ctx)
+{
+    (void)ctx;
+
+    log_debug("Retransmitting Join");
+    LoRaMacStatus_t rc = send_join();
+    if (rc != LORAMAC_STATUS_OK) {
+        log_error("Error while retransmitting Join (%d)", rc);
+        stop_join(CMD_JOIN_FAILED);
+    }
+}
+
+
+static void join_callback_otaa(MlmeConfirm_t *param)
+{
+    joins_left--;
+
+    // If the previous Join request timed out and we have Join retransmissions
+    // left, transmit again. In all other cases, consider the Join transmission
+    // to be done, stop retransmissions, and notify the application.
+    if (joins_left > 0 && param->Status == LORAMAC_EVENT_INFO_STATUS_RX2_TIMEOUT) {
+        // Apply a random delay before each Join retransmission, as recommended
+        // in Section 7 of LoRaWAN Specification 1.1. We kind of arbitrarily
+        // choose a delay between 100 ms and 500 ms.
+        uint32_t delay = randr(100, 500);
+        TimerSetValue(&join_retry_timer, delay);
+        TimerStart(&join_retry_timer);
+    } else {
+        stop_join(param->Status == LORAMAC_EVENT_INFO_STATUS_OK ?
+            CMD_JOIN_SUCCEEDED : CMD_JOIN_FAILED);
+    }
+}
+
+
+static void join_callback(MlmeConfirm_t *param)
+{
+    MibRequestConfirm_t r = { .Type = MIB_NETWORK_ACTIVATION };
+    LoRaMacMibGetRequestConfirm(&r);
+
+    if (r.Param.NetworkActivation == ACTIVATION_TYPE_ABP)
+        join_callback_abp(param);
+    else
+        join_callback_otaa(param);
+}
+
+
 static void mlme_confirm(MlmeConfirm_t *param)
 {
     log_debug("mlme_confirm: MlmeRequest: %d Status: %d", param->MlmeRequest, param->Status);
     tx_params.Status = param->Status;
 
-    if (param->MlmeRequest == MLME_JOIN) {
-        MibRequestConfirm_t r = { .Type = MIB_NETWORK_ACTIVATION };
-        LoRaMacMibGetRequestConfirm(&r);
+    switch(param->MlmeRequest) {
+        case MLME_JOIN:
+            join_callback(param);
+            break;
 
-        if (param->Status == LORAMAC_EVENT_INFO_STATUS_OK) {
-            // TODO: Restore channel mask from a previously saved version in
-            // case the LNS has the wrong channel mask configured.
+        case MLME_LINK_CHECK:
+            linkcheck_callback(param);
+            break;
 
-#ifdef LORAMAC_ABP_VERSION
-            if (r.Param.NetworkActivation == ACTIVATION_TYPE_ABP)
-                set_abp_mac_version();
-#endif
-        }
-
-        if (r.Param.NetworkActivation != ACTIVATION_TYPE_ABP)
-            cmd_event(CMD_EVENT_JOIN, param->Status == LORAMAC_EVENT_INFO_STATUS_OK
-                ? CMD_JOIN_SUCCEEDED
-                : CMD_JOIN_FAILED);
-
-        // During the Join operation, LoRaMac internally switches the device
-        // class to class A. Thus, we need to restore the original class from
-        // sysconf.device_class here.
-        sync_device_class();
-
-#ifdef RESTORE_CHMASK_AFTER_JOIN
-        if (r.Param.NetworkActivation == ACTIVATION_TYPE_OTAA)
-            restore_chmask();
-#endif
-
-    } else if (param->MlmeRequest == MLME_LINK_CHECK) {
-        if (param->Status == LORAMAC_EVENT_INFO_STATUS_OK) {
-            cmd_event(CMD_EVENT_NETWORK, CMD_NET_ANSWER);
-            cmd_ans(param->DemodMargin, param->NbGateways);
-        } else {
-            cmd_event(CMD_EVENT_NETWORK, CMD_NET_NOANSWER);
-        }
+        default:
+            break;
     }
 }
 
@@ -559,6 +638,7 @@ void lrw_init(void)
     MibRequestConfirm_t r;
 
     memset(&tx_params, 0, sizeof(tx_params));
+    TimerInit(&join_retry_timer, on_join_timer);
 
     LoRaMacRegion_t region = restore_region();
 
@@ -732,27 +812,40 @@ LoRaMacNvmData_t *lrw_get_state()
 }
 
 
-int lrw_join(void)
+int lrw_join(unsigned int retries)
 {
-    MlmeReq_t mlme = { .Type = MLME_JOIN };
+    // If we are already transmitting a Join request, abort the request. Do this
+    // check in both ABP and OTAA modes. We don't let the application to switch
+    // to ABP while there is an active OTAA Join request.
+    if (joins_left != 0)
+        return LORAMAC_STATUS_BUSY;
 
     MibRequestConfirm_t r = { .Type = MIB_NETWORK_ACTIVATION };
     LoRaMacMibGetRequestConfirm(&r);
 
     if (r.Param.NetworkActivation == ACTIVATION_TYPE_ABP) {
+        // In ABP mode the number of retransmissions must always be set to 0
+        // since no actual Join request will be sent to the LNS.
+        if (retries != 0)
+            return LORAMAC_STATUS_PARAMETER_INVALID;
+
         // LoRaMac uses the same approach for both types of activation. In ABP
         // one still needs to invoke MLME_JOIN, although no actual Join will be
         // sent. The library will simply use the opportunity to perform internal
         // initialization.
+        MlmeReq_t mlme = { .Type = MLME_JOIN };
         mlme.Req.Join.NetworkActivation = ACTIVATION_TYPE_ABP;
+        return LoRaMacMlmeRequest(&mlme);
     } else {
-        mlme.Req.Join.NetworkActivation = ACTIVATION_TYPE_OTAA;
-        mlme.Req.Join.Datarate = DR_0;
+        if (retries > 15)
+            return LORAMAC_STATUS_PARAMETER_INVALID;
+
 #ifdef RESTORE_CHMASK_AFTER_JOIN
         save_chmask();
 #endif
+        joins_left = retries + 1;
+        return send_join();
     }
-    return LoRaMacMlmeRequest(&mlme);
 }
 
 
@@ -847,7 +940,7 @@ int lrw_set_mode(unsigned int mode)
             r.Type = MIB_NETWORK_ACTIVATION;
             r.Param.NetworkActivation = ACTIVATION_TYPE_ABP;
             LoRaMacMibSetRequestConfirm(&r);
-            return lrw_join();
+            return lrw_join(0);
         }
     } else {
         if (r.Param.NetworkActivation != ACTIVATION_TYPE_OTAA) {

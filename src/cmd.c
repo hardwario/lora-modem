@@ -510,9 +510,19 @@ static void set_appkey_11(atci_param_t *param)
 
 static void join(atci_param_t *param)
 {
-    (void)param;
+    // Configure the default number of OTAA Join retransmissions to eight. This
+    // will make each Join to be transmitted nine times in total. In regions
+    // that use all 64 channels (such as US915), this is the number of
+    // retransmissions that is needed for the Join retransmissions to cycle
+    // through all eight-channel bands and the 500 kHz band.
+    uint32_t retries = 8;
 
-    abort_on_error(lrw_join());
+    if (param != NULL) {
+        if (!atci_param_get_uint(param, &retries)) abort(ERR_PARAM);
+        if (retries > 15) abort(ERR_PARAM);
+    }
+
+    abort_on_error(lrw_join(retries));
     OK_();
 }
 
@@ -1609,7 +1619,7 @@ static const atci_command_t cmds[] = {
     {"+NWKSKEY",     NULL,    set_nwkskey,      get_nwkskey,      NULL, "Configure NwkSKey (LoRaWAN 1.0)"},
     {"+APPSKEY",     NULL,    set_appskey,      get_appskey,      NULL, "Configure AppSKey"},
     {"+APPKEY",      NULL,    set_appkey_10,    get_appkey,       NULL, "Configure AppKey (LoRaWAN 1.0)"},
-    {"+JOIN",        join,    NULL,             NULL,             NULL, "Send OTAA Join packet"},
+    {"+JOIN",        join,    join,             NULL,             NULL, "Send OTAA Join packet"},
     {"+JOINDC",      NULL,    set_joindc,       get_joindc,       NULL, "Configure OTAA Join duty cycling"},
     {"+LNCHECK",     lncheck, lncheck,          NULL,             NULL, "Perform link check"},
     // {"+RFPARAM",     NULL,    set_rfparam,      get_rfparam,      NULL, "Configure RF channel parameters"},
