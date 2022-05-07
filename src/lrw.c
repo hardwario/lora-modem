@@ -6,6 +6,7 @@
 #include <loramac-node/src/mac/LoRaMacTest.h>
 #include <loramac-node/src/mac/region/Region.h>
 #include <loramac-node/src/radio/radio.h>
+#include <loramac-node/src/mac/LoRaMacCrypto.h>
 #include "adc.h"
 #include "cmd.h"
 #include "system.h"
@@ -771,11 +772,17 @@ int lrw_set_region(unsigned int region)
     int rv = LoRaMacDeInitialization();
     if (rv != LORAMAC_STATUS_OK) return rv;
 
-    // Reset all configuration parameters except the secure element. Note that
-    // we intentionally do not recompute the CRC32 checksums here (except for
-    // MacGroup2) since we don't want the state to be reloaded upon reboot. We
-    // want the LoRaMac to initialize itself from defaults.
-    memset(&state->Crypto, 0, sizeof(state->Crypto));
+    // The crypto group needs special handling to preserve the DevNonce value
+    // across the partial factory reset performed here.
+    uint16_t nonce = state->Crypto.DevNonce;
+    LoRaMacCryptoInit(&state->Crypto);
+    state->Crypto.DevNonce = nonce;
+    update_block_crc(&state->Crypto, sizeof(state->Crypto));
+
+    // Reset all other configuration parameters except the secure element. Note
+    // that we intentionally do not recompute the CRC32 checksums here (except
+    // for MacGroup2) since we don't want the state to be reloaded upon reboot.
+    // We want the LoRaMac to initialize itself from defaults.
     memset(&state->MacGroup1, 0, sizeof(state->MacGroup1));
     memset(&state->MacGroup2, 0, sizeof(state->MacGroup2));
     memset(&state->RegionGroup1, 0, sizeof(state->RegionGroup1));

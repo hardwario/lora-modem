@@ -3,6 +3,7 @@
 #include <loramac-node/src/radio/sx1276/sx1276.h>
 #include <loramac-node/src/mac/secure-element-nvm.h>
 #include <loramac-node/src/mac/LoRaMacTest.h>
+#include <loramac-node/src/mac/LoRaMacCrypto.h>
 #include <LoRaWAN/Utilities/timeServer.h>
 #include "lrw.h"
 #include "system.h"
@@ -12,6 +13,7 @@
 #include "rtc.h"
 #include "nvm.h"
 #include "halt.h"
+#include "utils.h"
 
 // These are global variables exported by radio.c that store the RSSI and SNR of
 // the most recent received packet.
@@ -190,7 +192,13 @@ static void reboot(atci_param_t *param)
 
 static void facnew(atci_param_t *param)
 {
-    (void)param;
+    int preserve_nonce = 1;
+    uint16_t nonce = lrw_get_state()->Crypto.DevNonce;
+
+    if (param != NULL) {
+        preserve_nonce = !parse_enabled(param);
+        if (preserve_nonce == -1) abort(ERR_PARAM);
+    }
 
     if (LoRaMacStop() != LORAMAC_STATUS_OK)
         abort(ERR_FACNEW_FAILED);
@@ -198,6 +206,29 @@ static void facnew(atci_param_t *param)
 
     if (nvm_erase() == 0) {
         cmd_event(CMD_EVENT_MODULE, CMD_MODULE_FACNEW);
+
+        // Unless the application explicitly asks for the DevNonce to be also
+        // reset, we preserve the original value to make sure that OTAA Join
+        // continues working from this device after factory reset.
+        if (preserve_nonce) {
+            log_debug("Preserving original DevNonce value (%d)", nonce);
+
+            // To preserve DevNonce, we create a new NVM crypto data structure,
+            // initialize it, restore the DevNonce attribute and update the CRC.
+            LoRaMacCryptoNvmData_t c;
+            LoRaMacCryptoInit(&c);
+            c.DevNonce = nonce;
+            update_block_crc(&c, sizeof(c));
+
+            // We then reopen the NVM block device and write the data structure
+            // initialized in the previous step into the crypto part.
+            nvm_init();
+            if (!part_write(&nvm_parts.crypto, 0, &c, sizeof(c)))
+                log_error("Error while saving DevNonce to NVM during factory reset");
+        } else {
+            log_debug("Resetting DevNonce value to 0");
+        }
+
         schedule_reset = true;
         atci_flush();
     }
@@ -1565,7 +1596,7 @@ static const atci_command_t cmds[] = {
     {"+VER",         NULL,    NULL,             get_version_comp, NULL, "Firmware version and build time"},
     {"+DEV",         NULL,    NULL,             get_model,        NULL, "Device model"},
     {"+REBOOT",      reboot,  NULL,             NULL,             NULL, "Reboot"},
-    {"+FACNEW",      facnew,  NULL,             NULL,             NULL, "Restore modem to factory"},
+    {"+FACNEW",      facnew,  facnew,           NULL,             NULL, "Restore modem to factory defaults"},
     {"+BAND",        NULL,    set_band,         get_band,         NULL, "Configure radio band (region)"},
     {"+CLASS",       NULL,    set_class,        get_class,        NULL, "Configure LoRaWAN class"},
     {"+MODE",        NULL,    set_mode,         get_mode,         NULL, "Configure activation mode (1:OTTA 0:ABP)"},
