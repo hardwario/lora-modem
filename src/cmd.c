@@ -1012,7 +1012,10 @@ static void get_frmcnt(void)
     else
         down = state->Crypto.FCntList.AFCntDown;
 
-    OK("%lu,%lu", state->Crypto.FCntList.FCntUp, down);
+    // For compatiblity with the original firmware, return 0 if the downlink
+    // counter still has the initial value (no downlink was received yet).
+    OK("%lu,%lu", state->Crypto.FCntList.FCntUp,
+        down == FCNT_DOWN_INITIAL_VALUE ? 0 : down);
 }
 
 
