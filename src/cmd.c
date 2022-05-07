@@ -171,7 +171,13 @@ static void get_version_comp(void)
 // AT$VER with more detailed firmware version and build time
 static void get_version(void)
 {
-    OK("%s [LoRaMac %s],%s", VERSION, LIB_VERSION, BUILD_DATE);
+    OK("%s,%s,%s,%d.%d.%d,%d.%d.%d,%d.%d.%d,RP%03d-%d.%d.%d,%s", VERSION, BUILD_DATE, LIB_VERSION,
+        LORAMAC_VERSION >> 24, (LORAMAC_VERSION >> 16) & 0xff, (LORAMAC_VERSION >> 8) & 0xff,
+        LORAMAC_FALLBACK_VERSION >> 24, (LORAMAC_FALLBACK_VERSION >> 16) & 0xff, (LORAMAC_FALLBACK_VERSION >> 8) & 0xff,
+        LORAMAC_ABP_VERSION >> 24, (LORAMAC_ABP_VERSION >> 16) & 0xff, (LORAMAC_ABP_VERSION >> 8) & 0xff,
+        REGION_VERSION >> 24, (REGION_VERSION >> 16) & 0xff,
+        (REGION_VERSION >> 8) & 0xff, REGION_VERSION & 0xff,
+        ENABLED_REGIONS);
 }
 
 
