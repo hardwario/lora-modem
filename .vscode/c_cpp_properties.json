@@ -1,9 +1,24 @@
 {
     "configurations": [
         {
-            "name": "STM32L083",
+           "name": "LoRa Modem (release)",
             "defines": [
-                "STM32L083xx"
+                "STM32L072xx",
+                "HAL_IWDG_MODULE_ENABLED",
+                "USE_FULL_LL_DRIVER",
+                "SOFT_SE",
+                "SECURE_ELEMENT_PRE_PROVISIONED",
+                "LORAMAC_CLASSB_ENABLED",
+                "RELEASE",
+                "VERSION=\"v1.0.2-10-g08e86e66\"",
+                "BUILD_DATE=\"2022-May-07 16:11:42 EDT\"",
+                "VERSION_COMPAT=\"1.1.06\"",
+                "BUILD_DATE_COMPAT=\"Mar 31 2022 12:35:07\"",
+                "LIB_VERSION=\"v4.6.0-20-g0e4d8127\"",
+                "LORAMAC_ABP_VERSION=0x01000400",
+                "ENABLED_REGIONS=\"AS923 AU915 CN470 CN779 EU433 EU868 IN865 KR920 RU864 US915\"",
+                "DEFAULT_ACTIVE_REGION=\"EU868\"",
+                "DEFAULT_UART_BAUDRATE=19200"
             ],
             "includePath": [
                 "${workspaceFolder}/**",
