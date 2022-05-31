@@ -76,24 +76,25 @@ size_t lpuart_read(char *buffer, size_t length);
 void lpuart_flush(void);
 
 
-/*! @brief Pause DMA and re-enable IRQ on LPUART1
+/*! @brief Pause DMA and enable the WKUP interrupt on LPUART1
  *
  * This function is meant to be invoked by the system before it enters the Stop
  * low-power mode. In this mode, DMA is paused, but its registers are retained.
- * To be able to receive data in Stop mode, we pause DMA and re-eneable IRQ mode
- * of operation. The IRQ will wake the system up from Stop mode.
+ * To be able to receive data in Stop mode, we pause DMA and enable the WKUP
+ * interrupt which will wake the MCU once a start bit has been detected on the
+ * line.
  */
-void lpuart_disable_rx_dma(void);
+void lpuart_enter_stop_mode(void);
 
 
-/*! @brief Disable IRQ and resume DMA on LPUART1
+/*! @brief Disable WKUP interrupt and resume DMA on LPUART1
  *
- * This function is meant to be invoked shortly after the system has left Stop
- * mode. It disables IRQ on LPUART1 and resumes DMA-based operation. This
- * function can only be used with low-power modes that retain DMA register
- * values, e.g., the Stop mode.
+ * This function is meant to be invoked shortly after the system has left the
+ * low-power Stop mode. It disables the WKUP interrupt on LPUART1 and resumes
+ * DMA-based receive operation. This function can only be used with low-power
+ * modes that retain DMA register values, e.g., the Stop mode.
  */
-void lpuart_enable_rx_dma(void);
+void lpuart_leave_stop_mode(void);
 
 
 #endif /* __LPUART_H__ */
