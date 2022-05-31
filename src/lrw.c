@@ -751,6 +751,16 @@ int lrw_send(uint8_t port, void *buffer, uint8_t length, bool confirmed)
         // Sertting the port to 0, the payload buffer to NULL, and buffer size
         // to 0 will send an uplink message with FOpts but no port or payload.
 
+        // Disable retransmissions for the internally generated flush uplink
+        // message.
+        r.Type = MIB_CHANNELS_NB_TRANS;
+        r.Param.ChannelsNbTrans = 1;
+        rc = LoRaMacMibSetRequestConfirm(&r);
+        if (rc != LORAMAC_STATUS_OK) {
+            log_debug("Could not configure retransmissions: %d", rc);
+            return rc;
+        }
+
         mr.Type = MCPS_UNCONFIRMED;
         mr.Req.Unconfirmed.fPort = 0;
         mr.Req.Unconfirmed.fBuffer = NULL;
