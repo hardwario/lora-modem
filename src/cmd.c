@@ -1609,6 +1609,50 @@ static void set_cert(atci_param_t *param)
 }
 
 
+static void get_session(void)
+{
+    MibRequestConfirm_t r;
+
+    atci_print("OK=");
+
+    r.Type = MIB_PUBLIC_NETWORK;
+    LoRaMacMibGetRequestConfirm(&r);
+    if (r.Param.EnablePublicNetwork) {
+        atci_print("public");
+    } else {
+        atci_print("private");
+    }
+
+    r.Type = MIB_NETWORK_ACTIVATION;
+    LoRaMacMibGetRequestConfirm(&r);
+    atci_print(",");
+    switch(r.Param.NetworkActivation) {
+        case ACTIVATION_TYPE_NONE: atci_print("None"); break;
+        case ACTIVATION_TYPE_ABP : atci_print("ABP");  break;
+        case ACTIVATION_TYPE_OTAA: atci_print("OTAA"); break;
+        default: atci_print("?"); break;
+    }
+
+    if (r.Param.NetworkActivation != ACTIVATION_TYPE_NONE) {
+        r.Type = MIB_LORAWAN_VERSION;
+        LoRaMacMibGetRequestConfirm(&r);
+        atci_printf(",%d.%d.%d",
+            r.Param.LrWanVersion.LoRaWan.Fields.Major,
+            r.Param.LrWanVersion.LoRaWan.Fields.Minor,
+            r.Param.LrWanVersion.LoRaWan.Fields.Patch);
+
+        r.Type = MIB_NET_ID;
+        LoRaMacMibGetRequestConfirm(&r);
+        atci_printf(",%08lX", r.Param.NetID);
+
+        r.Type = MIB_DEV_ADDR;
+        LoRaMacMibGetRequestConfirm(&r);
+        atci_printf(",%08lX", r.Param.DevAddr);
+    }
+
+    EOL();
+}
+
 
 static const atci_command_t cmds[] = {
     {"+UART",        NULL,    set_uart,         get_uart,         NULL, "Configure UART interface"},
@@ -1674,6 +1718,7 @@ static const atci_command_t cmds[] = {
     {"$RFPOWER",     NULL,    set_rfpower,      get_rfpower,      NULL, "Configure RF power"},
     {"$LOGLEVEL",    NULL,    set_loglevel,     get_loglevel,     NULL, "Configure logging on USART port"},
     {"$CERT",        NULL,    set_cert,         get_cert,         NULL, "Enable or disable LoRaWAN certification port"},
+    {"$SESSION",     NULL,    NULL,             get_session,      NULL, "Get network session information"},
     ATCI_COMMAND_CLAC,
     ATCI_COMMAND_HELP};
 
