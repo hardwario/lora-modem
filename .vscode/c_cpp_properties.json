@@ -1,7 +1,7 @@
 {
     "configurations": [
         {
-           "name": "LoRa Modem (release)",
+           "name": "LoRa Modem (debug)",
             "defines": [
                 "STM32L072xx",
                 "HAL_IWDG_MODULE_ENABLED",
@@ -9,7 +9,7 @@
                 "SOFT_SE",
                 "SECURE_ELEMENT_PRE_PROVISIONED",
                 "LORAMAC_CLASSB_ENABLED",
-                "RELEASE",
+                "DEBUG",
                 "VERSION=\"v1.0.2-10-g08e86e66\"",
                 "BUILD_DATE=\"2022-May-07 16:11:42 EDT\"",
                 "VERSION_COMPAT=\"1.1.06\"",
