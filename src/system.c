@@ -4,6 +4,7 @@
 #include "irq.h"
 #include "io.h"
 #include "halt.h"
+#include "nvm.h"
 
 #include <stm/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_bus.h>
 #include <stm/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_cortex.h>
@@ -127,6 +128,9 @@ void system_disallow_sleep(system_module_t module)
 void system_sleep(void)
 {
     // Note: this function must be called with interrupts disabled
+
+    // Do nothing if low-power operation is disabled entirely
+    if (!sysconf.sleep) return;
 
     // Do nothing if sleeping is prevented by a subsystem
     if (sleep_mask) return;

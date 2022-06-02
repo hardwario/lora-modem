@@ -56,8 +56,8 @@ int main(void)
         // done (e.g., NVM updates).
         if (schedule_reset && system_is_sleep_allowed())
             system_reset();
-
-        else if (sysconf.sleep) system_sleep();
+        else
+            system_sleep();
 
         enable_irq();
 
