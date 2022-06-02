@@ -1,7 +1,16 @@
 #include "spi.h"
 #include "gpio.h"
 #include "halt.h"
-#include "io.h"
+
+#define RADIO_MOSI_PORT GPIOA
+#define RADIO_MOSI_PIN GPIO_PIN_7
+
+#define RADIO_MISO_PORT GPIOA
+#define RADIO_MISO_PIN  GPIO_PIN_6
+
+#define RADIO_SCLK_PORT GPIOB
+#define RADIO_SCLK_PIN  GPIO_PIN_3
+
 
 static SPI_HandleTypeDef hspi;
 

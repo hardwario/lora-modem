@@ -3,6 +3,7 @@
 
 #include "common.h"
 #include "gpio.h"
+#include "radio.h"
 
 //! @brief Initialize SPI channel
 //! @param[in] speed SPI communication speed [hz]

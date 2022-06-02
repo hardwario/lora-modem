@@ -2,7 +2,6 @@
 #include <stm/STM32L0xx_HAL_Driver/Inc/stm32l0xx_hal.h>
 #include "rtc.h"
 #include "irq.h"
-#include "io.h"
 #include "halt.h"
 #include "nvm.h"
 

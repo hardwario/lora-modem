@@ -1,4 +1,4 @@
-#include <loramac-node/src/radio/radio.h>
+#include "radio.h"
 #include <loramac-node/src/radio/sx1276/sx1276.h>
 #include "sx1276io.h"
 #include "log.h"

@@ -1,7 +1,7 @@
 #include "lpuart.h"
 #include <stm/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_dma.h>
 #include <stm/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_lpuart.h>
-#include "io.h"
+#include <stm/STM32L0xx_HAL_Driver/Inc/stm32l0xx_hal.h>
 #include "halt.h"
 #include "utils.h"
 #include "cbuf.h"
@@ -138,15 +138,15 @@ static void init_gpio(void)
     __HAL_RCC_GPIOA_CLK_ENABLE();
     __HAL_RCC_GPIOA_CLK_ENABLE();
 
-    gpio.Pin = LPUART_TX_PIN;
-    gpio.Alternate = LPUART_TX_AF;
+    gpio.Pin = GPIO_PIN_2;
+    gpio.Alternate = GPIO_AF6_LPUART1;
     gpio.Pull = GPIO_NOPULL;
-    HAL_GPIO_Init(LPUART_TX_GPIO_PORT, &gpio);
+    HAL_GPIO_Init(GPIOA, &gpio);
 
-    gpio.Pin = LPUART_RX_PIN;
-    gpio.Alternate = LPUART_RX_AF;
+    gpio.Pin = GPIO_PIN_3;
+    gpio.Alternate = GPIO_AF6_LPUART1;
     gpio.Pull = GPIO_PULLUP;
-    HAL_GPIO_Init(LPUART_RX_GPIO_PORT, &gpio);
+    HAL_GPIO_Init(GPIOA, &gpio);
 }
 
 
@@ -159,11 +159,11 @@ static void deinit_gpio(void)
 
     __HAL_RCC_GPIOA_CLK_ENABLE();
 
-    gpio.Pin = LPUART_TX_PIN;
-    HAL_GPIO_Init(LPUART_TX_GPIO_PORT, &gpio);
+    gpio.Pin = GPIO_PIN_2;
+    HAL_GPIO_Init(GPIOA, &gpio);
 
-    gpio.Pin = LPUART_RX_PIN;
-    HAL_GPIO_Init(LPUART_RX_GPIO_PORT, &gpio);
+    gpio.Pin = GPIO_PIN_3;
+    HAL_GPIO_Init(GPIOA, &gpio);
 }
 
 

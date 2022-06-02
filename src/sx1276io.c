@@ -1,14 +1,16 @@
 #include "sx1276io.h"
 #include <loramac-node/src/radio/radio.h>
 #include <loramac-node/src/radio/sx1276/sx1276.h>
+#include <stm/STM32L0xx_HAL_Driver/Inc/stm32l0xx_hal.h>
 #include "gpio.h"
-#include "io.h"
 #include "rtc.h"
 #include "system.h"
 #include "log.h"
+#include "radio.h"
 
 #define SX1276IO_IRQ_PRIORITY  0
 #define SX1276IO_TCXO_WAKEUP_TIME 5
+
 
 static bool sx1276io_radio_is_active = false;
 
