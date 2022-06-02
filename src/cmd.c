@@ -1564,7 +1564,7 @@ static void set_rfpower(atci_param_t *param)
     OK_();
 }
 
-
+#if defined(DEBUG)
 static void get_loglevel(void)
 {
     OK("%d", log_get_level());
@@ -1584,6 +1584,7 @@ static void set_loglevel(atci_param_t *param)
     log_set_level(level);
     OK_();
 }
+#endif
 
 
 static void get_cert(void)
@@ -1716,7 +1717,9 @@ static const atci_command_t cmds[] = {
     {"$RX2",         NULL,    set_rx2,          get_rx2,          NULL, "Configure RX2 window frequency and data rate"},
     {"$DR",          NULL,    set_dr,           get_dr,           NULL, "Configure data rate (DR)"},
     {"$RFPOWER",     NULL,    set_rfpower,      get_rfpower,      NULL, "Configure RF power"},
+#if defined(DEBUG)
     {"$LOGLEVEL",    NULL,    set_loglevel,     get_loglevel,     NULL, "Configure logging on USART port"},
+#endif
     {"$CERT",        NULL,    set_cert,         get_cert,         NULL, "Enable or disable LoRaWAN certification port"},
     {"$SESSION",     NULL,    NULL,             get_session,      NULL, "Get network session information"},
     ATCI_COMMAND_CLAC,

@@ -56,14 +56,14 @@ static int region2id(const char *name)
     return -2;
 }
 
-
+#if defined(DEBUG)
 static const char *region2str(int id)
 {
     for (unsigned int i = 0; i < sizeof(region_map) / sizeof(region_map[0]); i++)
         if (region_map[i].id == id ) return region_map[i].name;
     return NULL;
 }
-
+#endif
 
 static uint8_t get_battery_level(void)
 {
@@ -497,7 +497,7 @@ static void mlme_confirm(MlmeConfirm_t *param)
 }
 
 
-static void mlme_indication(MlmeIndication_t *param)
+static void mlme_indication(__attribute__((unused)) MlmeIndication_t *param)
 {
     log_debug("MlmeIndication: MlmeIndication: %d Status: %d", param->MlmeIndication, param->Status);
 }

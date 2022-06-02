@@ -1,14 +1,14 @@
 #include "usart.h"
 #include <stm/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_usart.h>
+#include <stm/STM32L0xx_HAL_Driver/Inc/stm32l0xx_hal.h>
 #include "cbuf.h"
 #include "irq.h"
 #include "system.h"
-#include "io.h"
 #include "halt.h"
 
 
 #ifndef USART_TX_BUFFER_SIZE
-#define USART_TX_BUFFER_SIZE 256
+#define USART_TX_BUFFER_SIZE 1024
 #endif
 
 
@@ -49,14 +49,14 @@ void usart_init(void)
     __GPIOA_CLK_ENABLE();
 
     GPIO_InitTypeDef gpio = {
-        .Pin       = USART_TX_PIN,
+        .Pin       = GPIO_PIN_9,
         .Mode      = GPIO_MODE_AF_PP,
         .Pull      = GPIO_NOPULL,
         .Speed     = GPIO_SPEED_HIGH,
-        .Alternate = USART_TX_AF
+        .Alternate = GPIO_AF4_USART1
     };
 
-    HAL_GPIO_Init(USART_TX_GPIO_PORT, &gpio);
+    HAL_GPIO_Init(GPIOA, &gpio);
 
     reenable_irq(masked);
     return;
@@ -89,41 +89,6 @@ size_t usart_write(const char *buffer, size_t length)
 
     reenable_irq(masked);
     return stored;
-}
-
-
-void usart_write_blocking(const char *buffer, size_t length)
-{
-    uint32_t masked;
-    size_t written;
-    while (length) {
-        written = usart_write(buffer, length);
-        buffer += written;
-        length -= written;
-
-        if (written == 0) {
-            while (tx_fifo.max_length == tx_fifo.length) {
-                masked = disable_irq();
-
-                // If we reached a full TX FIFO and were invoked with interrupts
-                // masked, we have to abort here. We cannot wait for the TX FIFO
-                // to have space since that generally requires working
-                // interrupts. We will end up sending incomplete message in this
-                // case.
-                if (masked) return;
-
-                // If the TX FIFO is at full capacity, we invoke system_sleep to
-                // put the MCU to sleep until there is some space in the output
-                // FIFO. System_sleep used below must not enter the Stop mode.
-                // That is, however, guaranteed, since the function usart_write
-                // above creates a stop mode wake lock which will still be in
-                // place when the process gets here.
-                if (tx_fifo.max_length == tx_fifo.length)
-                    system_sleep();
-                reenable_irq(masked);
-            }
-        }
-    }
 }
 
 

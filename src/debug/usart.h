@@ -14,6 +14,4 @@ void usart_init(void);
 
 size_t usart_write(const char *buffer, size_t length);
 
-void usart_write_blocking(const char *buffer, size_t length);
-
 #endif /* __USART_H__ */

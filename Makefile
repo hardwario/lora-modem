@@ -53,6 +53,7 @@ BIN ?= $(OUT_DIR)/$(TYPE)/$(OUT).bin
 
 # Add all the application files to the list of directories to scan.
 SRC_DIRS = $(SRC_DIR)
+SRC_DIRS_DEBUG = $(SRC_DIR)/debug
 
 # Include only the following selected sources from the STM HAL and everything
 # from stm/src
@@ -74,14 +75,19 @@ stm_hal = \
 	stm32l0xx_hal_spi.c \
 	stm32l0xx_hal_uart.c \
 	stm32l0xx_hal_uart_ex.c \
-	stm32l0xx_ll_dma.c \
+	stm32l0xx_ll_dma.c
+
+stm_hal_debug = \
 	stm32l0xx_ll_usart.c \
 	stm32l0xx_ll_rcc.c
+
 SRC_FILES += $(patsubst %.c,$(LIB_DIR)/stm/STM32L0xx_HAL_Driver/Src/%.c,$(stm_hal))
+SRC_FILES_DEBUG = $(patsubst %.c,$(LIB_DIR)/stm/STM32L0xx_HAL_Driver/Src/%.c,$(stm_hal_debug))
+
 SRC_DIRS += $(LIB_DIR)/stm/src
 
 # Include all source code from rtt and LoRaWAN lib subdirectories
-SRC_DIRS += $(LIB_DIR)/rtt
+SRC_DIRS_DEBUG += $(LIB_DIR)/rtt
 SRC_DIRS += $(LIB_DIR)/LoRaWAN/Utilities
 
 # Include the core LoRa MAC stack with only the base regional files
@@ -311,6 +317,8 @@ LDFLAGS += --specs=nosys.specs
 ################################################################################
 
 SRC_FILES += $(foreach dir,$(SRC_DIRS),$(wildcard $(dir)/*.c))
+SRC_FILES_DEBUG += $(foreach dir,$(SRC_DIRS_DEBUG),$(wildcard $(dir)/*.c))
+
 OBJ_C = $(SRC_FILES:%.c=$(OBJ_DIR)/$(TYPE)/%.o)
 OBJ_S = $(ASM_SOURCES:%.s=$(OBJ_DIR)/$(TYPE)/%.o)
 OBJ = $(OBJ_C) $(OBJ_S)
@@ -321,9 +329,13 @@ DEP = $(OBJ:%.o=%.d)
 ################################################################################
 
 .PHONY: debug
+debug: export TYPE=debug
+debug: export CFLAGS=$(CFLAGS_DEBUG)
+debug: export ASFLAGS=$(ASFLAGS_DEBUG)
+debug: export SRC_FILES=$(SRC_FILES_DEBUG)
 debug: $(ALLDEP)
 	$(Q)$(MAKE) .clean-out
-	$(Q)$(MAKE) .obj-debug
+	$(Q)$(MAKE) .obj
 	$(Q)$(MAKE) elf
 	$(Q)$(MAKE) size
 	$(Q)$(MAKE) bin
@@ -333,13 +345,16 @@ debug: $(ALLDEP)
 ################################################################################
 
 .PHONY: release
+release: export TYPE=release
+release: export CFLAGS=$(CFLAGS_RELEASE)
+release: export ASFLAGS=$(ASFLAGS_RELEASE)
 release: $(ALLDEP)
-	$(Q)$(MAKE) clean TYPE=release
-	$(Q)$(MAKE) .obj-release TYPE=release
-	$(Q)$(MAKE) elf TYPE=release
-	$(Q)$(MAKE) size TYPE=release
-	$(Q)$(MAKE) bin TYPE=release
-	$(Q)$(MAKE) .clean-obj TYPE=release
+	$(Q)$(MAKE) clean
+	$(Q)$(MAKE) .obj
+	$(Q)$(MAKE) elf
+	$(Q)$(MAKE) size
+	$(Q)$(MAKE) bin
+	$(Q)$(MAKE) .clean-obj
 
 ################################################################################
 # Clean target                                                                 #
@@ -441,15 +456,8 @@ $(BIN): $(ELF) $(ALLDEP)
 # Compile source files                                                         #
 ################################################################################
 
-.PHONY: .obj-debug
-.obj-debug: CFLAGS += $(CFLAGS_DEBUG)
-.obj-debug: ASFLAGS += $(ASFLAGS_DEBUG)
-.obj-debug: $(OBJ) $(ALLDEP)
-
-.PHONY: .obj-release
-.obj-release: CFLAGS += $(CFLAGS_RELEASE)
-.obj-release: ASFLAGS += $(ASFLAGS_RELEASE)
-.obj-release: $(OBJ) $(ALLDEP)
+.PHONY: .obj
+.obj: $(OBJ) $(ALLDEP)
 
 ################################################################################
 # Compile "c" files                                                            #
@@ -464,6 +472,7 @@ endef
 $(OBJ_DIR)/$(TYPE)/src/%.o: src/%.c $(ALLDEP)
 	$(call compile,\
 		-I $(SRC_DIR) \
+		-I $(SRC_DIR)/debug \
 		-I $(CFG_DIR) \
 		-isystem $(LIB_DIR)/loramac-node/src/mac \
 		-isystem $(LIB_DIR)/loramac-node/src/mac/region \

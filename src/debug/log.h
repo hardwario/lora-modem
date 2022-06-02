@@ -60,11 +60,13 @@ typedef enum
 //! @param[in] level Minimum required message level for propagation
 //! @param[in] timestamp Timestamp logging setting
 
-void log_init(log_level_t level, log_timestamp_t timestamp);
+#if defined(DEBUG)
 
-log_level_t log_get_level(void);
+void _log_init(log_level_t level, log_timestamp_t timestamp);
 
-void log_set_level(log_level_t level);
+log_level_t _log_get_level(void);
+
+void _log_set_level(log_level_t level);
 
 //! @brief Log DUMP message (annotated in log as <X>)
 //! @param[in] buffer Pointer to source buffer
@@ -72,36 +74,40 @@ void log_set_level(log_level_t level);
 //! @param[in] format Format string (printf style)
 //! @param[in] ... Optional format arguments
 
-void log_dump(const void *buffer, size_t length, const char *format, ...) __attribute__ ((format (printf, 3, 4)));
+void _log_dump(const void *buffer, size_t length, const char *format, ...) __attribute__ ((format (printf, 3, 4)));
 
-//! @brief Log DEBUG message (annotated in log as <D>)
-//! @param[in] format Format string (printf style)
-//! @param[in] ... Optional format arguments
-
-void log_debug(const char *format, ...) __attribute__ ((format (printf, 1, 2)));
-
-//! @brief Log INFO message (annotated in log as <I>)
-//! @param[in] format Format string (printf style)
-//! @param[in] ... Optional format arguments
-
-void log_info(const char *format, ...) __attribute__ ((format (printf, 1, 2)));
-
-//! @brief Log WARNING message (annotated in log as <W>)
-//! @param[in] format Format string (printf style)
-//! @param[in] ... Optional format arguments
-
-void log_warning(const char *format, ...) __attribute__ ((format (printf, 1, 2)));
-
-//! @brief Log ERROR message (annotated in log as <E>)
-//! @param[in] format Format string (printf style)
-//! @param[in] ... Optional format arguments
-
-void log_error(const char *format, ...) __attribute__ ((format (printf, 1, 2)));
+void _log_message(log_level_t level, char id, const char *format, ...) __attribute__ ((format (printf, 3, 4)));
 
 //! @brief Start a log line composed via repeated calls to log_*
-void log_compose(void);
+void _log_compose(void);
 
 //! @brief Finish the log line previously started via log_compose
-void log_finish();
+void _log_finish(void);
+
+#define log_init(...)      _log_init(__VA_ARGS__)
+#define log_get_level(...) _log_get_level(__VA_ARGS__)
+#define log_set_level(...) _log_set_level(__VA_ARGS__)
+#define log_dump(...)      _log_dump(__VA_ARGS__)
+#define log_debug(...)     _log_message(LOG_LEVEL_DEBUG, 'D', __VA_ARGS__)
+#define log_info(...)      _log_message(LOG_LEVEL_INFO, 'I', __VA_ARGS__)
+#define log_warning(...)   _log_message(LOG_LEVEL_WARNING, 'W', __VA_ARGS__)
+#define log_error(...)     _log_message(LOG_LEVEL_ERROR, 'E', __VA_ARGS__)
+#define log_compose(...)   _log_compose(__VA_ARGS__)
+#define log_finish(...)    _log_finish(__VA_ARGS__)
+
+#else
+
+#define log_init(...)      {}
+#define log_get_level(...) {}
+#define log_set_level(...) {}
+#define log_dump(...)      {}
+#define log_debug(...)     {}
+#define log_info(...)      {}
+#define log_warning(...)   {}
+#define log_error(...)     {}
+#define log_compose(...)   {}
+#define log_finish(...)    {}
+
+#endif
 
 #endif // _LOG_H

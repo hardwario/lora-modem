@@ -8,8 +8,9 @@
 
 void halt(const char *msg)
 {
+#if defined(DEBUG)
     const char prefix[] = "Halted";
-
+#endif
     cmd_event(CMD_EVENT_MODULE, CMD_MODULE_HALT);
 
     if (msg == NULL) {
