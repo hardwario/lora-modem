@@ -1,10 +1,27 @@
-#ifndef _IRQ_H
-#define _IRQ_H
+#ifndef __IRQ_H__
+#define __IRQ_H__
 
-#include "common.h"
+#include <stm/include/cmsis_compiler.h>
 
-void irq_init(void);
-void irq_enable(void);
-void irq_disable(void);
 
-#endif // _IRQ_H
+__STATIC_FORCEINLINE uint32_t disable_irq(void)
+{
+    uint32_t mask = __get_PRIMASK();
+    __disable_irq();
+    return mask;
+}
+
+
+__STATIC_FORCEINLINE void reenable_irq(uint32_t mask)
+{
+    __set_PRIMASK(mask);
+}
+
+
+__STATIC_FORCEINLINE void enable_irq(void)
+{
+    __enable_irq();
+}
+
+
+#endif // __IRQ_H__

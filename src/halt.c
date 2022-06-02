@@ -19,8 +19,12 @@ void halt(const char *msg)
     }
 
     lpuart_flush();
-    irq_disable();
+
+    disable_irq();
+    // Note that if there are any pending interrupts, the MCU will not enter
+    // Sleep or Stop modes and the loop below will keep spinning.
+
     while (1) {
-        system_low_power();
+        system_sleep();
     }
 }

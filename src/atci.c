@@ -51,6 +51,7 @@ void atci_init(unsigned int baudrate, const atci_command_t *commands, int length
 
 void atci_process(void)
 {
+    uint32_t masked;
     cbuf_view_t data;
     system_allow_sleep(SYSTEM_MODULE_ATCI);
 
@@ -62,9 +63,9 @@ void atci_process(void)
             _atci.aborted = false;
         }
 
-        irq_disable();
+        masked = disable_irq();
         cbuf_head(&lpuart_rx_fifo, &data);
-        irq_enable();
+        reenable_irq(masked);
 
         if ((data.len[0] + data.len[1]) == 0)
         {
@@ -81,9 +82,9 @@ void atci_process(void)
             _atci_process_character((char)data.ptr[1][i]);
         }
 
-        irq_disable();
+        masked = disable_irq();
         cbuf_consume(&lpuart_rx_fifo, data.len[0] + data.len[1]);
-        irq_enable();
+        reenable_irq(masked);
     }
 }
 

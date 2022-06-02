@@ -1,7 +1,6 @@
 #include "lpuart.h"
 #include <stm/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_dma.h>
 #include <stm/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_lpuart.h>
-#include <LoRaWAN/Utilities/utilities.h>
 #include "io.h"
 #include "halt.h"
 #include "utils.h"
@@ -253,15 +252,15 @@ void HAL_UART_MspDeInit(UART_HandleTypeDef *port)
 
 size_t lpuart_write(const char *buffer, size_t length)
 {
+    uint32_t masked = disable_irq();
     cbuf_view_t v;
 
-    irq_disable();
     cbuf_tail(&lpuart_tx_fifo, &v);
-    irq_enable();
+    reenable_irq(masked);
 
     size_t written = cbuf_copy_in(&v, buffer, length);
 
-    irq_disable();
+    masked = disable_irq();
     cbuf_produce(&lpuart_tx_fifo, written);
 
     if (tx_idle && lpuart_tx_fifo.length > 0) {
@@ -278,13 +277,14 @@ size_t lpuart_write(const char *buffer, size_t length)
         }
     }
 
-    irq_enable();
+    reenable_irq(masked);
     return written;
 }
 
 
 void lpuart_write_blocking(const char *buffer, size_t length)
 {
+    uint32_t masked;
     size_t written;
     while (length) {
         written = lpuart_write(buffer, length);
@@ -293,10 +293,10 @@ void lpuart_write_blocking(const char *buffer, size_t length)
 
         if (written == 0) {
             while (lpuart_tx_fifo.max_length == lpuart_tx_fifo.length) {
-                CRITICAL_SECTION_BEGIN();
+                masked = disable_irq();
                 if (lpuart_tx_fifo.max_length == lpuart_tx_fifo.length)
                     HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFI);
-                CRITICAL_SECTION_END();
+                reenable_irq(masked);
             }
         }
     }
@@ -405,28 +405,32 @@ void lpuart_leave_stop_mode(void)
 
 size_t lpuart_read(char *buffer, size_t length)
 {
+    uint32_t masked = disable_irq();
     cbuf_view_t v;
 
-    irq_disable();
     cbuf_head(&lpuart_rx_fifo, &v);
-    irq_enable();
+    reenable_irq(masked);
 
     size_t rv = cbuf_copy_out(buffer, &v, length);
 
-    irq_disable();
+    masked = disable_irq();
     cbuf_consume(&lpuart_rx_fifo, rv);
-    irq_enable();
+    reenable_irq(masked);
 
     return rv;
 }
 
 
+// Block until all data from the output FIFO buffer has been transmitted. The
+// transmit process signals that condition by setting the variable tx_idle to 1
+// from within the IRQ context.
 void lpuart_flush(void)
 {
+    uint32_t masked;
     while (!tx_idle) {
-        CRITICAL_SECTION_BEGIN();
+        masked = disable_irq();
         if (!tx_idle)
             HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFI);
-        CRITICAL_SECTION_END();
+        reenable_irq(masked);
     }
 }

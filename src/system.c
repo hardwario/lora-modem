@@ -1,6 +1,5 @@
 #include "system.h"
 #include <stm/STM32L0xx_HAL_Driver/Inc/stm32l0xx_hal.h>
-#include <LoRaWAN/Utilities/utilities.h>
 #include "rtc.h"
 #include "irq.h"
 #include "io.h"
@@ -41,8 +40,6 @@ void system_init(void)
     _system_init_clock();
 
     rtc_init();
-
-    // irq_init();
 }
 
 void system_reset(void)
@@ -77,90 +74,89 @@ void system_wait_hsi(void)
 
 void system_allow_stop_mode(system_module_t module)
 {
-    irq_disable();
+    uint32_t masked = disable_irq();
     stop_mode_mask &= ~module;
-    irq_enable();
+    reenable_irq(masked);
 }
 
 void system_disallow_stop_mode(system_module_t module)
 {
-    irq_disable();
+    uint32_t masked = disable_irq();
     stop_mode_mask |= module;
-    irq_enable();
+    reenable_irq(masked);
 }
 
 bool system_is_stop_mode_allowed(void)
 {
-    irq_disable();
+    uint32_t masked = disable_irq();
     bool res = stop_mode_mask == 0;
-    irq_enable();
+    reenable_irq(masked);
     return res;
 }
 
 unsigned system_get_stop_mode_mask(void)
 {
-    irq_disable();
+    uint32_t masked = disable_irq();
     unsigned mask = stop_mode_mask;
-    irq_enable();
+    reenable_irq(masked);
     return mask;
 }
 
-int system_sleep_allowed(void)
+int system_is_sleep_allowed(void)
 {
-    return sleep_mask == 0;
+    uint32_t masked = disable_irq();
+    bool res = sleep_mask == 0;
+    reenable_irq(masked);
+    return res;
 }
 
 void system_allow_sleep(system_module_t module)
 {
-    irq_disable();
+    uint32_t masked = disable_irq();
     sleep_mask &= ~module;
-    irq_enable();
+    reenable_irq(masked);
 }
 
 void system_disallow_sleep(system_module_t module)
 {
-    irq_disable();
+    uint32_t masked = disable_irq();
     sleep_mask |= module;
-    irq_enable();
+    reenable_irq(masked);
 }
 
-void system_low_power(void)
+void system_sleep(void)
 {
-    // Sleeping is disabled completely, do nothing
+    // Note: this function must be called with interrupts disabled
+
+    // Do nothing if sleeping is prevented by a subsystem
     if (sleep_mask) return;
 
     if (stop_mode_mask) {
+        // If Stop mode is prevented by a subsystem, enter the low-power sleep
+        // mode only.
         HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFI);
     } else {
-        {
-            // Enter STOP mode
-            BACKUP_PRIMASK();
-            DISABLE_IRQ();
-            system_on_enter_stop_mode();
-            SET_BIT(PWR->CR, PWR_CR_CWUF);
-            RESTORE_PRIMASK();
-            HAL_PWR_EnterSTOPMode(PWR_LOWPOWERREGULATOR_ON, PWR_STOPENTRY_WFI);
-        } {
-            // Wake-up from STOP mode
-            BACKUP_PRIMASK();
-            DISABLE_IRQ();
+        // Enter the low-power Stop mode
 
-            // reconfigure the system clock
-            __HAL_RCC_HSI_ENABLE();
-            while (__HAL_RCC_GET_FLAG(RCC_FLAG_HSIRDY) == RESET)
-                continue;
+        system_on_enter_stop_mode();
 
-            __HAL_RCC_PLL_ENABLE();
-            while (__HAL_RCC_GET_FLAG(RCC_FLAG_PLLRDY) == RESET)
-                continue;
+        SET_BIT(PWR->CR, PWR_CR_CWUF);
+        HAL_PWR_EnterSTOPMode(PWR_LOWPOWERREGULATOR_ON, PWR_STOPENTRY_WFI);
 
-            __HAL_RCC_SYSCLK_CONFIG(RCC_SYSCLKSOURCE_PLLCLK);
-            while (__HAL_RCC_GET_SYSCLK_SOURCE() != RCC_SYSCLKSOURCE_STATUS_PLLCLK)
-                continue;
+        // reconfigure the system clock
+        __HAL_RCC_HSI_ENABLE();
+        while (__HAL_RCC_GET_FLAG(RCC_FLAG_HSIRDY) == RESET)
+            continue;
 
-            system_on_exit_stop_mode();
-            RESTORE_PRIMASK();
-        }
+        __HAL_RCC_PLL_ENABLE();
+        while (__HAL_RCC_GET_FLAG(RCC_FLAG_PLLRDY) == RESET)
+            continue;
+
+        __HAL_RCC_SYSCLK_CONFIG(RCC_SYSCLKSOURCE_PLLCLK);
+        while (__HAL_RCC_GET_SYSCLK_SOURCE() != RCC_SYSCLKSOURCE_STATUS_PLLCLK)
+            continue;
+
+        system_on_exit_stop_mode();
     }
 }
 

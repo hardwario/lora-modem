@@ -106,7 +106,7 @@ static bool _eeprom_is_busy(TimerTime_t timeout)
 
 static void _eeprom_unlock(void)
 {
-    irq_disable();
+    uint32_t masked = disable_irq();
 
     // Unlock FLASH_PECR register
     if ((FLASH->PECR & FLASH_PECR_PELOCK) != 0)
@@ -115,17 +115,17 @@ static void _eeprom_unlock(void)
         FLASH->PEKEYR = FLASH_PEKEY2;
     }
 
-    irq_enable();
+    reenable_irq(masked);
 }
 
 static void _eeprom_lock(void)
 {
-    irq_disable();
+    uint32_t masked = disable_irq();
 
     // Lock FLASH_PECR register
     FLASH->PECR |= FLASH_PECR_PELOCK;
 
-    irq_enable();
+    reenable_irq(masked);
 }
 
 static bool _eeprom_write(uint32_t address, size_t *i, uint8_t *buffer, size_t length)

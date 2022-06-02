@@ -49,16 +49,17 @@ int main(void)
         lrw_process();
         sysconf_process();
 
-        CRITICAL_SECTION_BEGIN();
+        disable_irq();
 
         // If the application scheduled a reset, perform it as soon as the MCU
         // is allowed to sleep, which indicates that there is no more work to be
         // done (e.g., NVM updates).
-        if (schedule_reset && system_sleep_allowed())
+        if (schedule_reset && system_is_sleep_allowed())
             system_reset();
 
-        else if (sysconf.sleep) system_low_power();
-        CRITICAL_SECTION_END();
+        else if (sysconf.sleep) system_sleep();
+
+        enable_irq();
 
         // Invoke lrw_process as the first thing after waking up to give the MAC
         // a chance to timestamp incoming downlink as quickly as possible.

@@ -1,5 +1,4 @@
 #include "usart.h"
-#include <LoRaWAN/Utilities/utilities.h>
 #include "cbuf.h"
 #include "irq.h"
 #include "system.h"
@@ -20,7 +19,7 @@ void usart_init(void)
     cbuf_init(&tx_fifo, tx_buffer, sizeof(tx_buffer));
     HAL_NVIC_EnableIRQ(USART1_IRQn);
 
-    irq_disable();
+    uint32_t masked = disable_irq();
 
     RCC->APB2ENR |= RCC_APB2ENR_USART1EN;
     RCC->APB2ENR;
@@ -45,26 +44,26 @@ void usart_init(void)
 
     HAL_GPIO_Init(USART_TX_GPIO_PORT, &GPIO_InitStruct);
 
-    irq_enable();
+    reenable_irq(masked);
 }
 
 
 size_t usart_write(const char *buffer, size_t length)
 {
     cbuf_view_t v;
-    irq_disable();
+    uint32_t masked = disable_irq();
     cbuf_tail(&tx_fifo, &v);
-    irq_enable();
+    reenable_irq(masked);
 
     size_t stored = cbuf_copy_in(&v, buffer, length);
 
     system_wait_hsi();
 
-    irq_disable();
+    masked = disable_irq();
     cbuf_produce(&tx_fifo, stored);
     system_disallow_stop_mode(SYSTEM_MODULE_USART);
     USART1->CR1 |= USART_CR1_TXEIE;
-    irq_enable();
+    reenable_irq(masked);
 
     return stored;
 }
@@ -72,6 +71,7 @@ size_t usart_write(const char *buffer, size_t length)
 
 void usart_write_blocking(const char *buffer, size_t length)
 {
+    uint32_t masked;
     size_t written;
     while (length) {
         written = usart_write(buffer, length);
@@ -80,10 +80,10 @@ void usart_write_blocking(const char *buffer, size_t length)
 
         if (written == 0) {
             while (tx_fifo.max_length == tx_fifo.length) {
-                CRITICAL_SECTION_BEGIN();
+                masked = disable_irq();
                 if (tx_fifo.max_length == tx_fifo.length)
                     HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFI);
-                CRITICAL_SECTION_END();
+                reenable_irq(masked);
             }
         }
     }

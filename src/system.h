@@ -45,7 +45,7 @@ bool system_is_stop_mode_allowed(void);
 
 unsigned system_get_stop_mode_mask(void);
 
-int system_sleep_allowed(void);
+int system_is_sleep_allowed(void);
 
 void system_allow_sleep(system_module_t module);
 
@@ -56,7 +56,7 @@ unsigned system_get_sleep_mask(void);
 //! @brief Go to low power, sleep mode or stop mode. The function must be
 //! invoked with interrupts disabled.
 
-void system_low_power(void);
+void system_sleep(void);
 
 //! @brief This function call on enter to stop mode (weak)
 
