@@ -65,6 +65,8 @@ void lpuart_init(unsigned int baudrate)
     cbuf_init(&lpuart_rx_fifo, rx_buffer, sizeof(rx_buffer));
     tx_idle = 1;
 
+    uint32_t masked = disable_irq();
+
     port.Instance = LPUART1;
     port.Init.Mode = UART_MODE_TX_RX;
     port.Init.BaudRate = baudrate;
@@ -105,7 +107,7 @@ void lpuart_init(unsigned int baudrate)
     LL_LPUART_DisableIT_RXNE(LPUART1);
 
     // Disable framing, noise, and overrun interrupt generation. We don't want
-    // those errors to stop DMA transfers. We simply ignore such errorrs and let
+    // those errors to stop DMA transfers. We simply ignore such errors and let
     // the ATCI recover at the application layer.
     LL_LPUART_DisableIT_ERROR(LPUART1);
 
@@ -117,9 +119,11 @@ void lpuart_init(unsigned int baudrate)
         goto error;
 
     HAL_UARTEx_EnableStopMode(&port);
+    reenable_irq(masked);
     return;
 
 error:
+    reenable_irq(masked);
     halt("Error while initializing LPUART port");
 }
 
@@ -294,8 +298,16 @@ void lpuart_write_blocking(const char *buffer, size_t length)
         if (written == 0) {
             while (lpuart_tx_fifo.max_length == lpuart_tx_fifo.length) {
                 masked = disable_irq();
+                // If the TX FIFO is at full capacity, we invoke system_sleep to
+                // put the MCU to sleep until there is some space in the output
+                // FIFO which will be signalled by the ISR when the DMA transfer
+                // finishes. Since transmission happens via DMA, system_sleep
+                // used below must not enter the Stop mode. That is, however,
+                // guaranteed, since the function luart_write above creates a
+                // stop mode wake lock which will still be in place when the
+                // process gets here.
                 if (lpuart_tx_fifo.max_length == lpuart_tx_fifo.length)
-                    HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFI);
+                    system_sleep();
                 reenable_irq(masked);
             }
         }
