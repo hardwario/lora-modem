@@ -74,8 +74,9 @@ stm_hal = \
 	stm32l0xx_hal_spi.c \
 	stm32l0xx_hal_uart.c \
 	stm32l0xx_hal_uart_ex.c \
-	stm32l0xx_hal_usart.c \
-	stm32l0xx_ll_dma.c
+	stm32l0xx_ll_dma.c \
+	stm32l0xx_ll_usart.c \
+	stm32l0xx_ll_rcc.c
 SRC_FILES += $(patsubst %.c,$(LIB_DIR)/stm/STM32L0xx_HAL_Driver/Src/%.c,$(stm_hal))
 SRC_DIRS += $(LIB_DIR)/stm/src
 

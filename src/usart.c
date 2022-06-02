@@ -1,8 +1,10 @@
 #include "usart.h"
+#include <stm/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_usart.h>
 #include "cbuf.h"
 #include "irq.h"
 #include "system.h"
 #include "io.h"
+#include "halt.h"
 
 
 #ifndef USART_TX_BUFFER_SIZE
@@ -17,34 +19,50 @@ static cbuf_t tx_fifo;
 void usart_init(void)
 {
     cbuf_init(&tx_fifo, tx_buffer, sizeof(tx_buffer));
-    HAL_NVIC_EnableIRQ(USART1_IRQn);
-
     uint32_t masked = disable_irq();
 
-    RCC->APB2ENR |= RCC_APB2ENR_USART1EN;
-    RCC->APB2ENR;
+    __USART1_CLK_ENABLE();
 
-    USART1->CR3 |= USART_CR3_OVRDIS;
-    USART1->CR1 |= USART_CR1_TE; // USART_CR1_RXNEIE | USART_CR1_RE;
-    USART1->BRR = 0x116; // 115200
-    USART1->CR1 |= USART_CR1_UE;
+    LL_USART_InitTypeDef params = {
+        .BaudRate            = 115200,
+        .DataWidth           = LL_USART_DATAWIDTH_8B,
+        .StopBits            = LL_USART_STOPBITS_1,
+        .Parity              = LL_USART_PARITY_NONE,
+        .TransferDirection   = LL_USART_DIRECTION_TX,
+        .HardwareFlowControl = LL_USART_HWCONTROL_NONE,
+        .OverSampling        = LL_USART_OVERSAMPLING_16
+    };
 
-    GPIO_InitTypeDef GPIO_InitStruct = { 0 };
+    if (LL_USART_Init(USART1, &params) != 0) goto error;
 
-    // Enable GPIO TX/RX clock
+    LL_USART_Enable(USART1);
+
+    LL_USART_DisableIT_TXE(USART1);
+    LL_USART_EnableIT_TC(USART1);
+
+    // Configure interrupts
+    HAL_NVIC_SetPriority(USART1_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(USART1_IRQn);
+
+    // Configure GPIO
     __GPIOA_CLK_ENABLE();
     __GPIOA_CLK_ENABLE();
 
-    // UART TX GPIO pin configuration
-    GPIO_InitStruct.Pin = USART_TX_PIN;
-    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_HIGH;
-    GPIO_InitStruct.Alternate = USART_TX_AF;
+    GPIO_InitTypeDef gpio = {
+        .Pin       = USART_TX_PIN,
+        .Mode      = GPIO_MODE_AF_PP,
+        .Pull      = GPIO_NOPULL,
+        .Speed     = GPIO_SPEED_HIGH,
+        .Alternate = USART_TX_AF
+    };
 
-    HAL_GPIO_Init(USART_TX_GPIO_PORT, &GPIO_InitStruct);
+    HAL_GPIO_Init(USART_TX_GPIO_PORT, &gpio);
 
     reenable_irq(masked);
+    return;
+error:
+    reenable_irq(masked);
+    halt("Error while initializing USART port");
 }
 
 
@@ -61,10 +79,15 @@ size_t usart_write(const char *buffer, size_t length)
 
     masked = disable_irq();
     cbuf_produce(&tx_fifo, stored);
-    system_disallow_stop_mode(SYSTEM_MODULE_USART);
-    USART1->CR1 |= USART_CR1_TXEIE;
-    reenable_irq(masked);
 
+    // Enable the transmission buffer empty interrupt which will pickup the data
+    // written to the FIFO by the above code and start transmitting it.
+    if (!LL_USART_IsEnabledIT_TXE(USART1)) {
+        system_disallow_stop_mode(SYSTEM_MODULE_USART);
+        LL_USART_EnableIT_TXE(USART1);
+    }
+
+    reenable_irq(masked);
     return stored;
 }
 
@@ -81,8 +104,22 @@ void usart_write_blocking(const char *buffer, size_t length)
         if (written == 0) {
             while (tx_fifo.max_length == tx_fifo.length) {
                 masked = disable_irq();
+
+                // If we reached a full TX FIFO and were invoked with interrupts
+                // masked, we have to abort here. We cannot wait for the TX FIFO
+                // to have space since that generally requires working
+                // interrupts. We will end up sending incomplete message in this
+                // case.
+                if (masked) return;
+
+                // If the TX FIFO is at full capacity, we invoke system_sleep to
+                // put the MCU to sleep until there is some space in the output
+                // FIFO. System_sleep used below must not enter the Stop mode.
+                // That is, however, guaranteed, since the function usart_write
+                // above creates a stop mode wake lock which will still be in
+                // place when the process gets here.
                 if (tx_fifo.max_length == tx_fifo.length)
-                    HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFI);
+                    system_sleep();
                 reenable_irq(masked);
             }
         }
@@ -92,26 +129,18 @@ void usart_write_blocking(const char *buffer, size_t length)
 
 void USART1_IRQHandler(void)
 {
-    static bool block = false;
+    uint8_t c;
 
-    if ((USART1->CR1 & USART_CR1_TXEIE) && (USART1->ISR & USART_ISR_TXE)) {
-        uint8_t c;
-
+    if (LL_USART_IsEnabledIT_TXE(USART1) && LL_USART_IsActiveFlag_TXE(USART1)) {
         if (cbuf_get(&tx_fifo, &c, 1) != 0) {
-            if (!block) block = true;
-            USART1->TDR = c;
+            LL_USART_TransmitData8(USART1, c);
         } else {
-            USART1->CR1 &= ~USART_CR1_TXEIE;
-            USART1->CR1 |= USART_CR1_TCIE;
+            LL_USART_DisableIT_TXE(USART1);
         }
     }
 
-    if ((USART1->CR1 & USART_CR1_TCIE) && (USART1->ISR & USART_ISR_TC)) {
-        USART1->CR1 &= ~USART_CR1_TCIE;
-
-        if (block) {
-            block = false;
-            system_allow_stop_mode(SYSTEM_MODULE_USART);
-        }
+    if (LL_USART_IsActiveFlag_TC(USART1)) {
+        LL_USART_ClearFlag_TC(USART1);
+        system_allow_stop_mode(SYSTEM_MODULE_USART);
     }
 }
