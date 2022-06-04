@@ -4,7 +4,7 @@ CFG_DIR := cfg
 OBJ_DIR := obj
 OUT_DIR ?= out
 
-OUT ?= firmware
+BASENAME ?= firmware
 TYPE ?= debug
 
 # The default speed (baudrate) of the AT UART interface. This value will be used
@@ -42,10 +42,9 @@ VERSION_COMPAT ?= 1.1.06
 # commented out.
 #RESTORE_CHMASK_AFTER_JOIN ?= 1
 
-ELF ?= $(OUT_DIR)/$(TYPE)/$(OUT).elf
-MAP ?= $(OUT_DIR)/$(TYPE)/$(OUT).map
-BIN ?= $(OUT_DIR)/$(TYPE)/$(OUT).bin
-
+ELF ?= $(OUT_DIR)/$(TYPE)/$(BASENAME).elf
+MAP ?= $(OUT_DIR)/$(TYPE)/$(BASENAME).map
+BIN ?= $(OUT_DIR)/$(TYPE)/$(BASENAME).bin
 
 ################################################################################
 # Source files                                                                 #
@@ -156,7 +155,7 @@ ALLDEP := $(MAKEFILE_LIST)
 # A list of make targets for which version and dependency files should not be
 # generated and included. That's generally any target that does not build
 # firmware.
-NOBUILD := clean .clean-obj .clean-out flash gdbserver jlink ozone
+NOBUILD := clean .clean-obj .clean-out flash gdbserver jlink ozone openocd
 
 # We only need to generate dependency files if the make target is empty or if it
 # is not one of the targets in NOBUILD
@@ -325,7 +324,7 @@ OBJ = $(OBJ_C) $(OBJ_S)
 DEP = $(OBJ:%.o=%.d)
 
 ################################################################################
-# Debug target                                                                 #
+# Build targets                                                                #
 ################################################################################
 
 .PHONY: debug
@@ -333,139 +332,39 @@ debug: export TYPE=debug
 debug: export CFLAGS=$(CFLAGS_DEBUG)
 debug: export ASFLAGS=$(ASFLAGS_DEBUG)
 debug: export SRC_FILES=$(SRC_FILES_DEBUG)
-debug: $(ALLDEP)
-	$(Q)$(MAKE) .clean-out
-	$(Q)$(MAKE) .obj
-	$(Q)$(MAKE) elf
-	$(Q)$(MAKE) size
-	$(Q)$(MAKE) bin
-
-################################################################################
-# Release target                                                               #
-################################################################################
+debug:
+	$(Q)$(MAKE) install
 
 .PHONY: release
 release: export TYPE=release
 release: export CFLAGS=$(CFLAGS_RELEASE)
 release: export ASFLAGS=$(ASFLAGS_RELEASE)
-release: $(ALLDEP)
-	$(Q)$(MAKE) clean
-	$(Q)$(MAKE) .obj
-	$(Q)$(MAKE) elf
-	$(Q)$(MAKE) size
-	$(Q)$(MAKE) bin
-	$(Q)$(MAKE) .clean-obj
+release:
+	$(Q)$(MAKE) install
 
-################################################################################
-# Clean target                                                                 #
-################################################################################
+.PHONY: install
+install: $(BIN) $(ALLDEP)
+	$(Q)$(ECHO) "Copying $(BIN) to ./$(BASENAME).bin..."
+	$(Q)cp -f "$(BIN)" "$(BASENAME).bin"
 
-.PHONY: clean
-clean: $(ALLDEP)
-	$(Q)$(MAKE) .clean-obj
-	$(Q)$(MAKE) .clean-out
-
-.PHONY: .clean-obj
-.clean-obj: $(ALLDEP)
-	$(Q)$(ECHO) "Removing object directory..."
-	$(Q)rm -rf $(OBJ_DIR)/$(TYPE)
-
-.PHONY: .clean-out
-.clean-out: $(ALLDEP)
-	$(Q)$(ECHO) "Clean output ..."
-	$(Q)rm -f "$(ELF)" "$(MAP)" "$(BIN)"
-
-################################################################################
-# J-Link                                                                       #
-################################################################################
-
-.PHONY: flash
-flash: $(ALLDEP)
-ifeq ($(OS),Windows_NT)
-	JLink -device stm32l072cz -CommanderScript tools/jlink/flash.jlink
-else
-	JLinkExe -device stm32l072cz -CommanderScript tools/jlink/flash.jlink
-endif
-
-.PHONY: gdbserver
-gdbserver: $(ALLDEP)
-ifeq ($(OS),Windows_NT)
-	JLinkGDBServerCL -singlerun -device stm32l072cz -if swd -speed 4000 -localhostonly -reset
-else
-	JLinkGDBServer -singlerun -device stm32l072cz -if swd -speed 4000 -localhostonly -reset
-endif
-
-.PHONY: jlink
-jlink: $(ALLDEP)
-	$(Q)$(MAKE) jlink-flash
-	$(Q)$(MAKE) jlink-gdbserver
-
-.PHONY: ozone
-ozone: debug $(ALLDEP)
-	$(Q)$(ECHO) "Launching Ozone debugger..."
-	$(Q)Ozone tools/ozone/ozone.jdebug
-
-.PHONY: openocd
-openocd: $(ALLDEP)
-	$(Q)$(ECHO) "Launching OpenOCD..."
-	$(Q)openocd -f interface/stlink.cfg -c "transport select hla_swd"  -f target/stm32l0_dual_bank.cfg
-
-
-################################################################################
-# git submodule                                                                #
-################################################################################
-
-$(LIB_DIR)/loramac-node/LICENSE:
-	@git submodule update --init lib/loramac-node
-
-################################################################################
-# Link object files                                                            #
-################################################################################
-
-.PHONY: elf
-elf: $(ELF) $(ALLDEP)
+$(BIN): $(ELF) $(ALLDEP)
+	$(Q)$(ECHO) "Creating $(BIN) from $(ELF)..."
+	$(Q)$(OBJCOPY) -O binary "$(ELF)" "$(BIN)"
 
 $(ELF): $(OBJ) $(ALLDEP)
-	$(Q)$(ECHO) "Linking object files..."
-	$(Q)mkdir -p $(OUT_DIR)/$(TYPE)
-	$(Q)$(CC) $(LDFLAGS) $(OBJ) -o $(ELF)
-
-################################################################################
-# Print information about size of sections                                     #
-################################################################################
+	$(Q)$(ECHO) "Linking object files into $(ELF)..."
+	$(Q)mkdir -p "$(OUT_DIR)/$(TYPE)"
+	$(Q)$(CC) $(LDFLAGS) $(OBJ) -o "$(ELF)"
+	$(Q)$(MAKE) size
 
 .PHONY: size
 size: $(ELF) $(ALLDEP)
 	$(Q)$(ECHO) "Size of sections:"
-	$(Q)$(SIZE) $(ELF)
-
-################################################################################
-# Create binary file                                                           #
-################################################################################
-
-.PHONY: bin
-bin: $(BIN) $(ALLDEP)
-
-$(BIN): $(ELF) $(ALLDEP)
-	$(Q)$(ECHO) "Creating $(BIN) from $(ELF)..."
-	$(Q)$(OBJCOPY) -O binary $(ELF) $(BIN)
-	$(Q)rm -f $(OUT).bin
-	$(Q)cp $(BIN) $(OUT).bin
-
-################################################################################
-# Compile source files                                                         #
-################################################################################
-
-.PHONY: .obj
-.obj: $(OBJ) $(ALLDEP)
-
-################################################################################
-# Compile "c" files                                                            #
-################################################################################
+	$(Q)$(SIZE) "$(ELF)"
 
 define compile
 $(Q)$(ECHO) "Compiling: $<"
-$(Q)mkdir -p $(@D)
+$(Q)mkdir -p "$(@D)"
 $(Q)$(CC) -MD -MP -MT "$@ $(@:.o=.d)" -c $(CFLAGS) $(1) -isystem $(LIB_DIR) $< -o $@
 endef
 
@@ -519,14 +418,72 @@ $(OBJ_DIR)/$(TYPE)/lib/loramac-node/%.o: lib/loramac-node/%.c $(ALLDEP)
 $(OBJ_DIR)/$(TYPE)/cfg/%.o: cfg/%.c $(ALLDEP)
 	$(call compile,-isystem $(LIB_DIR)/stm/STM32L0xx_HAL_Driver/Inc)
 
-################################################################################
-# Compile "s" files                                                            #
-################################################################################
-
 $(OBJ_DIR)/$(TYPE)/%.o: %.s $(ALLDEP)
 	$(Q)$(ECHO) "Compiling: $<"
 	$(Q)mkdir -p $(@D)
 	$(Q)$(CC) -c $(ASFLAGS) $< -o $@
+
+################################################################################
+# Clean targets                                                                #
+################################################################################
+
+.PHONY: clean
+clean: $(ALLDEP)
+	$(Q)$(MAKE) .clean-obj
+	$(Q)$(MAKE) .clean-out
+
+.PHONY: .clean-obj
+.clean-obj: $(ALLDEP)
+	$(Q)$(ECHO) "Deleting object files..."
+	$(Q)rm -rf "$(OBJ_DIR)"
+
+.PHONY: .clean-out
+.clean-out: $(ALLDEP)
+	$(Q)$(ECHO) "Deleting output files..."
+	$(Q)rm -rf "$(OUT_DIR)"
+
+################################################################################
+# Debugging targets                                                            #
+################################################################################
+
+.PHONY: flash
+flash: $(ALLDEP)
+ifeq ($(OS),Windows_NT)
+	JLink -device stm32l072cz -CommanderScript tools/jlink/flash.jlink
+else
+	JLinkExe -device stm32l072cz -CommanderScript tools/jlink/flash.jlink
+endif
+
+.PHONY: gdbserver
+gdbserver: $(ALLDEP)
+ifeq ($(OS),Windows_NT)
+	JLinkGDBServerCL -singlerun -device stm32l072cz -if swd -speed 4000 -localhostonly -reset
+else
+	JLinkGDBServer -singlerun -device stm32l072cz -if swd -speed 4000 -localhostonly -reset
+endif
+
+.PHONY: jlink
+jlink: $(ALLDEP)
+	$(Q)$(MAKE) jlink-flash
+	$(Q)$(MAKE) jlink-gdbserver
+
+.PHONY: ozone
+ozone: debug $(ALLDEP)
+	$(Q)$(ECHO) "Launching Ozone debugger..."
+	$(Q)Ozone tools/ozone/ozone.jdebug
+
+.PHONY: openocd
+openocd: $(ALLDEP)
+	$(Q)$(ECHO) "Launching OpenOCD..."
+	$(Q)openocd -f interface/stlink.cfg -c "transport select hla_swd" \
+		-f target/stm32l0_dual_bank.cfg
+
+################################################################################
+# Initialize git submodules                                                    #
+################################################################################
+
+$(LIB_DIR)/loramac-node/LICENSE:
+	@git submodule update --init lib/loramac-node
 
 ################################################################################
 # Include dependencies                                                         #
