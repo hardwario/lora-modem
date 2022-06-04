@@ -7,7 +7,6 @@
 #include <LoRaWAN/Utilities/timeServer.h>
 #include "lrw.h"
 #include "system.h"
-#include "config.h"
 #include "gpio.h"
 #include "log.h"
 #include "rtc.h"

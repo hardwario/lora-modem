@@ -4,7 +4,6 @@
 #include "cmd.h"
 #include "adc.h"
 #include "sx1276io.h"
-#include "config.h"
 #include "lrw.h"
 #include "system.h"
 #include "log.h"
