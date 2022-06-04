@@ -1,7 +1,6 @@
 out/
 obj/
 tools/ozone/ozone.jdebug.user
-firmware.bin
-_src/
-*.bin
-*.hex
+/*.bin
+/*.debug.map
+/*.hex
