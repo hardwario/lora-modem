@@ -19,11 +19,11 @@ git clone https://github.com/hardwario/lora-modem-abz
 cd lora-modem-abz
 git submodule update --init
 ```
-If you wish to customize the build, edit the variables at the beginning of the Makefile. Next, build the firmware:
+If you wish to customize the build, edit the variables at the beginning of the Makefile. Next, build the firmware in release mode:
 ```sh
-make
+make release
 ```
-By default the firmware is built in development mode with debugging messages and symbols enabled. To build a release version without debugging symbols or logging run `make release` instead.
+If you wish to build a development version with logging and debugging enabled, run `make debug` instead. Running `make` without any arguments builds the development version by default. *Please note that development builds have higher [idle power consumption](https://github.com/hardwario/lora-modem-abz/wiki/Power-Consumption) than release builds.*
 
 ## Installation
 Follow the steps outlined in this [wiki page](https://github.com/hardwario/lora-modem-abz/wiki/LoRa-Module-Firmware-Replacement) to replace the proprietary firmware in HARDWARIO's [LoRa Module](https://shop.hardwario.com/lora-module/) with the open firmware.
@@ -31,6 +31,7 @@ Follow the steps outlined in this [wiki page](https://github.com/hardwario/lora-
 ## Documentation
 * [The Things Network (TTN) provisioning](https://github.com/hardwario/lora-modem-abz/wiki/TTN-Provisioning)
 * [AT command interface](https://github.com/hardwario/lora-modem-abz/wiki/AT-Command-Interface)
+Additional documentation and notes can be found in the [wiki](https://github.com/hardwario/lora-modem-abz/wiki).
 
 ## License
 
