@@ -15,6 +15,7 @@
 #include "part.h"
 #include "utils.h"
 #include "eeprom.h"
+#include "irq.h"
 #include "nvm.h"
 
 #define MAX_BAT 254
@@ -23,6 +24,14 @@
 static McpsConfirm_t tx_params;
 static int joins_left = 0;
 static TimerEvent_t join_retry_timer;
+
+
+enum lora_event {
+    NO_EVENT = 0,
+    RETRANSMIT_JOIN = (1 << 0)
+};
+
+static unsigned events;
 
 
 static struct {
@@ -81,7 +90,7 @@ static void process_notify(void)
     //
     // Disable sleep so that LoRaMacProcess() gets a chance to run to process
     // the event.
-    system_disallow_sleep(SYSTEM_MODULE_RADIO);
+    system_disallow_sleep(SYSTEM_MODULE_LORA);
 }
 
 
@@ -431,16 +440,26 @@ static void stop_join(unsigned int status)
 }
 
 
-static void on_join_timer(void *ctx)
+static void retransmit_join(void)
 {
-    (void)ctx;
-
     log_debug("Retransmitting Join");
     LoRaMacStatus_t rc = send_join();
     if (rc != LORAMAC_STATUS_OK) {
         log_error("Error while retransmitting Join (%d)", rc);
         stop_join(CMD_JOIN_FAILED);
     }
+}
+
+
+static void on_join_timer(void *ctx)
+{
+    // This handler is invoked in the ISR context within an interrupt generated
+    // by the RTC. Do no work here, just set an even flag and prevent sleep so
+    // that the event gets a chance to be handled on the next run of the main
+    // processing function in this module.
+    (void)ctx;
+    system_disallow_sleep(SYSTEM_MODULE_LORA);
+    events |= RETRANSMIT_JOIN;
 }
 
 
@@ -807,7 +826,15 @@ int lrw_send(uint8_t port, void *buffer, uint8_t length, bool confirmed)
 
 void lrw_process()
 {
-    system_allow_sleep(SYSTEM_MODULE_RADIO);
+    system_allow_sleep(SYSTEM_MODULE_LORA);
+
+    uint32_t mask = disable_irq();
+    unsigned ev = events;
+    events = NO_EVENT;
+    reenable_irq(mask);
+
+    if (ev & RETRANSMIT_JOIN) retransmit_join();
+
     if (Radio.IrqProcess != NULL) Radio.IrqProcess();
     LoRaMacProcess();
     save_state();
