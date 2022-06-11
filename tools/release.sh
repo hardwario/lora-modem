@@ -44,11 +44,14 @@ make debug
 
 # And copy the resulting biinary files into the current directory
 cp -f out/release/firmware.bin "$name.bin"
+cp -f out/release/firmware.hex "$name.hex"
 cp -f out/debug/firmware.bin   "$name.debug.bin"
+cp -f out/debug/firmware.hex   "$name.debug.hex"
 cp -f out/debug/firmware.map   "$name.debug.map"
 
 # Compute SHA-256 checksums of the binary files
-sums=$(sha256sum -b "$name.bin" "$name.debug.bin" "$name.debug.map")
+sums=$(sha256sum -b "$name.bin" "$name.hex" \
+    "$name.debug.bin" "$name.debug.hex" "$name.debug.map")
 
 # Push the newly created tag into the Github repository
 git push origin "$new_tag"
@@ -58,7 +61,9 @@ git push origin "$new_tag"
 hub release create       \
     -d                   \
     -a "$name.bin"       \
+    -a "$name.hex"       \
     -a "$name.debug.bin" \
+    -a "$name.debug.hex" \
     -a "$name.debug.map" \
     -F - $new_tag << EOF
 Release $version

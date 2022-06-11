@@ -45,6 +45,7 @@ VERSION_COMPAT ?= 1.1.06
 ELF ?= $(OUT_DIR)/$(TYPE)/$(BASENAME).elf
 MAP ?= $(OUT_DIR)/$(TYPE)/$(BASENAME).map
 BIN ?= $(OUT_DIR)/$(TYPE)/$(BASENAME).bin
+HEX ?= $(OUT_DIR)/$(TYPE)/$(BASENAME).hex
 
 ################################################################################
 # Source files                                                                 #
@@ -343,13 +344,19 @@ release:
 	$(Q)$(MAKE) install
 
 .PHONY: install
-install: $(BIN) $(ALLDEP)
+install: $(BIN) $(HEX) $(ALLDEP)
 	$(Q)$(ECHO) "Copying $(BIN) to ./$(BASENAME).bin..."
 	$(Q)cp -f "$(BIN)" "$(BASENAME).bin"
+	$(Q)$(ECHO) "Copying $(HEX) to ./$(BASENAME).hex..."
+	$(Q)cp -f "$(HEX)" "$(BASENAME).hex"
 
 $(BIN): $(ELF) $(ALLDEP)
 	$(Q)$(ECHO) "Creating $(BIN) from $(ELF)..."
 	$(Q)$(OBJCOPY) -O binary "$(ELF)" "$(BIN)"
+
+$(HEX): $(ELF) $(ALLDEP)
+	$(Q)$(ECHO) "Creating $(HEX) from $(ELF)..."
+	$(Q)$(OBJCOPY) -S -O ihex "$(ELF)" "$(HEX)"
 
 $(ELF): $(OBJ) $(ALLDEP)
 	$(Q)$(ECHO) "Linking object files into $(ELF)..."
