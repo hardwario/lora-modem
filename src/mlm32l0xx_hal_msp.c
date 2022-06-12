@@ -47,17 +47,18 @@ void HAL_MspInit(void)
     /* Enables the Ultra Low Power mode */
     HAL_PWREx_EnableUltraLowPower();
 
-    __HAL_FLASH_SLEEP_POWERDOWN_ENABLE();
-
-/*In debug mode, e.g. when DBGMCU is activated, Arm core has always clocks
-   * And will not wait that the FLACH is ready to be read. It can miss in this
-   * case the first instruction. To overcome this issue, the flash remain clcoked during sleep mode
+  /* In debug mode, e.g. when DBGMCU is activated, ARM core has always clocks
+   * and will not wait that the flash is ready to be read. It can miss in this
+   * case the first instruction. To overcome this issue, the flash remains
+   * clocked during sleep mode.
    */
 #ifdef DEBUG
     do
     {
         __HAL_FLASH_SLEEP_POWERDOWN_DISABLE();
     } while (0);
+#else
+    __HAL_FLASH_SLEEP_POWERDOWN_ENABLE();
 #endif
 
 #ifdef ENABLE_FAST_WAKEUP
@@ -66,6 +67,8 @@ void HAL_MspInit(void)
 #else
     HAL_PWREx_DisableFastWakeUp();
 #endif
+
+    __HAL_RCC_PWR_CLK_DISABLE();
 }
 
 /**
@@ -82,32 +85,20 @@ void HAL_MspInit(void)
 void HAL_RTC_MspInit(RTC_HandleTypeDef *hrtc)
 {
     (void) hrtc;
-    RCC_OscInitTypeDef RCC_OscInitStruct = {0};
-    RCC_PeriphCLKInitTypeDef PeriphClkInitStruct = {0};
+    RCC_PeriphCLKInitTypeDef rcc = { 0 };
 
-    /*##-1- Configue the RTC clock soucre ######################################*/
-    /* -a- Enable LSE Oscillator */
-    RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSE;
-    RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
-    RCC_OscInitStruct.LSEState = RCC_LSE_ON;
-    if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
-    {
-        halt("Error while initializing oscillator");
-    }
+    // Note: The LSE must be enabled before this function is called. In the LoRa
+    // firmware, LSE is enabled in the clock initialization function in system.c
 
-    /* -b- Select LSI as RTC clock source */
-    PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_RTC;
-    PeriphClkInitStruct.RTCClockSelection = RCC_RTCCLKSOURCE_LSE;
-    if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct) != HAL_OK)
-    {
-        halt("Error while initializing clock source");
-    }
+    // Select LSE as RTC clock source
+    rcc.PeriphClockSelection = RCC_PERIPHCLK_RTC;
+    rcc.RTCClockSelection = RCC_RTCCLKSOURCE_LSE;
+    if (HAL_RCCEx_PeriphCLKConfig(&rcc) != HAL_OK)
+        halt("Error while initializing LSE as RTC clock source");
 
-    /*##-2- Enable the RTC peripheral Clock ####################################*/
-    /* Enable RTC Clock */
     __HAL_RCC_RTC_ENABLE();
 
-    /*##-3- Configure the NVIC for RTC Alarm ###################################*/
+    // Configure the NVIC for RTC alarms
     HAL_NVIC_SetPriority(RTC_IRQn, 0x0, 0);
     HAL_NVIC_EnableIRQ(RTC_IRQn);
 }

@@ -1,51 +1,28 @@
 #include "system.h"
 #include <stm/STM32L0xx_HAL_Driver/Inc/stm32l0xx_hal.h>
+#include <stm/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_pwr.h>
+#include <stm/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_rcc.h>
 #include "rtc.h"
 #include "irq.h"
 #include "halt.h"
 #include "nvm.h"
 
-#include <stm/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_bus.h>
-#include <stm/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_cortex.h>
-#include <stm/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_iwdg.h>
-#include <stm/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_pwr.h>
-#include <stm/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_rcc.h>
-#include <stm/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_system.h>
-#include <stm/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_utils.h>
 
 // Unique Devices IDs register set ( STM32L0xxx )
 #define _SYSTEM_ID1 (0x1FF80050)
 #define _SYSTEM_ID2 (0x1FF80054)
 #define _SYSTEM_ID3 (0x1FF80064)
 
-static void _system_init_flash(void);
-static void _system_init_gpio(void);
-static void _system_init_debug(void);
-static void _system_init_clock(void);
 
 volatile unsigned system_stop_lock;
 volatile unsigned system_sleep_lock;
 
-void system_init(void)
-{
-    /* STM32 HAL library initialization*/
-    HAL_Init();
-
-    _system_init_flash();
-
-    _system_init_gpio();
-
-    _system_init_debug();
-
-    _system_init_clock();
-
-    rtc_init();
-}
 
 uint32_t system_get_random_seed(void)
 {
     return ((*(uint32_t *)_SYSTEM_ID1) ^ (*(uint32_t *)_SYSTEM_ID2) ^ (*(uint32_t *)_SYSTEM_ID3));
 }
+
 
 void system_get_unique_id(uint8_t *id)
 {
@@ -59,17 +36,17 @@ void system_get_unique_id(uint8_t *id)
     id[0] = ((*(uint32_t *)_SYSTEM_ID2));
 }
 
+
 void system_wait_hsi(void)
 {
-    while ((RCC->CR & RCC_CR_HSIRDY) == 0)
-    {
-        continue;
-    }
+    while (__HAL_RCC_GET_FLAG(RCC_FLAG_HSIRDY) == RESET) continue;
 }
 
+
+// Note: this function must be called with interrupts disabled
 void system_idle(void)
 {
-    // Note: this function must be called with interrupts disabled
+    int pwr_disabled;
 
     // Do nothing if low-power operation is disabled entirely
     if (!sysconf.sleep) return;
@@ -86,17 +63,19 @@ void system_idle(void)
 
         system_before_stop();
 
+        pwr_disabled = __HAL_RCC_PWR_IS_CLK_DISABLED();
+        if (pwr_disabled) __HAL_RCC_PWR_CLK_ENABLE();
         SET_BIT(PWR->CR, PWR_CR_CWUF);
         HAL_PWR_EnterSTOPMode(PWR_LOWPOWERREGULATOR_ON, PWR_STOPENTRY_WFI);
+        if (pwr_disabled) __HAL_RCC_PWR_CLK_DISABLE();
 
-        // reconfigure the system clock
-        __HAL_RCC_HSI_ENABLE();
-        while (__HAL_RCC_GET_FLAG(RCC_FLAG_HSIRDY) == RESET)
-            continue;
+        // We configured the MCU to wake up from Stop with HSI16 enabled, thus
+        // there is no need to reenable the HSI oscillator and disable the MSI
+        // oscillator here.
+        while (__HAL_RCC_GET_FLAG(RCC_FLAG_HSIRDY) == RESET) continue;
 
         __HAL_RCC_PLL_ENABLE();
-        while (__HAL_RCC_GET_FLAG(RCC_FLAG_PLLRDY) == RESET)
-            continue;
+        while (__HAL_RCC_GET_FLAG(RCC_FLAG_PLLRDY) == RESET) continue;
 
         __HAL_RCC_SYSCLK_CONFIG(RCC_SYSCLKSOURCE_PLLCLK);
         while (__HAL_RCC_GET_SYSCLK_SOURCE() != RCC_SYSCLKSOURCE_STATUS_PLLCLK)
@@ -106,7 +85,8 @@ void system_idle(void)
     }
 }
 
-static void _system_init_flash(void)
+
+static void init_flash(void)
 {
     // Enable prefetch
     FLASH->ACR |= FLASH_ACR_PRFTEN;
@@ -115,29 +95,20 @@ static void _system_init_flash(void)
     FLASH->ACR |= FLASH_ACR_LATENCY;
 }
 
-static void _system_init_gpio(void)
-{
-    //Configure all GPIO's to Analog input to reduce the power consumption
-    // GPIO_InitTypeDef GPIO_InitStruct = {0};
 
-    /* Configure all GPIO as analog to reduce current consumption on non used IOs */
-    /* Enable GPIOs clock */
+static void init_gpio(void)
+{
+    // Configure all GPIOs as analog to reduce power consumption by unused ports
     __HAL_RCC_GPIOA_CLK_ENABLE();
     __HAL_RCC_GPIOB_CLK_ENABLE();
     __HAL_RCC_GPIOC_CLK_ENABLE();
     __HAL_RCC_GPIOH_CLK_ENABLE();
 
-    // GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
-    // GPIO_InitStruct.Pull = GPIO_NOPULL;
+    // gpio.Mode = GPIO_MODE_ANALOG;
+    // gpio.Pull = GPIO_NOPULL;
     // /* All GPIOs except debug pins (SWCLK and SWD) */
-    // GPIO_InitStruct.Pin = GPIO_PIN_All & (~(GPIO_PIN_13 | GPIO_PIN_14));
-    // HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-    // /* All GPIOs */
-    // GPIO_InitStruct.Pin = GPIO_PIN_All;
-    // HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-    // HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
-    // HAL_GPIO_Init(GPIOH, &GPIO_InitStruct);
+    // gpio.Pin = GPIO_PIN_All & (~(GPIO_PIN_13 | GPIO_PIN_14));
+    // HAL_GPIO_Init(GPIOA, &gpio);
 
     GPIOA->PUPDR   = 0x24002040;
     GPIOA->AFR[0]  = 0x00006600;
@@ -146,6 +117,12 @@ static void _system_init_gpio(void)
     GPIOA->OSPEEDR = 0xcc0cc0f0;
     GPIOA->ODR     = 0x00008000;
     GPIOA->MODER   = 0x69fbafaf;
+
+    // /* All other GPIOs */
+    // gpio.Pin = GPIO_PIN_All;
+    // HAL_GPIO_Init(GPIOB, &gpio);
+    // HAL_GPIO_Init(GPIOC, &gpio);
+    // HAL_GPIO_Init(GPIOH, &gpio);
 
     GPIOB->PUPDR   = 0x00000000;
     GPIOB->AFR[0]  = 0x00000000;
@@ -171,74 +148,47 @@ static void _system_init_gpio(void)
     GPIOH->ODR     = 0x00000000;
     GPIOH->MODER   = 0x003c000f;
 
-    /* Disable GPIOs clock */
+    // Disable all GPIO clocks again
     __HAL_RCC_GPIOA_CLK_DISABLE();
     __HAL_RCC_GPIOB_CLK_DISABLE();
     __HAL_RCC_GPIOC_CLK_DISABLE();
     __HAL_RCC_GPIOH_CLK_DISABLE();
 }
-/*
-static void _system_init_debug(void)
+
+
+static void init_debug(void)
 {
-    #ifdef DEBUG
-
-    LL_APB2_GRP1_EnableClock(LL_APB2_GRP1_PERIPH_DBGMCU);
-
-    LL_DBGMCU_EnableDBGSleepMode();
-    LL_DBGMCU_EnableDBGStopMode();
-    LL_DBGMCU_EnableDBGStandbyMode();
-
-    LL_DBGMCU_APB1_GRP1_FreezePeriph(LL_DBGMCU_APB1_GRP1_IWDG_STOP);
-    LL_DBGMCU_APB1_GRP1_FreezePeriph(LL_DBGMCU_APB1_GRP1_LPTIM1_STOP);
-
-    #else
-
-    LL_PWR_EnableFastWakeUp();
-    LL_PWR_EnableUltraLowPower();
-    LL_PWR_SetRegulModeLP(LL_PWR_REGU_LPMODES_LOW_POWER);
-    LL_LPM_EnableDeepSleep();
-
-    #endif
-}
-*/
-
-static void _system_init_debug(void)
-{
+    GPIO_InitTypeDef gpio = { 0 };
 #ifdef DEBUG
-    GPIO_InitTypeDef gpioinitstruct = {0};
-
-    // Enable the GPIO_B Clock
+    // Enable the GPIO B clock
     __HAL_RCC_GPIOB_CLK_ENABLE();
 
-    // Configure the GPIO pin
-    gpioinitstruct.Mode = GPIO_MODE_OUTPUT_PP;
-    gpioinitstruct.Pull = GPIO_PULLUP;
-    gpioinitstruct.Speed = GPIO_SPEED_HIGH;
+    // Configure debugging GPIO pins
+    gpio.Mode = GPIO_MODE_OUTPUT_PP;
+    gpio.Pull = GPIO_PULLUP;
+    gpio.Speed = GPIO_SPEED_HIGH;
+    gpio.Pin = (GPIO_PIN_12 | GPIO_PIN_13 | GPIO_PIN_14 | GPIO_PIN_15);
+    HAL_GPIO_Init(GPIOB, &gpio);
 
-    gpioinitstruct.Pin = (GPIO_PIN_12 | GPIO_PIN_13 | GPIO_PIN_14 | GPIO_PIN_15);
-    HAL_GPIO_Init(GPIOB, &gpioinitstruct);
-
-    // Reset debug Pins
+    // Reset debugging pins
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12, GPIO_PIN_RESET);
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_13, GPIO_PIN_RESET);
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_RESET);
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_15, GPIO_PIN_RESET);
 
     __HAL_RCC_DBGMCU_CLK_ENABLE();
-
     HAL_DBGMCU_EnableDBGSleepMode();
     HAL_DBGMCU_EnableDBGStopMode();
     HAL_DBGMCU_EnableDBGStandbyMode();
-
 #else
-    // sw interface off
-    GPIO_InitTypeDef GPIO_InitStructure = {0};
-
-    GPIO_InitStructure.Mode = GPIO_MODE_ANALOG;
-    GPIO_InitStructure.Pull = GPIO_NOPULL;
-    GPIO_InitStructure.Pin = (GPIO_PIN_13 | GPIO_PIN_14);
+    // init_gpio called before this function does not touch GPIO A 13 & 14 (SWD)
+    // to keep the SWD port operational. In release mode, we re-configure the
+    // two pins in analog mode to minimize power consumption.
+    gpio.Mode = GPIO_MODE_ANALOG;
+    gpio.Pull = GPIO_NOPULL;
+    gpio.Pin = (GPIO_PIN_13 | GPIO_PIN_14);
     __GPIOA_CLK_ENABLE();
-    HAL_GPIO_Init(GPIOA, &GPIO_InitStructure);
+    HAL_GPIO_Init(GPIOA, &gpio);
     __GPIOA_CLK_DISABLE();
 
     __HAL_RCC_DBGMCU_CLK_ENABLE();
@@ -246,67 +196,75 @@ static void _system_init_debug(void)
     HAL_DBGMCU_DisableDBGStopMode();
     HAL_DBGMCU_DisableDBGStandbyMode();
     __HAL_RCC_DBGMCU_CLK_DISABLE();
-
 #endif
 }
 
-/**
-  * @brief  System Clock Configuration
-  *         The system Clock is configured as follow :
-  *            System Clock source            = PLL (HSI)
-  *            SYSCLK(Hz)                     = 32000000
-  *            HCLK(Hz)                       = 32000000
-  *            AHB Prescaler                  = 1
-  *            APB1 Prescaler                 = 1
-  *            APB2 Prescaler                 = 1
-  *            HSI Frequency(Hz)              = 16000000
-  *            PLLMUL                         = 6
-  *            PLLDIV                         = 3
-  *            Flash Latency(WS)              = 1
-  * @retval None
-  */
 
-static void _system_init_clock(void)
+static void init_clock(void)
 {
-    RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
-    RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+    RCC_OscInitTypeDef osc = { 0 };
+    RCC_ClkInitTypeDef clk = { 0 };
 
-    /* Enable HSE Oscillator and Activate PLL with HSE as source */
-    RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
-    RCC_OscInitStruct.HSEState = RCC_HSE_OFF;
-    RCC_OscInitStruct.HSIState = RCC_HSI_ON;
-    RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
-    RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-    RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
-    RCC_OscInitStruct.PLL.PLLMUL = RCC_PLLMUL_6;
-    RCC_OscInitStruct.PLL.PLLDIV = RCC_PLLDIV_3;
+    // We run the modem with the system clock derived from PLL(HSI) and the RTC
+    // clock derived from LSE
+    osc.OscillatorType =         \
+        RCC_OSCILLATORTYPE_HSE | \
+        RCC_OSCILLATORTYPE_LSE | \
+        RCC_OSCILLATORTYPE_HSI | \
+        RCC_OSCILLATORTYPE_LSI;
+    osc.HSEState = RCC_HSE_OFF;
+    osc.LSEState = RCC_LSE_ON;
+    osc.HSIState = RCC_HSI_ON;
+    osc.LSIState = RCC_LSI_OFF;
+    osc.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
 
-    if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
-    {
-        halt("Error while initializing oscillator");
-    }
+    // Activate the PLL and select the HSI as its clock source
+    osc.PLL.PLLState = RCC_PLL_ON;
+    osc.PLL.PLLSource = RCC_PLLSOURCE_HSI;
+    osc.PLL.PLLMUL = RCC_PLLMUL_6;
+    osc.PLL.PLLDIV = RCC_PLLDIV_3;
 
-    /* Set Voltage scale1 as MCU will run at 32MHz */
+    if (HAL_RCC_OscConfig(&osc) != HAL_OK)
+        halt("Error while enabling HSI16 oscillator");
+
+    // Set voltage scale1 as the MCU will run at 32MHz
     __HAL_RCC_PWR_CLK_ENABLE();
     __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
+    while (__HAL_PWR_GET_FLAG(PWR_FLAG_VOS) != RESET);
+    __HAL_RCC_PWR_CLK_DISABLE();
 
-    /* Poll VOSF bit of in PWR_CSR. Wait until it is reset to 0 */
-    while (__HAL_PWR_GET_FLAG(PWR_FLAG_VOS) != RESET)
-    {
-    };
+    // Configure the MCU to wake up from Stop mode with the HCI16 oscillator
+    // enabled instead of the default MCI oscillator
+    SET_BIT(RCC->CFGR, RCC_CFGR_STOPWUCK);
 
-    /* Select PLL as system clock source and configure the HCLK, PCLK1 and PCLK2
-  clocks dividers */
-    RCC_ClkInitStruct.ClockType = (RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2);
-    RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
-    RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-    RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
-    RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
-    if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_1) != HAL_OK)
-    {
+    // Select PLL as system clock source and configure the HCLK, PCLK1 and PCLK2
+    // clocks dividers
+    clk.ClockType = (RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2);
+    clk.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+    clk.AHBCLKDivider = RCC_SYSCLK_DIV1;
+    clk.APB1CLKDivider = RCC_HCLK_DIV1;
+    clk.APB2CLKDivider = RCC_HCLK_DIV1;
+    if (HAL_RCC_ClockConfig(&clk, FLASH_LATENCY_1) != HAL_OK)
         halt("Error while initializing system clock");
-    }
+
+    // Now that we use PLL(HCI) as system clock, disable the MSI oscillator
+    osc.OscillatorType = RCC_OSCILLATORTYPE_MSI;
+    osc.MSIState = RCC_MSI_OFF;
+    if (HAL_RCC_OscConfig(&osc) != HAL_OK)
+        halt("Error while enabling MSI oscillator");
 }
+
+
+void system_init(void)
+{
+    HAL_Init();
+    init_flash();
+    init_gpio();
+    init_debug();
+    init_clock();
+    rtc_init();
+}
+
 
 void SysTick_Handler(void)
 {
@@ -320,4 +278,3 @@ __weak void system_before_stop(void)
 __weak void system_after_stop(void)
 {
 }
-
