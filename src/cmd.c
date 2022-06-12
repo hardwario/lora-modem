@@ -1248,7 +1248,7 @@ static void get_channels(void)
     OK_();
 }
 
-
+#if defined(DEBUG)
 static void dbg(atci_param_t *param)
 {
     (void)param;
@@ -1256,11 +1256,11 @@ static void dbg(atci_param_t *param)
     // RF_RX_RUNNING, //!< The radio is in reception state
     // RF_TX_RUNNING, //!< The radio is in transmission state
     // RF_CAD,        //!< The radio is doing channel activity detection
-    atci_printf("$DBG: \"stop_mode_lock\",%d\r\n", system_stop_lock);
-    atci_printf("$DBG: \"radio_state\",%d\r\n", Radio.GetStatus());
+    atci_printf("$DBG: sleep_lock=%d stop_lock=%d radio_state=%d\r\n",
+        system_sleep_lock, system_stop_lock, Radio.GetStatus());
     OK_();
 }
-
+#endif
 
 static void do_halt(atci_param_t *param)
 {
@@ -1704,7 +1704,9 @@ static const atci_command_t cmds[] = {
     {"+NETID",       NULL,    set_netid,        get_netid,        NULL, "Configure LoRaWAN network identifier"},
     {"$CHANNELS",    NULL,    NULL,             get_channels,     NULL, ""},
     {"$VER",         NULL,    NULL,             get_version,      NULL, "Firmware version and build time"},
+#if defined(DEBUG)
     {"$DBG",         dbg,     NULL,             NULL,             NULL, ""},
+#endif
     {"$HALT",        do_halt, NULL,             NULL,             NULL, "Halt the modem"},
     {"$JOINEUI",     NULL,    set_joineui,      get_joineui,      NULL, "Configure JoinEUI"},
     {"$NWKKEY",      NULL,    set_nwkkey,       get_nwkkey,       NULL, "Configure NwkKey (LoRaWAN 1.1)"},
