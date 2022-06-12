@@ -65,7 +65,7 @@ static const char *coderate2str(uint8_t coderate)
 static bool SX1276CheckRfFrequency(__attribute__((unused)) uint32_t frequency)
 {
     // Implement check. Currently all frequencies are supported
-    log_debug("Check frequency %ld", frequency);
+    log_debug("SX1276: CheckRfFrequency: %ld", frequency);
     return true;
 }
 
@@ -86,20 +86,29 @@ void SetTxConfig(RadioModems_t modem, int8_t power, uint32_t fdev,
         preambleLen, fixLen, crcOn, freqHopOn, hopPeriod, iqInverted,
         timeout);
 
+#if defined (DEBUG)
     log_compose();
-
     log_debug("SX1276: SetTxConfig: %d dBm", power);
-    log_debug(" %s %s/%s %s", modem2str(modem),
-        lora_sf2str(datarate), lora_bandwidth2str(bandwidth), coderate2str(coderate));
-    log_debug(" preamb=%d", preambleLen);
+    log_debug(" %s", modem2str(modem));
 
-    if (fixLen) log_debug(" fixLen");
-    if (crcOn) log_debug(" CRC");
-    if (freqHopOn) log_debug(" fHop(%d)", hopPeriod);
-    if (iqInverted) log_debug(" iqInv");
+    if (modem == MODEM_LORA) {
+        log_debug(" %s/%s %s", lora_sf2str(datarate),
+            lora_bandwidth2str(bandwidth), coderate2str(coderate));
+        log_debug(" preamb=%d", preambleLen);
+
+        if (fixLen) log_debug(" fixLen");
+        if (crcOn) log_debug(" CRC");
+        if (freqHopOn) log_debug(" fHop(%d)", hopPeriod);
+        if (iqInverted) log_debug(" iqInv");
+    } else if (modem == MODEM_FSK) {
+        log_debug(" fdev=%ld dr=%ld preamb=%d", fdev, datarate, preambleLen);
+        if (fixLen) log_debug(" fixLen");
+        if (crcOn) log_debug(" CRC");
+    }
 
     log_debug(" tout=%ldms", timeout);
     log_finish();
+#endif
 }
 
 void SetRxConfig(RadioModems_t modem, uint32_t bandwidth, uint32_t datarate,
@@ -111,19 +120,34 @@ void SetRxConfig(RadioModems_t modem, uint32_t bandwidth, uint32_t datarate,
         preambleLen, symbTimeout, fixLen, payloadLen, crcOn, freqHopOn,
         hopPeriod, iqInverted, rxContinuous);
 
+#if defined (DEBUG)
     log_compose();
-    log_debug("SX1276: SetRxConfig: %s %s/%s %s", modem2str(modem),
-        lora_sf2str(datarate), lora_bandwidth2str(bandwidth),
-        coderate2str(coderate));
-    log_debug(" preamb=%d", preambleLen);
-    log_debug(" symTout=%d", symbTimeout);
+    log_debug("SX1276: SetRxConfig: %s", modem2str(modem));
 
-    if (fixLen) log_debug(" fixLen(%d)", payloadLen);
-    if (crcOn) log_debug(" CRC");
-    if (freqHopOn) log_debug(" fHop(%d)", hopPeriod);
-    if (iqInverted) log_debug(" iqInv");
-    if (rxContinuous) log_debug(" rxCont");
+    if (modem == MODEM_LORA) {
+        log_debug(" %s/%s %s", lora_sf2str(datarate),
+            lora_bandwidth2str(bandwidth), coderate2str(coderate));
+        log_debug(" preamb=%d", preambleLen);
+        log_debug(" symTout=%d", symbTimeout);
+
+        if (fixLen) log_debug(" fixLen(%d)", payloadLen);
+        if (crcOn) log_debug(" CRC");
+        if (freqHopOn) log_debug(" fHop(%d)", hopPeriod);
+        if (iqInverted) log_debug(" iqInv");
+        if (rxContinuous) log_debug(" rxCont");
+    } else if (modem == MODEM_FSK) {
+        log_debug(" bw=%ld", bandwidth);
+        log_debug(" dr=%ld", datarate);
+        log_debug(" bwAfc=%ld", bandwidthAfc);
+        log_debug(" preamb=%d", preambleLen);
+        log_debug(" symTout=%d", symbTimeout);
+        if (fixLen) log_debug(" fixLen(%d)", payloadLen);
+        if (crcOn) log_debug(" CRC");
+        if (rxContinuous) log_debug(" rxCont");
+    }
+
     log_finish();
+#endif
 }
 
 
