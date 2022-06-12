@@ -7,6 +7,7 @@
 #include "system.h"
 #include "log.h"
 #include "radio.h"
+#include "irq.h"
 
 #define SX1276IO_IRQ_PRIORITY  0
 #define SX1276IO_TCXO_WAKEUP_TIME 5
@@ -178,6 +179,7 @@ void sx1276io_rf_tx_set_power(int8_t power)
 
 void sx1276io_ant_set_sw_low_power(bool status)
 {
+    uint32_t mask;
     log_debug("sx1276io_ant_set_sw_low_power: %d", status);
 
     if( sx1276io_radio_is_active != status )
@@ -202,11 +204,15 @@ void sx1276io_ant_set_sw_low_power(bool status)
             gpio_write(RADIO_ANT_SWITCH_PORT_TX_RFO, RADIO_ANT_SWITCH_PIN_TX_RFO, 0);
             gpio_init(RADIO_ANT_SWITCH_PORT_TX_RFO, RADIO_ANT_SWITCH_PIN_TX_RFO, &initStruct);
 
-            system_disallow_stop_mode(SYSTEM_MODULE_RADIO);
+            mask = disable_irq();
+            system_stop_lock |= SYSTEM_MODULE_RADIO;
+            reenable_irq(mask);
         }
         else
         {
-            system_allow_stop_mode(SYSTEM_MODULE_RADIO);
+            mask = disable_irq();
+            system_stop_lock &= ~SYSTEM_MODULE_RADIO;
+            reenable_irq(mask);
 
             initStruct.Mode = GPIO_MODE_ANALOG;
             initStruct.Pull = GPIO_NOPULL;

@@ -5,6 +5,7 @@
 #include <LoRaWAN/Utilities/utilities.h>
 #include <stm/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_rtc.h>
 #include "system.h"
+#include "irq.h"
 
 typedef struct
 {
@@ -174,25 +175,21 @@ TimerTime_t rtc_tick2ms(uint32_t tick)
 
 void rtc_set_alarm(uint32_t timeout)
 {
+    uint32_t t = timeout - rtc_get_timer_elapsed_time();
+    uint32_t mask = disable_irq();
+
     /* we don't go in Low Power mode for timeout below MIN_ALARM_DELAY */
-    if ((MIN_ALARM_DELAY + (uint32_t) McuWakeUpTimeCal) < ((timeout - rtc_get_timer_elapsed_time())))
-    {
-        // LPM_SetStopMode(LPM_RTC_Id, LPM_Enable);
-        system_allow_stop_mode(SYSTEM_MODULE_RTC);
-    }
-    else
-    {
-        // LPM_SetStopMode(LPM_RTC_Id, LPM_Disable);
-        system_disallow_stop_mode(SYSTEM_MODULE_RTC);
+    if ((MIN_ALARM_DELAY + (uint32_t) McuWakeUpTimeCal) < t) {
+        system_stop_lock &= ~ SYSTEM_MODULE_RTC;
+    } else {
+        system_stop_lock |= SYSTEM_MODULE_RTC;
     }
 
-    /*In case stop mode is required */
-    //   if (LPM_GetMode() == LPM_StopMode)
-    if (system_is_stop_mode_allowed())
-    {
+    if (!system_stop_lock) {
         timeout = timeout - McuWakeUpTimeCal;
     }
 
+    reenable_irq(mask);
     HW_RTC_StartWakeUpAlarm(timeout);
 }
 
@@ -468,9 +465,7 @@ TimerTime_t rtc_temperature_compensation(TimerTime_t period, float temperature)
 void RTC_IRQHandler(void)
 {
     RTC_HandleTypeDef *hrtc = &RtcHandle;
-    /* enable low power at irq*/
-    //   LPM_SetStopMode(LPM_RTC_Id, LPM_Enable);
-    system_allow_stop_mode(SYSTEM_MODULE_RTC);
+    system_stop_lock &= ~SYSTEM_MODULE_RTC;
 
     /* Clear the EXTI's line Flag for RTC Alarm */
     __HAL_RTC_ALARM_EXTI_CLEAR_FLAG();

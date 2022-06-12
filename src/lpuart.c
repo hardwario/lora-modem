@@ -269,7 +269,7 @@ size_t lpuart_write(const char *buffer, size_t length)
 
     if (tx_idle && lpuart_tx_fifo.length > 0) {
         tx_idle = 0;
-        system_disallow_stop_mode(SYSTEM_MODULE_LPUART_TX);
+        system_stop_lock |= SYSTEM_MODULE_LPUART_TX;
 
         cbuf_head(&lpuart_tx_fifo, &v);
         if (v.len[0]) {
@@ -298,16 +298,16 @@ void lpuart_write_blocking(const char *buffer, size_t length)
         if (written == 0) {
             while (lpuart_tx_fifo.max_length == lpuart_tx_fifo.length) {
                 masked = disable_irq();
-                // If the TX FIFO is at full capacity, we invoke system_sleep to
+                // If the TX FIFO is at full capacity, we invoke system_idle to
                 // put the MCU to sleep until there is some space in the output
                 // FIFO which will be signalled by the ISR when the DMA transfer
-                // finishes. Since transmission happens via DMA, system_sleep
+                // finishes. Since transmission happens via DMA, system_idle
                 // used below must not enter the Stop mode. That is, however,
                 // guaranteed, since the function luart_write above creates a
                 // stop mode wake lock which will still be in place when the
                 // process gets here.
                 if (lpuart_tx_fifo.max_length == lpuart_tx_fifo.length)
-                    system_sleep();
+                    system_idle();
                 reenable_irq(masked);
             }
         }
@@ -331,7 +331,7 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *port)
             tx_len = v.len[1];
         }
     } else {
-        system_allow_stop_mode(SYSTEM_MODULE_LPUART_TX);
+        system_stop_lock &= ~SYSTEM_MODULE_LPUART_TX;
         tx_len = 0;
         tx_idle = 1;
     }
@@ -347,7 +347,7 @@ void RNG_LPUART1_IRQHandler(void)
     // sleep mode between received bytes.
     if (LL_LPUART_IsActiveFlag_WKUP(port.Instance)) {
         LL_LPUART_ClearFlag_WKUP(port.Instance);
-        system_disallow_stop_mode(SYSTEM_MODULE_LPUART_RX);
+        system_stop_lock |= SYSTEM_MODULE_LPUART_RX;
     }
 
     // Once an idle frame has been received, we assume that the client is done
@@ -357,7 +357,7 @@ void RNG_LPUART1_IRQHandler(void)
     if (LL_LPUART_IsEnabledIT_IDLE(port.Instance) && LL_LPUART_IsActiveFlag_IDLE(port.Instance)) {
         LL_LPUART_ClearFlag_IDLE(port.Instance);
         rx_callback();
-        system_allow_stop_mode(SYSTEM_MODULE_LPUART_RX);
+        system_stop_lock &= ~SYSTEM_MODULE_LPUART_RX;
     }
 
     // Delegate to the HAL. But before we do that, check and clear the error
@@ -401,14 +401,14 @@ void DMA1_Channel4_5_6_7_IRQHandler(void)
 }
 
 
-void lpuart_enter_stop_mode(void)
+void lpuart_before_stop(void)
 {
     HAL_UART_DMAPause(&port);
     LL_LPUART_EnableIT_WKUP(port.Instance);
 }
 
 
-void lpuart_leave_stop_mode(void)
+void lpuart_after_stop(void)
 {
     LL_LPUART_DisableIT_WKUP(port.Instance);
     HAL_UART_DMAResume(&port);

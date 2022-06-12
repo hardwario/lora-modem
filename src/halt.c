@@ -25,7 +25,7 @@ void halt(const char *msg)
     // Note that if there are any pending interrupts, the MCU will not enter
     // Sleep or Stop modes and the loop below will keep spinning.
 
-    while (1) {
-        system_sleep();
+    for(;;) {
+        system_idle();
     }
 }

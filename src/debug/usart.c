@@ -83,7 +83,7 @@ size_t usart_write(const char *buffer, size_t length)
     // Enable the transmission buffer empty interrupt which will pickup the data
     // written to the FIFO by the above code and start transmitting it.
     if (!LL_USART_IsEnabledIT_TXE(USART1)) {
-        system_disallow_stop_mode(SYSTEM_MODULE_USART);
+        system_stop_lock |= SYSTEM_MODULE_USART;
         LL_USART_EnableIT_TXE(USART1);
     }
 
@@ -106,6 +106,6 @@ void USART1_IRQHandler(void)
 
     if (LL_USART_IsActiveFlag_TC(USART1)) {
         LL_USART_ClearFlag_TC(USART1);
-        system_allow_stop_mode(SYSTEM_MODULE_USART);
+        system_stop_lock &= ~SYSTEM_MODULE_USART;
     }
 }

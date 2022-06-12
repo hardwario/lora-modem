@@ -84,7 +84,7 @@ void lpuart_flush(void);
  * interrupt which will wake the MCU once a start bit has been detected on the
  * line.
  */
-void lpuart_enter_stop_mode(void);
+void lpuart_before_stop(void);
 
 
 /*! @brief Disable WKUP interrupt and resume DMA on LPUART1
@@ -94,7 +94,7 @@ void lpuart_enter_stop_mode(void);
  * DMA-based receive operation. This function can only be used with low-power
  * modes that retain DMA register values, e.g., the Stop mode.
  */
-void lpuart_leave_stop_mode(void);
+void lpuart_after_stop(void);
 
 
 #endif /* __LPUART_H__ */

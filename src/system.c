@@ -23,8 +23,8 @@ static void _system_init_gpio(void);
 static void _system_init_debug(void);
 static void _system_init_clock(void);
 
-volatile static unsigned stop_mode_mask;
-volatile static unsigned sleep_mask;
+volatile unsigned system_stop_lock;
+volatile unsigned system_sleep_lock;
 
 void system_init(void)
 {
@@ -40,11 +40,6 @@ void system_init(void)
     _system_init_clock();
 
     rtc_init();
-}
-
-void system_reset(void)
-{
-    NVIC_SystemReset();
 }
 
 uint32_t system_get_random_seed(void)
@@ -72,59 +67,7 @@ void system_wait_hsi(void)
     }
 }
 
-void system_allow_stop_mode(system_module_t module)
-{
-    uint32_t masked = disable_irq();
-    stop_mode_mask &= ~module;
-    reenable_irq(masked);
-}
-
-void system_disallow_stop_mode(system_module_t module)
-{
-    uint32_t masked = disable_irq();
-    stop_mode_mask |= module;
-    reenable_irq(masked);
-}
-
-bool system_is_stop_mode_allowed(void)
-{
-    uint32_t masked = disable_irq();
-    bool res = stop_mode_mask == 0;
-    reenable_irq(masked);
-    return res;
-}
-
-unsigned system_get_stop_mode_mask(void)
-{
-    uint32_t masked = disable_irq();
-    unsigned mask = stop_mode_mask;
-    reenable_irq(masked);
-    return mask;
-}
-
-int system_is_sleep_allowed(void)
-{
-    uint32_t masked = disable_irq();
-    bool res = sleep_mask == 0;
-    reenable_irq(masked);
-    return res;
-}
-
-void system_allow_sleep(system_module_t module)
-{
-    uint32_t masked = disable_irq();
-    sleep_mask &= ~module;
-    reenable_irq(masked);
-}
-
-void system_disallow_sleep(system_module_t module)
-{
-    uint32_t masked = disable_irq();
-    sleep_mask |= module;
-    reenable_irq(masked);
-}
-
-void system_sleep(void)
+void system_idle(void)
 {
     // Note: this function must be called with interrupts disabled
 
@@ -132,16 +75,16 @@ void system_sleep(void)
     if (!sysconf.sleep) return;
 
     // Do nothing if sleeping is prevented by a subsystem
-    if (sleep_mask) return;
+    if (system_sleep_lock) return;
 
-    if (stop_mode_mask) {
+    if (system_stop_lock) {
         // If Stop mode is prevented by a subsystem, enter the low-power sleep
         // mode only.
         HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFI);
     } else {
         // Enter the low-power Stop mode
 
-        system_on_enter_stop_mode();
+        system_before_stop();
 
         SET_BIT(PWR->CR, PWR_CR_CWUF);
         HAL_PWR_EnterSTOPMode(PWR_LOWPOWERREGULATOR_ON, PWR_STOPENTRY_WFI);
@@ -159,7 +102,7 @@ void system_sleep(void)
         while (__HAL_RCC_GET_SYSCLK_SOURCE() != RCC_SYSCLKSOURCE_STATUS_PLLCLK)
             continue;
 
-        system_on_exit_stop_mode();
+        system_after_stop();
     }
 }
 
@@ -370,11 +313,11 @@ void SysTick_Handler(void)
     HAL_IncTick();
 }
 
-__weak void system_on_enter_stop_mode(void)
+__weak void system_before_stop(void)
 {
 }
 
-__weak void system_on_exit_stop_mode(void)
+__weak void system_after_stop(void)
 {
 }
 

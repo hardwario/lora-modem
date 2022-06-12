@@ -3,13 +3,12 @@
 
 #include "common.h"
 
+extern volatile unsigned system_stop_lock;
+extern volatile unsigned system_sleep_lock;
+
 //! @brief System init
 
 void system_init(void);
-
-//! @brief Reset MCU
-
-void system_reset(void);
 
 //! @brief Get pseudo random seed generated using the MCU Unique ID
 
@@ -38,33 +37,17 @@ typedef enum
 } system_module_t;
 
 
-void system_allow_stop_mode(system_module_t module);
-
-void system_disallow_stop_mode(system_module_t module);
-
-bool system_is_stop_mode_allowed(void);
-
-unsigned system_get_stop_mode_mask(void);
-
-int system_is_sleep_allowed(void);
-
-void system_allow_sleep(system_module_t module);
-
-void system_disallow_sleep(system_module_t module);
-
-unsigned system_get_sleep_mask(void);
-
 //! @brief Go to low power, sleep mode or stop mode. The function must be
 //! invoked with interrupts disabled.
 
-void system_sleep(void);
+void system_idle(void);
 
 //! @brief This function call on enter to stop mode (weak)
 
-void system_on_enter_stop_mode(void);
+void system_before_stop(void);
 
 //! @brief This function call on exit from stop mode (weak)
 
-void system_on_exit_stop_mode(void);
+void system_after_stop(void);
 
 #endif

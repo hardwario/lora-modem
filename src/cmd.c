@@ -1256,7 +1256,7 @@ static void dbg(atci_param_t *param)
     // RF_RX_RUNNING, //!< The radio is in reception state
     // RF_TX_RUNNING, //!< The radio is in transmission state
     // RF_CAD,        //!< The radio is doing channel activity detection
-    atci_printf("$DBG: \"stop_mode_mask\",%d\r\n", system_get_stop_mode_mask());
+    atci_printf("$DBG: \"stop_mode_lock\",%d\r\n", system_stop_lock);
     atci_printf("$DBG: \"radio_state\",%d\r\n", Radio.GetStatus());
     OK_();
 }

@@ -53,7 +53,10 @@ void atci_process(void)
 {
     uint32_t masked;
     cbuf_view_t data;
-    system_allow_sleep(SYSTEM_MODULE_ATCI);
+
+    masked = disable_irq();
+    system_sleep_lock &= ~SYSTEM_MODULE_ATCI;
+    reenable_irq(masked);
 
     while (true)
     {
@@ -254,7 +257,10 @@ bool atci_set_read_next_data(size_t length, atci_encoding_t encoding, void (*cal
 void atci_abort_read_next_data(void)
 {
     _atci.aborted = true;
-    system_disallow_sleep(SYSTEM_MODULE_ATCI);
+    uint32_t mask = disable_irq();
+    system_sleep_lock |= SYSTEM_MODULE_ATCI;
+    reenable_irq(mask);
+
 }
 
 void atci_clac_action(atci_param_t *param)

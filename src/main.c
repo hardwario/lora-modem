@@ -49,13 +49,21 @@ int main(void)
 
         disable_irq();
 
-        // If the application scheduled a reset, perform it as soon as the MCU
-        // is allowed to sleep, which indicates that there is no more work to be
-        // done (e.g., NVM updates).
-        if (schedule_reset && system_is_sleep_allowed())
-            system_reset();
-        else
-            system_sleep();
+        // If the application has scheduled a system reset, postpone it until
+        // there are no more pending tasks. We don't really have the notion of
+        // tasks in the modem software, however, we can tell that nothing is
+        // going on once both low-power modes (sleep and stop) are not prevented
+        // by any of the subsystems. The low-power sleep mode is typically
+        // prevented if a subsystem requests that the application iteratures
+        // through its main loop as quickly as possible, e.g., to handle an ISR
+        // from the main thread. The stop mode can be prevented by hardware
+        // peripherals such as LPUART1, RTC, or SX1276 while they need to finish
+        // some background work.
+        if (schedule_reset && !system_sleep_lock && !system_stop_lock) {
+            NVIC_SystemReset();
+        } else {
+            system_idle();
+        }
 
         enable_irq();
 
@@ -66,18 +74,18 @@ int main(void)
 }
 
 
-void system_on_enter_stop_mode(void)
+void system_before_stop(void)
 {
     spi_io_deinit();
     sx1276io_deinit();
     adc_deinit();
-    lpuart_enter_stop_mode();
+    lpuart_before_stop();
 }
 
 
-void system_on_exit_stop_mode(void)
+void system_after_stop(void)
 {
-    lpuart_leave_stop_mode();
+    lpuart_after_stop();
     spi_io_init();
     sx1276io_init();
 }

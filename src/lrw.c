@@ -90,20 +90,27 @@ static void process_notify(void)
     //
     // Disable sleep so that LoRaMacProcess() gets a chance to run to process
     // the event.
-    system_disallow_sleep(SYSTEM_MODULE_LORA);
+    uint32_t mask = disable_irq();
+    system_sleep_lock |= SYSTEM_MODULE_LORA;
+    reenable_irq(mask);
 }
 
 
 static void save_state(void)
 {
+    uint32_t mask;
     LoRaMacNvmData_t *s;
 
     if (nvm_flags == LORAMAC_NVM_NOTIFY_FLAG_NONE) {
-        system_allow_sleep(SYSTEM_MODULE_NVM);
+        mask = disable_irq();
+        system_sleep_lock &= ~SYSTEM_MODULE_NVM;
+        reenable_irq(mask);
         return;
     }
 
-    system_disallow_sleep(SYSTEM_MODULE_NVM);
+    mask = disable_irq();
+    system_sleep_lock |= SYSTEM_MODULE_NVM;
+    reenable_irq(mask);
 
     s = lrw_get_state();
 
@@ -458,7 +465,7 @@ static void on_join_timer(void *ctx)
     // that the event gets a chance to be handled on the next run of the main
     // processing function in this module.
     (void)ctx;
-    system_disallow_sleep(SYSTEM_MODULE_LORA);
+    system_sleep_lock |= SYSTEM_MODULE_LORA;
     events |= RETRANSMIT_JOIN;
 }
 
@@ -826,11 +833,11 @@ int lrw_send(uint8_t port, void *buffer, uint8_t length, bool confirmed)
 
 void lrw_process()
 {
-    system_allow_sleep(SYSTEM_MODULE_LORA);
-
     uint32_t mask = disable_irq();
     unsigned ev = events;
     events = NO_EVENT;
+
+    system_sleep_lock &= ~SYSTEM_MODULE_LORA;
     reenable_irq(mask);
 
     if (ev & RETRANSMIT_JOIN) retransmit_join();
