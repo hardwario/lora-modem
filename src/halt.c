@@ -1,4 +1,5 @@
 #include "halt.h"
+#include <stm/STM32L0xx_HAL_Driver/Inc/stm32l0xx_ll_exti.h>
 #include "lpuart.h"
 #include "log.h"
 #include "system.h"
@@ -6,7 +7,7 @@
 #include "irq.h"
 
 
-void halt(const char *msg)
+__attribute__((noreturn)) void halt(const char *msg)
 {
 #if defined(DEBUG)
     const char prefix[] = "Halted";
@@ -22,10 +23,21 @@ void halt(const char *msg)
     lpuart_flush();
 
     disable_irq();
-    // Note that if there are any pending interrupts, the MCU will not enter
-    // Sleep or Stop modes and the loop below will keep spinning.
 
-    for(;;) {
-        system_idle();
-    }
+    // Make sure we can enter the low-power Stop mode
+    system_sleep_lock = 0;
+    system_stop_lock = 0;
+
+    // Mask all EXTI interrupts and events to make sure we're not woken up. The
+    // only means of recovering from halt should be via the external reset pin.
+    // This is to ensure that the LoRa modem doesn't drain the device's battery
+    // while being halted due to an irrecoverable error.
+    EXTI->IMR = LL_EXTI_LINE_NONE;
+    EXTI->EMR = LL_EXTI_LINE_NONE;
+
+    // Hopefully, we will be able to enter the low-power Stop mode now. Note
+    // that if there are any pending interrupts, the MCU will not enter Sleep or
+    // Stop modes and the loop below will keep spinning. We have tried
+    // preventing that by masking all EXTI interrupts and events above.
+    for(;;) system_idle();
 }
