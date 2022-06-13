@@ -17,42 +17,44 @@ static bool sx1276io_radio_is_active = false;
 
 void sx1276io_init(void)
 {
-    GPIO_InitTypeDef initStruct = {0};
+    GPIO_InitTypeDef cfg = {
+        .Mode = GPIO_MODE_IT_RISING_FALLING,
+        .Pull = GPIO_PULLUP,
+        .Speed = GPIO_SPEED_HIGH
+    };
 
-    initStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
-    initStruct.Pull = GPIO_PULLUP;
-    initStruct.Speed = GPIO_SPEED_HIGH;
-    gpio_init(RADIO_DIO_1_PORT, RADIO_DIO_1_PIN, &initStruct);
+    gpio_init(RADIO_DIO_1_PORT, RADIO_DIO_1_PIN, &cfg);
 
-    initStruct.Mode = GPIO_MODE_IT_RISING;
-    gpio_init(RADIO_DIO_0_PORT, RADIO_DIO_0_PIN, &initStruct);
-    gpio_init(RADIO_DIO_2_PORT, RADIO_DIO_2_PIN, &initStruct);
-    gpio_init(RADIO_DIO_3_PORT, RADIO_DIO_3_PIN, &initStruct);
-    gpio_init(RADIO_DIO_4_PORT, RADIO_DIO_4_PIN, &initStruct);
+    cfg.Mode = GPIO_MODE_IT_RISING;
+    gpio_init(RADIO_DIO_0_PORT, RADIO_DIO_0_PIN, &cfg);
+    gpio_init(RADIO_DIO_2_PORT, RADIO_DIO_2_PIN, &cfg);
+    gpio_init(RADIO_DIO_3_PORT, RADIO_DIO_3_PIN, &cfg);
+    gpio_init(RADIO_DIO_4_PORT, RADIO_DIO_4_PIN, &cfg);
 
     // RADIO_TCXO_POWER
     static bool initialized = false;
     if (!initialized) {
-        initStruct.Mode = GPIO_MODE_OUTPUT_PP;
-        initStruct.Pull = GPIO_NOPULL;
+        cfg.Mode = GPIO_MODE_OUTPUT_PP;
+        cfg.Pull = GPIO_NOPULL;
         gpio_write(RADIO_TCXO_VCC_PORT, RADIO_TCXO_VCC_PIN, 0);
-        gpio_init(RADIO_TCXO_VCC_PORT, RADIO_TCXO_VCC_PIN, &initStruct);
+        gpio_init(RADIO_TCXO_VCC_PORT, RADIO_TCXO_VCC_PIN, &cfg);
         initialized = true;
     }
 }
 
 void sx1276io_deinit(void)
 {
-    GPIO_InitTypeDef initStruct = {0};
-    initStruct.Mode = GPIO_MODE_ANALOG;
-    initStruct.Pull = GPIO_NOPULL;
+    GPIO_InitTypeDef cfg = {
+        .Mode = GPIO_MODE_ANALOG,
+        .Pull = GPIO_NOPULL
+    };
 
-    gpio_init(RADIO_DIO_0_PORT, RADIO_DIO_0_PIN, &initStruct);
-    gpio_init(RADIO_DIO_1_PORT, RADIO_DIO_1_PIN, &initStruct);
-    gpio_init(RADIO_DIO_2_PORT, RADIO_DIO_2_PIN, &initStruct);
-    gpio_init(RADIO_DIO_3_PORT, RADIO_DIO_3_PIN, &initStruct);
-    gpio_init(RADIO_DIO_4_PORT, RADIO_DIO_4_PIN, &initStruct);
-    gpio_init(RADIO_DIO_5_PORT, RADIO_DIO_5_PIN, &initStruct);
+    gpio_init(RADIO_DIO_0_PORT, RADIO_DIO_0_PIN, &cfg);
+    gpio_init(RADIO_DIO_1_PORT, RADIO_DIO_1_PIN, &cfg);
+    gpio_init(RADIO_DIO_2_PORT, RADIO_DIO_2_PIN, &cfg);
+    gpio_init(RADIO_DIO_3_PORT, RADIO_DIO_3_PIN, &cfg);
+    gpio_init(RADIO_DIO_4_PORT, RADIO_DIO_4_PIN, &cfg);
+    gpio_init(RADIO_DIO_5_PORT, RADIO_DIO_5_PIN, &cfg);
 }
 
 void sx1276io_irq_init(DioIrqHandler **irqHandlers)
