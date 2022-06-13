@@ -54,57 +54,45 @@ void spi_deinit(void)
 
 void spi_io_init(void)
 {
-    GPIO_InitTypeDef initStruct = {0};
+    GPIO_InitTypeDef cfg = {
+        .Mode = GPIO_MODE_AF_PP,
+        .Pull = GPIO_NOPULL,
+        .Speed = GPIO_SPEED_HIGH,
+        .Alternate = GPIO_AF0_SPI1
+    };
 
-    initStruct.Mode = GPIO_MODE_AF_PP;
-    initStruct.Pull = GPIO_NOPULL;
-    initStruct.Speed = GPIO_SPEED_HIGH;
-    initStruct.Alternate = GPIO_AF0_SPI1;
+    gpio_init(RADIO_SCLK_PORT, RADIO_SCLK_PIN, &cfg);
+    gpio_init(RADIO_MOSI_PORT, RADIO_MOSI_PIN, &cfg);
 
-    gpio_init(RADIO_SCLK_PORT, RADIO_SCLK_PIN, &initStruct);
-    gpio_init(RADIO_MOSI_PORT, RADIO_MOSI_PIN, &initStruct);
+    cfg.Pull = GPIO_PULLDOWN;
+    gpio_init(RADIO_MISO_PORT, RADIO_MISO_PIN, &cfg);
 
-    initStruct.Pull = GPIO_PULLDOWN;
-    gpio_init(RADIO_MISO_PORT, RADIO_MISO_PIN, &initStruct);
-
-    initStruct.Mode = GPIO_MODE_OUTPUT_PP;
-    initStruct.Pull = GPIO_NOPULL;
-
-    gpio_init(RADIO_NSS_PORT, RADIO_NSS_PIN, &initStruct);
+    cfg.Mode = GPIO_MODE_OUTPUT_PP;
+    cfg.Pull = GPIO_NOPULL;
+    gpio_init(RADIO_NSS_PORT, RADIO_NSS_PIN, &cfg);
     gpio_write(RADIO_NSS_PORT, RADIO_NSS_PIN, 1);
 }
 
 void spi_io_deinit(void)
 {
-    GPIO_InitTypeDef initStruct = {0};
+    GPIO_InitTypeDef cfg = {
+        .Mode = GPIO_MODE_OUTPUT_PP,
+        .Pull = GPIO_NOPULL
+    };
 
-    // initStruct.Mode = GPIO_MODE_ANALOG;
-    // initStruct.Pull = GPIO_NOPULL;
-    // gpio_init(RADIO_MOSI_PORT, RADIO_MOSI_PIN, &initStruct);
-    // gpio_init(RADIO_MISO_PORT, RADIO_MISO_PIN, &initStruct);
-    // gpio_init(RADIO_SCLK_PORT, RADIO_SCLK_PIN, &initStruct);
-    // // gpio_init(RADIO_NSS_PORT, RADIO_NSS_PIN, &initStruct);
-    // gpio_write(RADIO_NSS_PORT, RADIO_NSS_PIN, 1);
-
-    initStruct.Mode = GPIO_MODE_OUTPUT_PP;
-
-    initStruct.Pull = GPIO_NOPULL;
-    gpio_init(RADIO_MOSI_PORT, RADIO_MOSI_PIN, &initStruct);
+    gpio_init(RADIO_MOSI_PORT, RADIO_MOSI_PIN, &cfg);
     gpio_write(RADIO_MOSI_PORT, RADIO_MOSI_PIN, 0);
 
-    initStruct.Pull = GPIO_NOPULL;
-    gpio_init(RADIO_SCLK_PORT, RADIO_SCLK_PIN, &initStruct);
+    gpio_init(RADIO_SCLK_PORT, RADIO_SCLK_PIN, &cfg);
     gpio_write(RADIO_SCLK_PORT, RADIO_SCLK_PIN, 0);
 
-    initStruct.Pull = GPIO_NOPULL;
-    gpio_init(RADIO_NSS_PORT, RADIO_NSS_PIN, &initStruct);
+    gpio_init(RADIO_NSS_PORT, RADIO_NSS_PIN, &cfg);
     gpio_write(RADIO_NSS_PORT, RADIO_NSS_PIN, 1);
 
-    initStruct.Mode = GPIO_MODE_INPUT;
-    initStruct.Pull = GPIO_PULLDOWN;
+    cfg.Mode = GPIO_MODE_INPUT;
+    cfg.Pull = GPIO_PULLDOWN;
     gpio_write(RADIO_MISO_PORT, RADIO_MISO_PIN, 0);
-    gpio_init(RADIO_MISO_PORT, RADIO_MISO_PIN, &initStruct);
-
+    gpio_init(RADIO_MISO_PORT, RADIO_MISO_PIN, &cfg);
 }
 
 uint8_t spi_transfer(uint8_t tx)
