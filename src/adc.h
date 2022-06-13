@@ -1,11 +1,15 @@
 #ifndef _ADC_H
 #define _ADC_H
 
-#include "common.h"
+#include <stdint.h>
 
 //! @brief Initializes the ADC input
 
 void adc_init(void);
+
+void adc_before_stop(void);
+
+void adc_after_stop(void);
 
 //! @brief DeInitializes the ADC
 

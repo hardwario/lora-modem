@@ -76,9 +76,9 @@ int main(void)
 
 void system_before_stop(void)
 {
-    spi_io_deinit();
     sx1276io_deinit();
-    adc_deinit();
+    spi_io_deinit();
+    adc_before_stop();
     lpuart_before_stop();
 }
 
@@ -86,6 +86,7 @@ void system_before_stop(void)
 void system_after_stop(void)
 {
     lpuart_after_stop();
+    adc_after_stop();
     spi_io_init();
     sx1276io_init();
 }
