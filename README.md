@@ -4,8 +4,8 @@ The aim of this project is to develop open source firmware for the [Type ABZ](ht
 
 ## Main Features
 
-* Support for [LoRaWAN 1.0.4](https://resources.lora-alliance.org/technical-specifications/ts001-1-0-4-lorawan-l2-1-0-4-specification), [LoRaWAN 1.1](https://resources.lora-alliance.org/technical-specifications/lorawan-specification-v1-1), and regional parameters [RP2-1.0.1](https://resources.lora-alliance.org/technical-specifications/rp2-1-0-1-lorawan-regional-parameters)
-* Based on the most recent version (4.6.0) of [LoRaMac-node](https://github.com/Lora-net/LoRaMac-node)
+* Support for [LoRaWAN 1.0.4](https://resources.lora-alliance.org/technical-specifications/ts001-1-0-4-lorawan-l2-1-0-4-specification), [LoRaWAN 1.1](https://resources.lora-alliance.org/technical-specifications/lorawan-specification-v1-1), and regional parameters [RP2-1.0.3](https://resources.lora-alliance.org/technical-specifications/rp2-1-0-3-lorawan-regional-parameters)
+* Based on the most recent version (unreleased 4.7.0) of [LoRaMac-node](https://github.com/Lora-net/LoRaMac-node)
 * Support for multiple regions configurable at runtime
 * All persistent LoRaWAN MAC data stored in NVM (EEPROM)
 
