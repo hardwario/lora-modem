@@ -188,10 +188,20 @@ static void get_model(void)
 
 static void reboot(atci_param_t *param)
 {
-    (void)param;
-    OK_();
-    schedule_reset = true;
-    atci_flush();
+    int hard = 0;
+
+    if (param != NULL) {
+        hard = parse_enabled(param);
+        if (hard == -1) abort(ERR_PARAM);
+    }
+
+    if (hard) {
+        NVIC_SystemReset();
+    } else {
+        OK_();
+        schedule_reset = true;
+        atci_flush();
+    }
 }
 
 
@@ -1658,7 +1668,7 @@ static const atci_command_t cmds[] = {
     {"+UART",        NULL,    set_uart,         get_uart,         NULL, "Configure UART interface"},
     {"+VER",         NULL,    NULL,             get_version_comp, NULL, "Firmware version and build time"},
     {"+DEV",         NULL,    NULL,             get_model,        NULL, "Device model"},
-    {"+REBOOT",      reboot,  NULL,             NULL,             NULL, "Reboot"},
+    {"+REBOOT",      reboot,  NULL,             NULL,             NULL, "Reboot the modem"},
     {"+FACNEW",      facnew,  facnew,           NULL,             NULL, "Restore modem to factory defaults"},
     {"+BAND",        NULL,    set_band,         get_band,         NULL, "Configure radio band (region)"},
     {"+CLASS",       NULL,    set_class,        get_class,        NULL, "Configure LoRaWAN class"},
