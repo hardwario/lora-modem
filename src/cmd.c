@@ -1679,7 +1679,7 @@ static const atci_command_t cmds[] = {
     {"+NWKSKEY",     NULL,    set_nwkskey,      get_nwkskey,      NULL, "Configure NwkSKey (LoRaWAN 1.0)"},
     {"+APPSKEY",     NULL,    set_appskey,      get_appskey,      NULL, "Configure AppSKey"},
     {"+APPKEY",      NULL,    set_appkey_10,    get_appkey,       NULL, "Configure AppKey (LoRaWAN 1.0)"},
-    {"+JOIN",        join,    join,             NULL,             NULL, "Send OTAA Join packet"},
+    {"+JOIN",        join,    NULL,             NULL,             NULL, "Send OTAA Join packet"},
     {"+JOINDC",      NULL,    set_joindc,       get_joindc,       NULL, "Configure OTAA Join duty cycling"},
     {"+LNCHECK",     lncheck, lncheck,          NULL,             NULL, "Perform link check"},
     // {"+RFPARAM",     NULL,    set_rfparam,      get_rfparam,      NULL, "Configure RF channel parameters"},
