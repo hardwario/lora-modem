@@ -1669,7 +1669,7 @@ static const atci_command_t cmds[] = {
     {"+VER",         NULL,    NULL,             get_version_comp, NULL, "Firmware version and build time"},
     {"+DEV",         NULL,    NULL,             get_model,        NULL, "Device model"},
     {"+REBOOT",      reboot,  NULL,             NULL,             NULL, "Reboot the modem"},
-    {"+FACNEW",      facnew,  facnew,           NULL,             NULL, "Restore modem to factory defaults"},
+    {"+FACNEW",      facnew,  NULL,             NULL,             NULL, "Restore modem to factory defaults"},
     {"+BAND",        NULL,    set_band,         get_band,         NULL, "Configure radio band (region)"},
     {"+CLASS",       NULL,    set_class,        get_class,        NULL, "Configure LoRaWAN class"},
     {"+MODE",        NULL,    set_mode,         get_mode,         NULL, "Configure activation mode (1:OTTA 0:ABP)"},
