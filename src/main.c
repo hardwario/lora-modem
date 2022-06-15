@@ -21,6 +21,7 @@
 
 int main(void)
 {
+    int busy;
     system_init();
 
 #ifdef DEBUG
@@ -58,8 +59,16 @@ int main(void)
         // through its main loop as quickly as possible, e.g., to handle an ISR
         // from the main thread. The stop mode can be prevented by hardware
         // peripherals such as LPUART1, RTC, or SX1276 while they need to finish
-        // some background work.
-        if (schedule_reset && !system_sleep_lock && !system_stop_lock) {
+        // some background work. We specifically ignore the RADIO subsystem in
+        // the code below and instead rely on LoRaMacIsBusy to tell us whether
+        // the MAC subsystem (which owns the radio) is busy. This will allow a
+        // reboot in class C where the radio is continuously listening. This
+        // heuristic to determine when to perform the reset is a bit hackish,
+        // but it's the best we can do in the absence of better activity
+        // tracking mechanism.
+
+        busy = system_sleep_lock | (system_stop_lock & ~SYSTEM_MODULE_RADIO);
+        if (schedule_reset && !busy && !LoRaMacIsBusy()) {
             NVIC_SystemReset();
         } else {
             system_idle();
