@@ -12,6 +12,7 @@ extern "C"
 #include "gpio.h"
 #include "spi.h"
 #include "sx1276io.h"
+
 /*!
  * \brief Radio hardware registers initialization definition
  *
@@ -37,16 +38,8 @@ extern "C"
     { MODEM_LORA, REG_LR_PAYLOADMAXLENGTH, 0x40 },\
 }                                                 \
 
-#define RF_MID_BAND_THRESH                          525000000
+#define RF_MID_BAND_THRESH 525000000
 
-#define SX1276IoIrqInit sx1276io_irq_init
-#define SX1276Reset sx1276io_reset
-#define SX1276SetBoardTcxo sx1276io_set_tcxo
-#define SX1276SetRfTxPower sx1276io_rf_tx_set_power
-#define SX1276SetAntSwLowPower sx1276io_ant_set_sw_low_power
-#define SX1276SetAntSw sx1276io_ant_set_sw
-#define SX1276GetBoardTcxoWakeupTime sx1276io_get_tcxo_wakeup_time
-#define SX1276GetDio1PinState sx1276io_get_dio1_state
 
 // Radio hardware and global parameters
 extern SX1276_t SX1276;

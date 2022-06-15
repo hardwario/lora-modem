@@ -65,15 +65,15 @@ static const char *coderate2str(uint8_t coderate)
 static bool SX1276CheckRfFrequency(__attribute__((unused)) uint32_t frequency)
 {
     // Implement check. Currently all frequencies are supported
-    log_debug("SX1276: CheckRfFrequency: %ld", frequency);
+    log_debug("SX1276CheckRfFrequency: %ld", frequency);
     return true;
 }
 
 
 void SetChannel(uint32_t freq)
 {
+    log_debug("SX1276SetChannel: %.3f MHz", (float)freq / (float)1000000);
     SX1276SetChannel(freq);
-    log_debug("SX1276: SetChannel: %.3f MHz", (float)freq / (float)1000000);
 }
 
 
@@ -82,13 +82,9 @@ void SetTxConfig(RadioModems_t modem, int8_t power, uint32_t fdev,
     uint16_t preambleLen, bool fixLen, bool crcOn, bool freqHopOn,
     uint8_t hopPeriod, bool iqInverted, uint32_t timeout)
 {
-    SX1276SetTxConfig(modem, power, fdev, bandwidth, datarate, coderate,
-        preambleLen, fixLen, crcOn, freqHopOn, hopPeriod, iqInverted,
-        timeout);
-
 #if defined (DEBUG)
     log_compose();
-    log_debug("SX1276: SetTxConfig: %d dBm", power);
+    log_debug("SX1276SetTxConfig: %d dBm", power);
     log_debug(" %s", modem2str(modem));
 
     if (modem == MODEM_LORA) {
@@ -109,20 +105,21 @@ void SetTxConfig(RadioModems_t modem, int8_t power, uint32_t fdev,
     log_debug(" tout=%ldms", timeout);
     log_finish();
 #endif
+
+    SX1276SetTxConfig(modem, power, fdev, bandwidth, datarate, coderate,
+        preambleLen, fixLen, crcOn, freqHopOn, hopPeriod, iqInverted,
+        timeout);
 }
+
 
 void SetRxConfig(RadioModems_t modem, uint32_t bandwidth, uint32_t datarate,
     uint8_t coderate, uint32_t bandwidthAfc, uint16_t preambleLen,
     uint16_t symbTimeout, bool fixLen, uint8_t payloadLen, bool crcOn,
     bool freqHopOn, uint8_t hopPeriod, bool iqInverted, bool rxContinuous)
 {
-    SX1276SetRxConfig(modem, bandwidth, datarate, coderate, bandwidthAfc,
-        preambleLen, symbTimeout, fixLen, payloadLen, crcOn, freqHopOn,
-        hopPeriod, iqInverted, rxContinuous);
-
 #if defined (DEBUG)
     log_compose();
-    log_debug("SX1276: SetRxConfig: %s", modem2str(modem));
+    log_debug("SX1276SetRxConfig: %s", modem2str(modem));
 
     if (modem == MODEM_LORA) {
         log_debug(" %s/%s %s", lora_sf2str(datarate),
@@ -148,6 +145,10 @@ void SetRxConfig(RadioModems_t modem, uint32_t bandwidth, uint32_t datarate,
 
     log_finish();
 #endif
+
+    SX1276SetRxConfig(modem, bandwidth, datarate, coderate, bandwidthAfc,
+        preambleLen, symbTimeout, fixLen, payloadLen, crcOn, freqHopOn,
+        hopPeriod, iqInverted, rxContinuous);
 }
 
 
