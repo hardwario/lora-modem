@@ -115,86 +115,72 @@ static void save_state(void)
     s = lrw_get_state();
 
     if (nvm_flags & LORAMAC_NVM_NOTIFY_FLAG_CRYPTO) {
-        if (LoRaMacStop() == LORAMAC_STATUS_BUSY) return;
+        if (LoRaMacIsBusy()) return;
 
         log_debug("Saving Crypto state to NVM");
         if (!part_write(&nvm_parts.crypto, 0, &s->Crypto, sizeof(s->Crypto)))
             log_error("Error while writing Crypto state to NVM");
         nvm_flags &= ~LORAMAC_NVM_NOTIFY_FLAG_CRYPTO;
-
-        LoRaMacStart();
         return;
     }
 
     if (nvm_flags & LORAMAC_NVM_NOTIFY_FLAG_MAC_GROUP1) {
-        if (LoRaMacStop() == LORAMAC_STATUS_BUSY) return;
+        if (LoRaMacIsBusy()) return;
 
         log_debug("Saving MacGroup1 state to NVM");
         if (!part_write(&nvm_parts.mac1, 0, &s->MacGroup1, sizeof(s->MacGroup1)))
             log_error("Error while writing MacGroup1 state to NVM");
         nvm_flags &= ~LORAMAC_NVM_NOTIFY_FLAG_MAC_GROUP1;
-
-        LoRaMacStart();
         return;
     }
 
     if (nvm_flags & LORAMAC_NVM_NOTIFY_FLAG_MAC_GROUP2) {
-        if (LoRaMacStop() == LORAMAC_STATUS_BUSY) return;
+        if (LoRaMacIsBusy()) return;
 
         log_debug("Saving MacGroup2 state to NVM");
         if (!part_write(&nvm_parts.mac2, 0, &s->MacGroup2, sizeof(s->MacGroup2)))
             log_error("Error while writing MacGroup2 state to NVM");
         nvm_flags &= ~LORAMAC_NVM_NOTIFY_FLAG_MAC_GROUP2;
-
-        LoRaMacStart();
         return;
     }
 
     if (nvm_flags & LORAMAC_NVM_NOTIFY_FLAG_SECURE_ELEMENT) {
-        if (LoRaMacStop() == LORAMAC_STATUS_BUSY) return;
+        if (LoRaMacIsBusy()) return;
 
         log_debug("Saving SecureElement state to NVM");
         if (!part_write(&nvm_parts.se, 0, &s->SecureElement, sizeof(s->SecureElement)))
             log_error("Error while writing SecureElement state to NVM");
         nvm_flags &= ~LORAMAC_NVM_NOTIFY_FLAG_SECURE_ELEMENT;
-
-        LoRaMacStart();
         return;
     }
 
     if (nvm_flags & LORAMAC_NVM_NOTIFY_FLAG_REGION_GROUP1) {
-        if (LoRaMacStop() == LORAMAC_STATUS_BUSY) return;
+        if (LoRaMacIsBusy()) return;
 
         log_debug("Saving RegionGroup1 state to NVM");
         if (!part_write(&nvm_parts.region1, 0, &s->RegionGroup1, sizeof(s->RegionGroup1)))
             log_error("Error while writing RegionGroup1 state to NVM");
         nvm_flags &= ~LORAMAC_NVM_NOTIFY_FLAG_REGION_GROUP1;
-
-        LoRaMacStart();
         return;
     }
 
     if (nvm_flags & LORAMAC_NVM_NOTIFY_FLAG_REGION_GROUP2) {
-        if (LoRaMacStop() == LORAMAC_STATUS_BUSY) return;
+        if (LoRaMacIsBusy()) return;
 
         log_debug("Saving RegionGroup2 state to NVM");
         if (!part_write(&nvm_parts.region2, 0, &s->RegionGroup2, sizeof(s->RegionGroup2)))
             log_error("Error while writing RegionGroup2 state to NVM");
         nvm_flags &= ~LORAMAC_NVM_NOTIFY_FLAG_REGION_GROUP2;
-
-        LoRaMacStart();
         return;
     }
 
     if (nvm_flags & LORAMAC_NVM_NOTIFY_FLAG_CLASS_B) {
-        if (LoRaMacStop() == LORAMAC_STATUS_BUSY) return;
+        if (LoRaMacIsBusy()) return;
 
         log_debug("Saving ClassB state to NVM");
         if (!part_write(&nvm_parts.classb, 0, &s->ClassB, sizeof(s->ClassB)))
             log_error("Error while writing ClassB state to NVM");
         nvm_flags &= ~LORAMAC_NVM_NOTIFY_FLAG_CLASS_B;
-
-        LoRaMacStart();
         return;
     }
 }
