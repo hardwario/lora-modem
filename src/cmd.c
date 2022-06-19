@@ -1634,7 +1634,7 @@ static void get_session(void)
 {
     MibRequestConfirm_t r;
 
-    atci_print("OK=");
+    atci_print("+OK=");
 
     r.Type = MIB_PUBLIC_NETWORK;
     LoRaMacMibGetRequestConfirm(&r);
