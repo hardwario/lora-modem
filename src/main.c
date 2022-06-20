@@ -67,8 +67,8 @@ int main(void)
         // but it's the best we can do in the absence of better activity
         // tracking mechanism.
 
-        busy = system_sleep_lock | (system_stop_lock & ~SYSTEM_MODULE_RADIO);
-        if (schedule_reset && !busy && !LoRaMacIsBusy()) {
+        busy = system_sleep_lock | (system_stop_lock & ~SYSTEM_MODULE_RADIO) | LoRaMacIsBusy();
+        if (schedule_reset && !busy) {
             NVIC_SystemReset();
         } else {
             system_idle();

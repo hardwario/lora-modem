@@ -1277,8 +1277,8 @@ static void dbg(atci_param_t *param)
     // RF_RX_RUNNING, //!< The radio is in reception state
     // RF_TX_RUNNING, //!< The radio is in transmission state
     // RF_CAD,        //!< The radio is doing channel activity detection
-    atci_printf("$DBG: sleep_lock=%d stop_lock=%d radio_state=%d\r\n",
-        system_sleep_lock, system_stop_lock, Radio.GetStatus());
+    atci_printf("$DBG: sleep_lock=%d stop_lock=%d radio_state=%d loramac_busy=%d\r\n",
+        system_sleep_lock, system_stop_lock, Radio.GetStatus(), LoRaMacIsBusy());
     OK_();
 }
 #endif
