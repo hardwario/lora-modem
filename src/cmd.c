@@ -1,6 +1,7 @@
 #include "cmd.h"
 #include <loramac-node/src/radio/radio.h>
 #include <loramac-node/src/radio/sx1276/sx1276.h>
+#include <loramac-node/src/mac/secure-element.h>
 #include <loramac-node/src/mac/secure-element-nvm.h>
 #include <loramac-node/src/mac/LoRaMacTest.h>
 #include <loramac-node/src/mac/LoRaMacCrypto.h>
@@ -218,12 +219,28 @@ static void reboot(atci_param_t *param)
 
 static void facnew(atci_param_t *param)
 {
-    int preserve_nonce = 1;
-    uint16_t nonce = lrw_get_state()->Crypto.DevNonce;
+    uint32_t flags = 0;
+    uint16_t dev_nonce = 0;
+    uint8_t dev_eui[SE_EUI_SIZE];
+
+#define PRESERVE_DEVNONCE(flags) (((flags) & (1 << 0)) == 0)
+#define PRESERVE_DEVEUI(flags) (((flags) & (1 << 1)) == 0)
 
     if (param != NULL) {
-        preserve_nonce = !parse_enabled(param);
-        if (preserve_nonce == -1) abort(ERR_PARAM);
+        if (!atci_param_get_uint(param, &flags))
+            abort(ERR_PARAM);
+    }
+
+    if (PRESERVE_DEVNONCE(flags)) {
+        // If bit 0 is not set, the application is not asking for DevNonce to
+        // be reset. In that case, make a copy of the current DevNonce value.
+        dev_nonce = lrw_get_state()->Crypto.DevNonce;
+    }
+
+    if (PRESERVE_DEVEUI(flags)) {
+        // If bit 1 is not set, the application is not asking for DevEUI to be
+        // reset. In that case, make a copy of the current DevEUI value.
+        memcpy(dev_eui, SecureElementGetDevEui(), SE_EUI_SIZE);
     }
 
     if (LoRaMacStop() != LORAMAC_STATUS_OK)
@@ -233,30 +250,55 @@ static void facnew(atci_param_t *param)
     if (nvm_erase() == 0) {
         cmd_event(CMD_EVENT_MODULE, CMD_MODULE_FACNEW);
 
+        // Re-initialize NVM so that we can preserve some of the values in it if
+        // we have to, depending on the flags.
+        nvm_init();
+
         // Unless the application explicitly asks for the DevNonce to be also
         // reset, we preserve the original value to make sure that OTAA Join
         // continues working from this device after factory reset.
-        if (preserve_nonce) {
-            log_debug("Preserving original DevNonce value (%d)", nonce);
+        if (PRESERVE_DEVNONCE(flags)) {
+            log_debug("Preserving original DevNonce (%d)", dev_nonce);
 
             // To preserve DevNonce, we create a new NVM crypto data structure,
             // initialize it, restore the DevNonce attribute and update the CRC.
             LoRaMacCryptoNvmData_t c;
-            LoRaMacCryptoInit(&c);
-            c.DevNonce = nonce;
+            if (LoRaMacCryptoInit(&c) != LORAMAC_CRYPTO_SUCCESS)
+                log_error("Error while reinitializing crypto NVM partition");
+
+            c.DevNonce = dev_nonce;
             update_block_crc(&c, sizeof(c));
 
-            // We then reopen the NVM block device and write the data structure
-            // initialized in the previous step into the crypto part.
-            nvm_init();
+            // Write the data structure initialized in the previous step into
+            // the crypto part.
             if (!part_write(&nvm_parts.crypto, 0, &c, sizeof(c)))
                 log_error("Error while saving DevNonce to NVM during factory reset");
         } else {
-            log_debug("Resetting DevNonce value to 0");
+            log_debug("Resetting DevNonce 0");
+        }
+
+        if (PRESERVE_DEVEUI(flags)) {
+            log_debug("Preserving original DevEUI");
+
+            SecureElementNvmData_t s;
+            if (SecureElementInit(&s) != SECURE_ELEMENT_SUCCESS)
+                log_error("Error while reinitializing crypto NVM partition");
+
+            memcpy(s.DevEui, dev_eui, SE_EUI_SIZE);
+            update_block_crc(&s, sizeof(s));
+
+            // Write the data structure initialized in the previous step into
+            // the secure element part.
+            if (!part_write(&nvm_parts.se, 0, &s, sizeof(s)))
+                log_error("Error while saving DevEUI to NVM during factory reset");
+        } else {
+            log_debug("Resetting DevEUI");
         }
 
         schedule_reset = true;
         atci_flush();
+    } else {
+        log_error("Error while erasing NVM during factory reset");
     }
 }
 
