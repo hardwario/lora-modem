@@ -11,7 +11,7 @@ The aim of this project is to develop open source firmware for the [Type ABZ](ht
 
 [A note on LoRaWAN 1.1 compatibility](https://github.com/hardwario/lora-modem-abz/wiki/LoRaWAN-1.1-Compatibility)
 
-The project also provides a [Python library and command line tool](./python) for managing TypeABZ LoRa modules. See this [README](./python/README.md) for more information.
+The project also provides a [Python library and command line tool](./python) for managing TypeABZ LoRa modems. See this [README](./python/README.md) for more information.
 
 ## Building
 
