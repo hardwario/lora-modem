@@ -87,9 +87,10 @@ size_t atci_write(const char *buffer, size_t length);
 //! @param[in] param Param instance
 //! @param[in] buffer Pointer to destination buffer
 //! @param[in] length Number of bytes to be read
+//! @param[in] param_length Maximum number of bytes to consume from param
 //! @return Number of bytes read
 
-size_t atci_param_get_buffer_from_hex(atci_param_t *param, void *buffer, size_t length);
+size_t atci_param_get_buffer_from_hex(atci_param_t *param, void *buffer, size_t length, size_t param_length);
 
 //! @brief Parse string to uint and move parsing cursor forward
 //! @param[in] param Param instance

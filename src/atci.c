@@ -161,32 +161,31 @@ static int hex2bin(char c)
     }
 }
 
-size_t atci_param_get_buffer_from_hex(atci_param_t *param, void *buffer, size_t length)
+size_t atci_param_get_buffer_from_hex(atci_param_t *param, void *buffer, size_t length, size_t param_length)
 {
-    if ((buffer == NULL) || (length < (param->length - param->offset) / 2))
-    {
+    char c;
+    size_t i, max_i = length * 2, l = 0;
+    int temp;
+
+    if (param_length == 0) {
+        param_length = param->length - param->offset;
+    } else if ((param->length - param->offset) < param_length) {
         return 0;
     }
 
-    char c;
-    size_t i;
-    size_t max_i = length * 2;
-    int temp;
-    size_t l = 0;
+    if ((buffer == NULL) || (length < param_length / 2)) {
+        return 0;
+    }
 
-    for (i = 0; (i < max_i) && (param->offset < param->length); i++)
-    {
+    for (i = 0; (i < max_i) && (param_length - i); i++) {
         c = param->txt[param->offset++];
 
         temp = hex2bin(c);
         if (temp < 0) return 0;
 
-        if (i % 2 == 0)
-        {
+        if (i % 2 == 0) {
             ((uint8_t *)buffer)[l] = temp << 4;
-        }
-        else
-        {
+        } else {
             ((uint8_t *)buffer)[l++] |= temp;
         }
     }

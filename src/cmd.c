@@ -380,7 +380,7 @@ static void get_devaddr(void)
 static void set_devaddr(atci_param_t *param)
 {
     uint32_t buf;
-    if (atci_param_get_buffer_from_hex(param, &buf, sizeof(buf)) != sizeof(buf))
+    if (atci_param_get_buffer_from_hex(param, &buf, sizeof(buf), 0) != sizeof(buf))
         abort(ERR_PARAM);
 
     MibRequestConfirm_t r = {
@@ -406,7 +406,7 @@ static void get_deveui(void)
 static void set_deveui(atci_param_t *param)
 {
     uint8_t eui[SE_EUI_SIZE];
-    if (atci_param_get_buffer_from_hex(param, eui, SE_EUI_SIZE) != SE_EUI_SIZE)
+    if (atci_param_get_buffer_from_hex(param, eui, SE_EUI_SIZE, 0) != SE_EUI_SIZE)
         abort(ERR_PARAM);
 
     MibRequestConfirm_t r = {
@@ -432,7 +432,7 @@ static void get_joineui(void)
 static void set_joineui(atci_param_t *param)
 {
     uint8_t eui[SE_EUI_SIZE];
-    if (atci_param_get_buffer_from_hex(param, eui, SE_EUI_SIZE) != SE_EUI_SIZE)
+    if (atci_param_get_buffer_from_hex(param, eui, SE_EUI_SIZE, 0) != SE_EUI_SIZE)
         abort(ERR_PARAM);
 
     MibRequestConfirm_t r = {
@@ -463,7 +463,7 @@ static void set_nwkskey(atci_param_t *param)
 {
     uint8_t key[SE_KEY_SIZE];
 
-    if (atci_param_get_buffer_from_hex(param, key, SE_KEY_SIZE) != SE_KEY_SIZE)
+    if (atci_param_get_buffer_from_hex(param, key, SE_KEY_SIZE, 0) != SE_KEY_SIZE)
         abort(ERR_PARAM);
 
     // We implement a mode compatible with the original Type ABZ firmware which
@@ -510,7 +510,7 @@ static void set_appskey(atci_param_t *param)
 {
     uint8_t key[SE_KEY_SIZE];
 
-    if (atci_param_get_buffer_from_hex(param, key, SE_KEY_SIZE) != SE_KEY_SIZE)
+    if (atci_param_get_buffer_from_hex(param, key, SE_KEY_SIZE, 0) != SE_KEY_SIZE)
         abort(ERR_PARAM);
 
     MibRequestConfirm_t r = {
@@ -536,7 +536,7 @@ static void set_appkey_10(atci_param_t *param)
 {
     uint8_t key[SE_KEY_SIZE];
 
-    if (atci_param_get_buffer_from_hex(param, key, SE_KEY_SIZE) != SE_KEY_SIZE)
+    if (atci_param_get_buffer_from_hex(param, key, SE_KEY_SIZE, 0) != SE_KEY_SIZE)
         abort(ERR_PARAM);
 
     // The original firmware supports LoRaWAN 1.0 and does not provide an AT
@@ -564,7 +564,7 @@ static void set_appkey_11(atci_param_t *param)
 {
     uint8_t key[SE_KEY_SIZE];
 
-    if (atci_param_get_buffer_from_hex(param, key, SE_KEY_SIZE) != SE_KEY_SIZE)
+    if (atci_param_get_buffer_from_hex(param, key, SE_KEY_SIZE, 0) != SE_KEY_SIZE)
         abort(ERR_PARAM);
 
     MibRequestConfirm_t r = {
@@ -1223,7 +1223,7 @@ static void set_chmask_comp(atci_param_t *param)
     uint16_t chmask[REGION_NVM_CHANNELS_MASK_SIZE];
 
     memset(chmask, 0, sizeof(chmask));
-    size_t len = atci_param_get_buffer_from_hex(param, chmask, sizeof(chmask));
+    size_t len = atci_param_get_buffer_from_hex(param, chmask, sizeof(chmask), 0);
     if (len != lrw_get_chmask_length() * sizeof(chmask[0]))
         abort(ERR_PARAM);
 
@@ -1273,7 +1273,7 @@ static void get_netid(void)
 static void set_netid(atci_param_t *param)
 {
     uint32_t buf;
-    if (atci_param_get_buffer_from_hex(param, &buf, sizeof(buf)) != sizeof(buf))
+    if (atci_param_get_buffer_from_hex(param, &buf, sizeof(buf), 0) != sizeof(buf))
         abort(ERR_PARAM);
 
     MibRequestConfirm_t r = {
@@ -1348,7 +1348,7 @@ static void set_nwkkey(atci_param_t *param)
 {
     uint8_t key[SE_KEY_SIZE];
 
-    if (atci_param_get_buffer_from_hex(param, key, SE_KEY_SIZE) != SE_KEY_SIZE)
+    if (atci_param_get_buffer_from_hex(param, key, SE_KEY_SIZE, 0) != SE_KEY_SIZE)
         abort(ERR_PARAM);
 
     MibRequestConfirm_t r = {
@@ -1374,7 +1374,7 @@ static void set_fnwksintkey(atci_param_t *param)
 {
     uint8_t key[SE_KEY_SIZE];
 
-    if (atci_param_get_buffer_from_hex(param, key, SE_KEY_SIZE) != SE_KEY_SIZE)
+    if (atci_param_get_buffer_from_hex(param, key, SE_KEY_SIZE, 0) != SE_KEY_SIZE)
         abort(ERR_PARAM);
 
     MibRequestConfirm_t r = {
@@ -1400,7 +1400,7 @@ static void set_snwksintkey(atci_param_t *param)
 {
     uint8_t key[SE_KEY_SIZE];
 
-    if (atci_param_get_buffer_from_hex(param, key, SE_KEY_SIZE) != SE_KEY_SIZE)
+    if (atci_param_get_buffer_from_hex(param, key, SE_KEY_SIZE, 0) != SE_KEY_SIZE)
         abort(ERR_PARAM);
 
     MibRequestConfirm_t r = {
@@ -1426,7 +1426,7 @@ static void set_nwksenckey(atci_param_t *param)
 {
     uint8_t key[SE_KEY_SIZE];
 
-    if (atci_param_get_buffer_from_hex(param, key, SE_KEY_SIZE) != SE_KEY_SIZE)
+    if (atci_param_get_buffer_from_hex(param, key, SE_KEY_SIZE, 0) != SE_KEY_SIZE)
         abort(ERR_PARAM);
 
     MibRequestConfirm_t r = {
@@ -1465,13 +1465,16 @@ static void set_chmask(atci_param_t *param)
     memset(chmask1, 0, sizeof(chmask1));
     memset(chmask2, 0, sizeof(chmask2));
 
-    size_t len1 = atci_param_get_buffer_from_hex(param, chmask1, sizeof(chmask1));
+    size_t len1 = atci_param_get_buffer_from_hex(param, chmask1, sizeof(chmask1), len * 2);
     if (len1 != len) abort(ERR_PARAM);
 
     if (!atci_param_is_comma(param)) abort(ERR_PARAM);
 
-    size_t len2 = atci_param_get_buffer_from_hex(param, chmask2, sizeof(chmask2));
+    size_t len2 = atci_param_get_buffer_from_hex(param, chmask2, sizeof(chmask2), len * 2);
     if (len2 != len) abort(ERR_PARAM);
+
+    // Make sure all data from the value have been consumed
+    if (param->length != param->offset) abort(ERR_PARAM);
 
     MibRequestConfirm_t r = {
         .Type  = MIB_CHANNELS_DEFAULT_MASK,
