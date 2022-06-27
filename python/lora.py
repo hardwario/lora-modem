@@ -3787,8 +3787,9 @@ def join(get_modem: Callable[[], OpenLoRaModem], region, network, join_eui, duty
 @cli.command()
 @click.option('--yes', '-y', default=False, is_flag=True, prompt='Reset the modem to factory defaults?', help='Do not ask for confirmation.')
 @click.option('--reset-devnonce', '-n', default=False, is_flag=True, help='Also reset DevNonce.')
+@click.option('--reset-deveui', '-e', default=False, is_flag=True, help='Also reset DevEUI.')
 @click.pass_obj
-def reset(get_modem: Callable[[], OpenLoRaModem], yes, reset_devnonce):
+def reset(get_modem: Callable[[], OpenLoRaModem], yes, reset_devnonce, reset_deveui):
     '''Reset the modem to factory defaults.
 
     This command restores the values of all modem settings to their original
@@ -3808,8 +3809,13 @@ def reset(get_modem: Callable[[], OpenLoRaModem], yes, reset_devnonce):
 
     If you also wish to reset the DevNonce value, pass the command line option
     -n (--reset-devnonce) to this command. If you use -n, you may also need to
-    delete and re-add the device in the LoRaWAN network. Without this, OTAA
-    Join requests sent by the device after factory reset will most likely fail.
+    delete and re-add the device in the LoRaWAN network. Without this, OTAA Join
+    requests sent by the device after factory reset will most likely fail.
+
+    The factory reset operation also preserves the DevEUI by default. If you
+    wish to also reset the DevEUI to the default value generated from the
+    modem's MCU unique identifier, pass the command line option -e
+    (--reset-deveui) to this command.
     '''
     if not yes:
         if not machine_readable:
@@ -3821,7 +3827,7 @@ def reset(get_modem: Callable[[], OpenLoRaModem], yes, reset_devnonce):
     if not machine_readable:
         click.echo(f"Resetting modem {modem} to factory defaults...", nl=False)
 
-    modem.factory_reset(reset_devnonce=reset_devnonce)
+    modem.factory_reset(reset_devnonce=reset_devnonce, reset_deveui=reset_deveui)
 
     if not machine_readable:
         click.echo(f"done.")
