@@ -2442,7 +2442,7 @@ class OpenLoRaModem(MurataModem):
             self.modem.AT(f'+REBOOT{" 1" if hard else ""}', wait=not hard)
             self.modem.wait_for_event('event=0,0')
 
-    def facnew(self, reset_devnonce=False):
+    def facnew(self, reset_devnonce=False, reset_deveui=False):
         '''Reset the modem to factory defaults.
 
         Restore all modem settings to factory defaults. Upon completing factory
@@ -2453,9 +2453,16 @@ class OpenLoRaModem(MurataModem):
         default. This ensures that the device can rejoin the network with an
         OTAA Join upon factory reset. If you wish to reset the DevNonce value to
         zero, pass reset_devnonce=True to the method.
+
+        Since v1.1.1, factory reset does NOT reset the DevEUI value by default.
+        To reset DevEUI, pass reset_deveui=True to the method.
         '''
+        flags: int = 0
+        if reset_devnonce: flags |= (1 << 0)
+        if reset_deveui:   flags |= (1 << 1)
+
         with self.modem.lock:
-            self.modem.AT(f'+FACNEW{" 1" if reset_devnonce else ""}')
+            self.modem.AT(f'+FACNEW{f" {flags}" if flags else ""}')
             self.modem.wait_for_event('event=0,1')
 
     factory_reset = facnew
