@@ -785,6 +785,15 @@ int lrw_send(uint8_t port, void *buffer, uint8_t length, bool confirmed)
         return rc;
     }
 
+    if (port != 0 && length == 0) {
+        // Messages with empty payload and non-zero port cannot be reliably sent
+        // by LoRaMac. If LoRaMAC has any MAC commands pending (which can
+        // happeny any time), it would put the MAC commands into the payload and
+        // change the port number to 0 automatically.
+        log_warning("LoRaMac cannot reliably send empty payload to non-zero port");
+        return LORAMAC_STATUS_LENGTH_ERROR;
+    }
+
     if (confirmed == false) {
         mr.Type = MCPS_UNCONFIRMED;
         mr.Req.Unconfirmed.fPort = port;

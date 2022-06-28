@@ -997,8 +997,21 @@ static void transmit(atci_data_status_t status, atci_param_t *param)
         abort(ERR_PARAM);
 
     // The original Type ABZ firmware returns an OK if payload submission times
-    // out and sends an incomplete message, i.e., whatever has been received
-    // before the timer fired. Hence, we don't check for ATCI_DATA_ABORTED here.
+    // out and sends an incomplete message, i.e., it sends whatever had been
+    // received before the timer fired. Hence, we do not check for
+    // ATCI_DATA_ABORTED here.
+
+    if (port != 0 && param->length == 0) {
+        // LoRaMAC cannot reliably send a message with an empty payload to a
+        // non-zero port number. If the library has any MAC commands waiting to
+        // be piggy-backed, it would internally change the port number of the
+        // message to zero in order to be able to stuff the MAC commands into
+        // the payload. Hence, a message with an empty payload is not guaranteed
+        // to be sent to the correct port number and may not be received by the
+        // application server. Thus, we don't support empty payloads and require
+        // that the application provides at least one byte if port is not 0.
+        abort(ERR_PARAM);
+    }
 
     abort_on_error(lrw_send(port, param->txt, param->length, request_confirmation));
     OK_();
