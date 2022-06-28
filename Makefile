@@ -390,6 +390,14 @@ $(OBJ_DIR)/$(TYPE)/src/%.o: src/%.c $(ALLDEP)
 		-isystem $(LIB_DIR)/stm/include \
 	)
 
+$(OBJ_DIR)/$(TYPE)/lib/LoRaWAN/%.o: lib/LoRaWAN/%.c $(ALLDEP)
+	$(call compile,\
+		-I $(SRC_DIR) \
+		-I $(CFG_DIR) \
+		-isystem $(LIB_DIR)/stm/STM32L0xx_HAL_Driver/Inc \
+		-isystem $(LIB_DIR)/stm/include \
+	)
+
 # Specialized targets for src/main.c and src/cmd.c. These two files depend on
 # the version strings generated from the git repository and need a couple of
 # extra CFLAGS.
