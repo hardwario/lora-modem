@@ -344,6 +344,14 @@ install: $(BIN) $(HEX) $(ALLDEP)
 	$(Q)$(ECHO) "Copying $(HEX) to ./$(BASENAME).hex..."
 	$(Q)cp -f "$(HEX)" "$(BASENAME).hex"
 
+.PHONY: python
+python: $(ALLDEP) python/VERSION
+	cd python && python -m build
+
+.PHONY: python/VERSION
+python/VERSION: $(ALLDEP)
+	git describe --tags | sed -e 's/.*\([0-9]\+\.[0-9]\+\.[0-9]\+\).*/\1/g' > $@
+
 $(BIN): $(ELF) $(ALLDEP)
 	$(Q)$(ECHO) "Creating $(BIN) from $(ELF)..."
 	$(Q)$(OBJCOPY) -O binary "$(ELF)" "$(BIN)"
@@ -439,6 +447,7 @@ $(OBJ_DIR)/$(TYPE)/%.o: %.s $(ALLDEP)
 clean: $(ALLDEP)
 	$(Q)$(MAKE) .clean-obj
 	$(Q)$(MAKE) .clean-out
+	$(Q)$(MAKE) .clean-python
 
 .PHONY: .clean-obj
 .clean-obj: $(ALLDEP)
@@ -449,6 +458,13 @@ clean: $(ALLDEP)
 .clean-out: $(ALLDEP)
 	$(Q)$(ECHO) "Deleting output files..."
 	$(Q)rm -rf "$(OUT_DIR)"
+
+.PHONY: .clean-python
+.clean-python: $(ALLDEP)
+	$(Q)$(ECHO) "Deleting Python build files..."
+	$(Q)rm -rf "python/build"
+	$(Q)$(ECHO) "Deleting Python dist files..."
+	$(Q)rm -rf "python/dist"
 
 ################################################################################
 # Debugging targets                                                            #
