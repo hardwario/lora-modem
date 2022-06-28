@@ -81,8 +81,8 @@ void lpuart_init(unsigned int baudrate)
 
     // Do not disable DMA on parity, framing, or noise errors. This will
     // configure the LPUART peripheral to simply not raise RXNE which will NOT
-    // assert DMA request and the errorneous data is skipped. The following byt
-    // will be again transferred.
+    // assert DMA request and the errorneous data is skipped. The following byte
+    // will be transferred again.
     //
     LL_LPUART_DisableDMADeactOnRxErr(LPUART1);
 
@@ -95,6 +95,15 @@ void lpuart_init(unsigned int baudrate)
     uint32_t tickstart = HAL_GetTick();
     if (UART_WaitOnFlagUntilTimeout(&port, USART_ISR_REACK, RESET, tickstart, HAL_UART_TIMEOUT_VALUE) != HAL_OK)
         goto error;
+
+    // Wake the MCU up from Stop mode once a full frame has been received
+    UART_WakeUpTypeDef wake = { .WakeUpEvent = LL_LPUART_WAKEUP_ON_RXNE };
+    HAL_UARTEx_StopModeWakeUpSourceConfig(&port, wake);
+
+    if (HAL_UART_Receive_DMA(&port, dma_buffer, ARRAY_LEN(dma_buffer)) != HAL_OK)
+        goto error;
+
+    HAL_UARTEx_EnableStopMode(&port);
 
     // Enable the idle line detection interrupt. We use the event to transmit
     // data from the DMA buffer to the input FIFO queue and to re-enable the
@@ -111,14 +120,6 @@ void lpuart_init(unsigned int baudrate)
     // the ATCI recover at the application layer.
     LL_LPUART_DisableIT_ERROR(LPUART1);
 
-    // Wake the MCU up from Stop mode once a full frame has been received
-    UART_WakeUpTypeDef wake = { .WakeUpEvent = LL_LPUART_WAKEUP_ON_RXNE };
-    HAL_UARTEx_StopModeWakeUpSourceConfig(&port, wake);
-
-    if (HAL_UART_Receive_DMA(&port, dma_buffer, ARRAY_LEN(dma_buffer)) != HAL_OK)
-        goto error;
-
-    HAL_UARTEx_EnableStopMode(&port);
     reenable_irq(masked);
     return;
 
@@ -412,6 +413,11 @@ void lpuart_after_stop(void)
 {
     LL_LPUART_DisableIT_WKUP(port.Instance);
     HAL_UART_DMAResume(&port);
+
+    // Resuming DMA re-enables the LPUART1 error interrupt, so we need to
+    // disable it here again. We ignore all errors on LPUART1 and let upper
+    // layers (ATCI) deal with it.
+    LL_LPUART_DisableIT_ERROR(port.Instance);
 }
 
 
@@ -445,4 +451,11 @@ void lpuart_flush(void)
             HAL_PWR_EnterSLEEPMode(PWR_MAINREGULATOR_ON, PWR_SLEEPENTRY_WFI);
         reenable_irq(masked);
     }
+}
+
+
+void HAL_UART_ErrorCallback(UART_HandleTypeDef *port)
+{
+    (void)port;
+    log_error("LPUART1 error: %ld", port->ErrorCode);
 }
