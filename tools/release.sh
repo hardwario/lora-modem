@@ -14,8 +14,21 @@ fi
 
 version="$1"
 
+if [ -z "$(pip show build)" ] ; then
+    bail "Error: Please install the Python build package first"
+fi
+
+if [ -z "$(pip show twine)" ] ; then
+    bail "Error: Please install the Python twine package first"
+fi
+
 if [ -z "$GITHUB_TOKEN" ] ; then
     bail "Error: GITHUB_TOKEN environment variable is not set"
+fi
+
+# The token can be usually found in ~/.pypirc
+if [ -z "$PYPI_TOKEN" ] ; then
+    bail "Error: PYPI_TOKEN environment variable is not set"
 fi
 
 make clean
@@ -75,3 +88,8 @@ $sums
 
 **Full changelog**: https://github.com/hardwario/$basename/compare/$previous_tag...$new_tag
 EOF
+
+# Build the Python library
+make python
+
+python -m twine upload -u __token__ -p "$PYPI_TOKEN" python/dist/*
