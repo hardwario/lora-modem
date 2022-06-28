@@ -203,7 +203,6 @@ tmp := $(shell \
 	echo "$$cur" > $$f)
 version := $(strip $(shell cat $(OBJ_DIR)/version))
 
-ALLDEP += $(OBJ_DIR)/version
 
 tmp := $(shell \
 	mkdir -p $(OBJ_DIR); \
@@ -214,7 +213,6 @@ tmp := $(shell \
 	echo "$$cur" > $$f)
 lib_version := $(strip $(shell cat $(OBJ_DIR)/lib_version))
 
-ALLDEP += $(OBJ_DIR)/lib_version
 
 endif
 
@@ -265,11 +263,7 @@ CFLAGS += -DDEFAULT_ACTIVE_REGION='"$(DEFAULT_ACTIVE_REGION)"'
 CFLAGS += -DREGION_AS923_DEFAULT_CHANNEL_PLAN=CHANNEL_PLAN_GROUP_AS923_1
 CFLAGS += -DREGION_CN470_DEFAULT_CHANNEL_PLAN=CHANNEL_PLAN_20MHZ_TYPE_A
 
-CFLAGS += -DBUILD_DATE='"$(build_date)"'
-CFLAGS += -DBUILD_DATE_COMPAT='"$(build_date_compat)"'
-CFLAGS += -DVERSION='"$(version)"'
 CFLAGS += -DVERSION_COMPAT='"$(VERSION_COMPAT)"'
-CFLAGS += -DLIB_VERSION='"$(lib_version)"'
 CFLAGS += -DENABLED_REGIONS='"$(ENABLED_REGIONS)"'
 
 ifneq (,$(LORAMAC_ABP_VERSION))
@@ -388,13 +382,20 @@ $(OBJ_DIR)/$(TYPE)/src/%.o: src/%.c $(ALLDEP)
 		-isystem $(LIB_DIR)/stm/include \
 	)
 
-$(OBJ_DIR)/$(TYPE)/lib/LoRaWAN/%.o: lib/LoRaWAN/%.c $(ALLDEP)
-	$(call compile,\
-		-I $(SRC_DIR) \
-		-I $(CFG_DIR) \
-		-isystem $(LIB_DIR)/stm/STM32L0xx_HAL_Driver/Inc \
-		-isystem $(LIB_DIR)/stm/include \
-	)
+# Specialized targets for src/main.c and src/cmd.c. These two files depend on
+# the version strings generated from the git repository and need a couple of
+# extra CFLAGS.
+
+$(OBJ_DIR)/$(TYPE)/src/cmd.o: CFLAGS+=-DVERSION='"$(version)"'
+$(OBJ_DIR)/$(TYPE)/src/cmd.o: CFLAGS+=-DLIB_VERSION='"$(lib_version)"'
+$(OBJ_DIR)/$(TYPE)/src/cmd.o: CFLAGS+=-DBUILD_DATE='"$(build_date)"'
+$(OBJ_DIR)/$(TYPE)/src/cmd.o: CFLAGS+=-DBUILD_DATE_COMPAT='"$(build_date_compat)"'
+$(OBJ_DIR)/$(TYPE)/src/cmd.o: $(ALLDEP) $(OBJ_DIR)/version $(OBJ_DIR)/lib_version
+
+$(OBJ_DIR)/$(TYPE)/src/main.o: CFLAGS+=-DVERSION='"$(version)"'
+$(OBJ_DIR)/$(TYPE)/src/main.o: CFLAGS+=-DLIB_VERSION='"$(lib_version)"'
+$(OBJ_DIR)/$(TYPE)/src/main.o: CFLAGS+=-DBUILD_DATE='"$(build_date)"'
+$(OBJ_DIR)/$(TYPE)/src/main.o: $(ALLDEP) $(OBJ_DIR)/version $(OBJ_DIR)/lib_version
 
 $(OBJ_DIR)/$(TYPE)/lib/stm/%.o: lib/stm/%.c $(ALLDEP)
 	$(call compile,\
