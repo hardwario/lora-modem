@@ -3945,28 +3945,45 @@ def get(get_modem: Callable[[], OpenLoRaModem], names, all, long, names_only):
 
 
 @cli.command()
-@click.argument('arguments', required=True, nargs=-1)
+@click.argument('arguments', nargs=-1)
 @click.pass_obj
 def set(get_modem: Callable[[], OpenLoRaModem], arguments):
-    '''Update modem setting.
+    '''Update modem setting(s).
 
-    This command can be used to update the value of a modem setting. Specify the
-    name of the setting and the new value on the command line as follows:
+    This command can be used to update the value of one or more modem settings.
+    If wish to update only one setting, you can specify the name of the setting
+    and the new value on the command line as follows:
 
-      lora set adr True
+        lora set adr True
 
-    To support whitespace in the value, the command automatically folds the
-    second and all remaining arguments into the value, for example, in the
+    To support values that contain whitespace, the command automatically folds
+    the second and all remaining arguments into the value, for example, in the
     following command line:
 
-      lora set rx2 869525000, SF12_125, 869525000, SF12_125
+        lora set rx2 869525000, SF12_125, 869525000, SF12_125
 
     the value will become "869525000, SF12_125, 869525000, SF12_125".
+
+    If you wish to update multiple settings, leave the command line empty and
+    provide the setting names and new values on standard input, one setting at a
+    line:
+
+        cat << "END" | lora set
+        port 2
+        adr True
+        END
 
     The command also supports an alternative syntax where the setting name and
     value are delimited with the '=' character:
 
-      lora set rx2=869525000,SF12_125,869525000,SF12_125
+        lora set rx2=869525000,SF12_125,869525000,SF12_125
+
+    or via the standard input:
+
+        cat << "END" | lora set
+        port=2
+        adr=True
+        END
 
     The alternative syntax is primarily designed to make it possible to paste
     the settings copied from the get command into the set command.
@@ -3974,41 +3991,49 @@ def set(get_modem: Callable[[], OpenLoRaModem], arguments):
     Note: Not all modem settings are writable. Some are read-only and cannot be
     updated.
     '''
-    arguments = ' '.join(arguments)
-    n = arguments.find('=')
-    if n == -1:
-        n = arguments.find(' ')
+    def process_setting(setting):
+        n = setting.find('=')
         if n == -1:
-            click.echo('Missing setting value', err=True)
-            sys.exit(1)
-    name = arguments[:n].strip()
-    value = arguments[n + 1:].strip()
+            n = setting.find(' ')
+            if n == -1:
+                click.echo(f'Missing value for setting {setting}', err=True)
+                sys.exit(1)
+        name = setting[:n].strip()
+        value = setting[n + 1:].strip()
 
-    n = name.lower()
-    if n.startswith('at+') or n.startswith('at$'):
-        name = name[3:]
+        n = name.lower()
+        if n.startswith('at+') or n.startswith('at$'):
+            name = name[3:]
 
-    try:
-        # First, try to evaluate the given value as a Python symbol. This
-        # will make it possible for the user to directly specify values such
-        # as LoRaRegion.US915.
-        value = eval(value)
-    except (NameError, SyntaxError):
         try:
-            # If the above evaluation failed, evaluate the value as a
-            # string. This allows the user to use strings directly on the
-            # command line without the need to use backslashed quotes.
-            value = eval(f'"{value}"')
-        except Exception as e:
-            click.echo('Error: Invalid setting value: {e}', err=True)
+            # First, try to evaluate the given value as a Python symbol. This
+            # will make it possible for the user to directly specify values such
+            # as LoRaRegion.US915.
+            value = eval(value)
+        except (NameError, SyntaxError):
+            try:
+                # If the above evaluation failed, evaluate the value as a
+                # string. This allows the user to use strings directly on the
+                # command line without the need to use backslashed quotes.
+                value = eval(f'"{value}"')
+            except Exception as e:
+                click.echo('Error: Invalid setting value: {e}', err=True)
+                sys.exit(1)
+
+        try:
+            setattr(modem, name, value)
+        except AttributeError as e:
+            click.echo(f'Error while setting "{name}": {e}', err=True)
             sys.exit(1)
 
     modem = get_modem()
-    try:
-        setattr(modem, name, value)
-    except AttributeError as e:
-        click.echo(f'Error while setting "{name}": {e}', err=True)
-        sys.exit(1)
+
+    if len(arguments):
+        process_setting(' '.join(arguments))
+    else:
+        for line in sys.stdin:
+            process_setting(line.rstrip('\n'))
+
 
 
 @cli.command()
