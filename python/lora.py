@@ -35,7 +35,7 @@ import re
 import serial # type: ignore
 import binascii
 from abc import ABC
-from functools import cache
+from functools import lru_cache
 from collections import namedtuple
 from contextlib import contextmanager
 from typing import Optional, Tuple, Union, List, Any
@@ -379,7 +379,7 @@ class TypeABZ(EventEmitter):
     prev_at: datetime | None
 
     def __init__(self, pathname: str, verbose: bool = False, guard: Optional[float] = None):
-        super().__init__(self)
+        super().__init__()
         self.pathname = pathname
         self.verbose = verbose
         self.hide_value = False
@@ -638,7 +638,7 @@ class ATCI(ABC):
     # to properties that implement AT commands and implement case-insensitive
     # access to those commands.
 
-    @cache
+    @lru_cache(maxsize=None)
     def settings(self, cls=None, case=False) -> dict[str, Any]:
         props: "dict[str, Any]" = {}
 
@@ -3168,7 +3168,7 @@ def cli(ctx, port, baudrate, reset, verbose, guard, machine, with_keys):
     machine_readable = machine
     show_keys = with_keys
 
-    @cache
+    @lru_cache(maxsize=None)
     def get_modem():
         nonlocal port, baudrate
         port = port or os.environ.get('PORT', None)
