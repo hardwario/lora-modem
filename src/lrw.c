@@ -805,7 +805,7 @@ int lrw_send(uint8_t port, void *buffer, uint8_t length, bool confirmed)
         mr.Req.Confirmed.fPort = port;
         mr.Req.Confirmed.fBufferSize = length;
         mr.Req.Confirmed.fBuffer = buffer;
-        mr.Req.Unconfirmed.Datarate = r.Param.ChannelsDatarate;
+        mr.Req.Confirmed.Datarate = r.Param.ChannelsDatarate;
     }
 
     r.Type = MIB_CHANNELS_NB_TRANS;
