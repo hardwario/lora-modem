@@ -35,6 +35,10 @@ Follow the steps outlined in this [wiki page](https://github.com/hardwario/lora-
 * [AT command interface](https://github.com/hardwario/lora-modem-abz/wiki/AT-Command-Interface)
 Additional documentation and notes can be found in the [wiki](https://github.com/hardwario/lora-modem-abz/wiki).
 
+## Contributing
+
+[Bug reports](https://github.com/hardwario/lora-modem-abz/issues), [improvement suggestions](https://github.com/hardwario/lora-modem-abz/issues), [pull requests](https://github.com/hardwario/lora-modem-abz/pulls), and updates to the [documentation in the wiki](https://github.com/hardwario/lora-modem-abz/wiki) would be greatly appreciated!
+
 ## License
 
 The firmware open source, licensed under the terms of the Revised BSD License. It includes the [LoRaMac-node](https://github.com/Lora-net/LoRaMac-node) library licensed under the Revised BSD License and portions of the [STM32CubeL0](https://github.com/STMicroelectronics/STM32CubeL0) MCU firmware package licensed under the Revised BSD License.
