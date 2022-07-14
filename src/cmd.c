@@ -1089,6 +1089,29 @@ static void pctx(atci_param_t *param)
     request_confirmation = true;
 }
 
+static void cw(atci_param_t *param)
+{
+    uint32_t freq, timeout;
+    int32_t power;
+
+    if (!atci_param_get_uint(param, &freq)) abort(ERR_PARAM);
+    if (!atci_param_is_comma(param)) abort(ERR_PARAM);
+    if (!atci_param_get_int(param, &power)) abort(ERR_PARAM);
+    if (!atci_param_is_comma(param)) abort(ERR_PARAM);
+    if (!atci_param_get_uint(param, &timeout)) abort(ERR_PARAM);
+
+    atci_printf("$CW: freq=%ld power=%ld timeout=%ld\r\n",  freq, power, timeout);
+
+    MlmeReq_t mlr = { .Type = MLME_TXCW };
+    mlr.Req.TxCw.Timeout = timeout;
+    mlr.Req.TxCw.Frequency = freq;
+    mlr.Req.TxCw.Power = power;
+
+    abort_on_error(LoRaMacMlmeRequest(&mlr));
+
+    OK_();
+}
+
 
 static void get_frmcnt(void)
 {
@@ -1802,6 +1825,7 @@ static const atci_command_t cmds[] = {
 #endif
     {"$CERT",        NULL,    set_cert,         get_cert,         NULL, "Enable or disable LoRaWAN certification port"},
     {"$SESSION",     NULL,    NULL,             get_session,      NULL, "Get network session information"},
+    {"$CW",          cw,      NULL,             NULL,             NULL, "Continuous carrier"},
     ATCI_COMMAND_CLAC,
     ATCI_COMMAND_HELP};
 
