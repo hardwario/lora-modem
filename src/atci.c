@@ -228,6 +228,36 @@ bool atci_param_get_uint(atci_param_t *param, uint32_t *value)
     return true;
 }
 
+bool atci_param_get_int(atci_param_t *param, int32_t *value)
+{
+    if (param->offset >= param->length)
+    {
+        return false;
+    }
+
+    char c;
+
+    *value = 0;
+
+    c = param->txt[param->offset];
+
+    if(c == '+')
+    {
+        param->offset++;
+        atci_param_get_uint(param, (uint32_t*)value);
+        return true;
+    }
+    else if(c == '-')
+    {
+        param->offset++;
+        atci_param_get_uint(param, (uint32_t*)value);
+        *value *= -1;
+        return true;
+    }
+
+    return atci_param_get_uint(param, (uint32_t*)value);
+}
+
 bool atci_param_is_comma(atci_param_t *param)
 {
     return param->txt[param->offset++] == ',';
