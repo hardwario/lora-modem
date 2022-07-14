@@ -285,7 +285,15 @@ static void facnew(atci_param_t *param)
                 log_error("Error while reinitializing crypto NVM partition");
 
             memcpy(s.DevEui, dev_eui, SE_EUI_SIZE);
-            update_block_crc(&s, sizeof(s));
+
+            // We don't want to calculate a valid CRC for the entire block here
+            // since we want everything to be initialized to factory defaults
+            // upon reset. However, we need to signal to the initialization code
+            // that it needs to restore the DevUI from the value saved here.  We
+            // do that by calculating a CRC value over the DevEUI property only.
+            // The initialization code will take that as a hint to restore the
+            // DevEUI, but initialize everything else to factory defaults.
+            s.Crc32 = Crc32(s.DevEui, sizeof(s.DevEui));
 
             // Write the data structure initialized in the previous step into
             // the secure element part.

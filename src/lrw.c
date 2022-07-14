@@ -225,7 +225,41 @@ static void restore_state(void)
 }
 
 
-static int restore_region()
+static uint8_t dev_eui[SE_EUI_SIZE];
+static_assert(sizeof(((SecureElementNvmData_t *)0)->DevEui) == sizeof(dev_eui), "Unsupported DevEUI size found in LoRaMac-node");
+
+static void load_deveui(void)
+{
+    size_t size;
+    uint32_t crc;
+
+    memset(dev_eui, '\0', sizeof(dev_eui));
+
+    const SecureElementNvmData_t *p = part_mmap(&size, &nvm_parts.se);
+    if (p == NULL) return;
+    if (size < sizeof(SecureElementNvmData_t)) return;
+
+    // Only restore the DevEUI if the crc32 checksum over the entire block
+    // matches, or if the checksum calculate over the DevEui parameter matches.
+    // The latter is a special case used by the factory reset command to
+    // indicate that the structure has a valid DevEUI value preserved from
+    // before the reset, but the entire block should not be restored. This is
+    // used to re-initialize all parameters but DevEUI to defaults.
+
+    // Read the checksum into a local variable in the case p->Crc32 isn't
+    // properly aligned in memory. In the current implementation the returned
+    // pointer will be properly aligned, but better be safe than sorry in case
+    // that changes in the future.
+    memcpy(&crc, &p->Crc32, sizeof(crc));
+
+    if (check_block_crc(p, sizeof(SecureElementNvmData_t)) ||
+        Crc32((uint8_t *)p->DevEui, sizeof(p->DevEui)) == crc) {
+        memcpy(dev_eui, p->DevEui, sizeof(dev_eui));
+    }
+}
+
+
+static int restore_region(void)
 {
     size_t size;
     LoRaMacRegion_t region;
@@ -684,18 +718,22 @@ void lrw_init(void)
 
     sync_device_class();
 
-    r.Type = MIB_DEV_EUI;
-    LoRaMacMibGetRequestConfirm(&r);
-    uint8_t *deveui = r.Param.DevEui;
+    // Check if we have a DevEUI in NVM, either a stored value or a value
+    // preserved from before factory reset. In both cases, the following
+    // function will copy the DevEUI into the variable dev_eui. Otherwise,
+    // dev_eui will be set to all zeroes.
+    load_deveui();
 
     // If we get a DevEUI consisting of all zeroes, generate a unique one based
     // off of the MCU's unique id.
-    if (!memcmp(deveui, zero_eui, sizeof(zero_eui))) {
-        system_get_unique_id(deveui);
-        rc = LoRaMacMibSetRequestConfirm(&r);
-        if (rc != LORAMAC_STATUS_OK)
-            log_error("LoRaMac: Error while setting DevEUI: %d", rc);
-    }
+    if (!memcmp(dev_eui, zero_eui, sizeof(zero_eui)))
+        system_get_unique_id(dev_eui);
+
+    r.Type = MIB_DEV_EUI;
+    r.Param.DevEui = dev_eui;
+    rc = LoRaMacMibSetRequestConfirm(&r);
+    if (rc != LORAMAC_STATUS_OK)
+        log_error("LoRaMac: Error while setting DevEUI: %d", rc);
 
     log_device_info();
 
