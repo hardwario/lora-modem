@@ -14,6 +14,7 @@
 #include "nvm.h"
 #include "halt.h"
 #include "utils.h"
+#include "sx1276-board.h"
 
 // These are global variables exported by radio.c that store the RSSI and SNR of
 // the most recent received packet.
@@ -1112,7 +1113,6 @@ static void cw(atci_param_t *param)
     OK_();
 }
 
-#include "sx1276-board.h"
 
 static void SX1276SetOpMode( uint8_t opMode )
 {
@@ -1129,6 +1129,7 @@ static void SX1276SetOpMode( uint8_t opMode )
     }
     SX1276Write( REG_OPMODE, ( SX1276Read( REG_OPMODE ) & RF_OPMODE_MASK ) | opMode );
 }
+
 
 static void clk_irq_handler( void* context )
 {
