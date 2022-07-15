@@ -1112,6 +1112,111 @@ static void cw(atci_param_t *param)
     OK_();
 }
 
+#include "sx1276-board.h"
+
+static void SX1276SetOpMode( uint8_t opMode )
+{
+    if( opMode == RF_OPMODE_SLEEP )
+    {
+        SX1276SetAntSwLowPower( true );
+    }
+    else
+    {
+        // Enable TCXO if operating mode different from SLEEP.
+        SX1276SetBoardTcxo( true );
+        SX1276SetAntSwLowPower( false );
+        SX1276SetAntSw( opMode );
+    }
+    SX1276Write( REG_OPMODE, ( SX1276Read( REG_OPMODE ) & RF_OPMODE_MASK ) | opMode );
+}
+
+static void clk_irq_handler( void* context )
+{
+    (void) context;
+    static bool pin = true;
+
+    static uint32_t i = 0;
+    i++;
+/*
+    // toggle every second when datarate is 4800
+    if(i % 4800 == 0)
+    {
+        atci_printf("X");
+        pin = !pin;
+    }
+*/
+    gpio_write(RADIO_DIO_2_PORT, RADIO_DIO_2_PIN, (i % 2) == 0);
+    //gpio_write(RADIO_DIO_2_PORT, RADIO_DIO_2_PIN, pin);
+}
+
+static void cm(atci_param_t *param)
+{
+    (void)param;
+
+    // Example preamble 5, datarate 4800
+    // AT$CM 868300000,250000,4800,5,-10,3
+    uint32_t freq, timeout, fdev, datarate, preamble;
+    int32_t power;
+
+    if (!atci_param_get_uint(param, &freq)) abort(ERR_PARAM);
+    if (!atci_param_is_comma(param)) abort(ERR_PARAM);
+    if (!atci_param_get_uint(param, &fdev)) abort(ERR_PARAM);
+    if (!atci_param_is_comma(param)) abort(ERR_PARAM);
+    if (!atci_param_get_uint(param, &datarate)) abort(ERR_PARAM);
+    if (!atci_param_is_comma(param)) abort(ERR_PARAM);
+    if (!atci_param_get_uint(param, &preamble)) abort(ERR_PARAM);
+    if (!atci_param_is_comma(param)) abort(ERR_PARAM);
+    if (!atci_param_get_int(param, &power)) abort(ERR_PARAM);
+    if (!atci_param_is_comma(param)) abort(ERR_PARAM);
+    if (!atci_param_get_uint(param, &timeout)) abort(ERR_PARAM);
+
+    atci_printf("$CM: freq=%ld fdev=%ld datarate=%ld preamble=%ld power=%ld timeout=%ld\r\n", freq, fdev, datarate, preamble, power, timeout);
+
+    MlmeReq_t mlr = { .Type = MLME_TXCW };
+    mlr.Req.TxCw.Timeout = timeout;
+    mlr.Req.TxCw.Frequency = freq;
+    mlr.Req.TxCw.Power = power;
+
+    abort_on_error(LoRaMacMlmeRequest(&mlr));
+
+    timeout = ( uint32_t )timeout * 1000;
+
+    SX1276SetOpMode( RF_OPMODE_STANDBY );
+
+    SX1276SetChannel(freq);
+
+    SX1276SetTxConfig( MODEM_FSK, power, fdev, 0, datarate, 0, preamble, false, false, 0, 0, 0, timeout );
+
+    SX1276Write( REG_PACKETCONFIG2, ( SX1276Read( REG_PACKETCONFIG2 ) & RF_PACKETCONFIG2_DATAMODE_MASK ) );
+    // Disable radio interrupts, set clock on DIO1
+    SX1276Write( REG_DIOMAPPING1, RF_DIOMAPPING1_DIO0_11 | RF_DIOMAPPING1_DIO1_00 );
+    SX1276Write( REG_DIOMAPPING2, RF_DIOMAPPING2_DIO4_10 | RF_DIOMAPPING2_DIO5_10 );
+
+    // Reconfigure CLK falling interrupt. SX samples on rising edge
+        GPIO_InitTypeDef cfg_dio1 = {
+        .Mode = GPIO_MODE_IT_FALLING,
+        .Pull = GPIO_PULLUP,
+        .Speed = GPIO_SPEED_HIGH
+    };
+
+    gpio_init(RADIO_DIO_1_PORT, RADIO_DIO_1_PIN, &cfg_dio1);
+
+    // Configure data pin DIO2 as an output
+    GPIO_InitTypeDef cfg_dio2 = {
+        .Mode = GPIO_MODE_OUTPUT_PP,
+        .Pull = GPIO_NOPULL,
+        .Speed = GPIO_SPEED_HIGH
+    };
+    gpio_init(RADIO_DIO_2_PORT, RADIO_DIO_2_PIN, &cfg_dio2);
+
+    DioIrqHandler *DioIrq[] = { NULL, clk_irq_handler, NULL, NULL, NULL, NULL };
+    SX1276IoIrqInit(DioIrq);
+
+    SX1276SetOpMode( RF_OPMODE_TRANSMITTER );
+
+    OK_();
+}
+
 
 static void get_frmcnt(void)
 {
@@ -1357,6 +1462,7 @@ static void dbg(atci_param_t *param)
     // RF_CAD,        //!< The radio is doing channel activity detection
     atci_printf("$DBG: sleep_lock=%d stop_lock=%d radio_state=%d loramac_busy=%d\r\n",
         system_sleep_lock, system_stop_lock, Radio.GetStatus(), LoRaMacIsBusy());
+
     OK_();
 }
 #endif
@@ -1826,6 +1932,7 @@ static const atci_command_t cmds[] = {
     {"$CERT",        NULL,    set_cert,         get_cert,         NULL, "Enable or disable LoRaWAN certification port"},
     {"$SESSION",     NULL,    NULL,             get_session,      NULL, "Get network session information"},
     {"$CW",          cw,      NULL,             NULL,             NULL, "Continuous carrier"},
+    {"$CM",          cm,      NULL,             NULL,             NULL, "Continuous modulated carrier"},
     ATCI_COMMAND_CLAC,
     ATCI_COMMAND_HELP};
 
