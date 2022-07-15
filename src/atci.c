@@ -235,27 +235,14 @@ bool atci_param_get_int(atci_param_t *param, int32_t *value)
         return false;
     }
 
-    char c;
+    char c = param->txt[param->offset];
 
-    *value = 0;
+    int mul = c == '-' ? -1 : 1;
+    if (c == '+' || c=='-') param->offset++;
 
-    c = param->txt[param->offset];
-
-    if(c == '+')
-    {
-        param->offset++;
-        atci_param_get_uint(param, (uint32_t*)value);
-        return true;
-    }
-    else if(c == '-')
-    {
-        param->offset++;
-        atci_param_get_uint(param, (uint32_t*)value);
-        *value *= -1;
-        return true;
-    }
-
-    return atci_param_get_uint(param, (uint32_t*)value);
+    bool rv = atci_param_get_uint(param, (uint32_t*)value);
+    *value *= mul;
+    return rv;
 }
 
 bool atci_param_is_comma(atci_param_t *param)
