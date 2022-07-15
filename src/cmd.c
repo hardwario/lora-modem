@@ -1131,24 +1131,29 @@ static void SX1276SetOpMode( uint8_t opMode )
 }
 
 
-static void clk_irq_handler( void* context )
+static void cm_clk_irq_handler( void* context )
 {
     (void) context;
-    //static bool pin = true;
 
     static uint32_t i = 0;
     i++;
-/*
-    // toggle every second when datarate is 4800
-    if(i % 4800 == 0)
-    {
-        atci_printf("X");
-        pin = !pin;
-    }
-*/
     gpio_write(RADIO_DIO_2_PORT, RADIO_DIO_2_PIN, (i % 2) == 0);
-    //gpio_write(RADIO_DIO_2_PORT, RADIO_DIO_2_PIN, pin);
+
+    /*
+        static bool pin = true;
+
+        // toggle every second when datarate is 4800
+        if(i % 4800 == 0)
+        {
+            atci_printf("X");
+            pin = !pin;
+        }
+
+        gpio_write(RADIO_DIO_2_PORT, RADIO_DIO_2_PIN, pin);
+
+    */
 }
+
 
 static void cm(atci_param_t *param)
 {
@@ -1173,11 +1178,11 @@ static void cm(atci_param_t *param)
 
     log_debug("$CM: freq=%ld fdev=%ld datarate=%ld preamble=%ld power=%ld timeout=%ld\r\n", freq, fdev, datarate, preamble, power, timeout);
 
+    // Call this to set MacState to LORAMAC_TX_RUNNING to keep TX running infinitely
     MlmeReq_t mlr = { .Type = MLME_TXCW };
     mlr.Req.TxCw.Timeout = timeout;
     mlr.Req.TxCw.Frequency = freq;
     mlr.Req.TxCw.Power = power;
-
     abort_on_error(LoRaMacMlmeRequest(&mlr));
 
     timeout = ( uint32_t )timeout * 1000;
@@ -1185,21 +1190,20 @@ static void cm(atci_param_t *param)
     SX1276SetOpMode( RF_OPMODE_STANDBY );
 
     SX1276SetChannel(freq);
-
     SX1276SetTxConfig( MODEM_FSK, power, fdev, 0, datarate, 0, preamble, false, false, 0, 0, 0, timeout );
 
+    // Disable packet mode
     SX1276Write( REG_PACKETCONFIG2, ( SX1276Read( REG_PACKETCONFIG2 ) & RF_PACKETCONFIG2_DATAMODE_MASK ) );
     // Disable radio interrupts, set clock on DIO1
     SX1276Write( REG_DIOMAPPING1, RF_DIOMAPPING1_DIO0_11 | RF_DIOMAPPING1_DIO1_00 );
     SX1276Write( REG_DIOMAPPING2, RF_DIOMAPPING2_DIO4_10 | RF_DIOMAPPING2_DIO5_10 );
 
     // Reconfigure CLK falling interrupt. SX samples on rising edge
-        GPIO_InitTypeDef cfg_dio1 = {
+    GPIO_InitTypeDef cfg_dio1 = {
         .Mode = GPIO_MODE_IT_FALLING,
         .Pull = GPIO_PULLUP,
         .Speed = GPIO_SPEED_HIGH
     };
-
     gpio_init(RADIO_DIO_1_PORT, RADIO_DIO_1_PIN, &cfg_dio1);
 
     // Configure data pin DIO2 as an output
@@ -1210,7 +1214,8 @@ static void cm(atci_param_t *param)
     };
     gpio_init(RADIO_DIO_2_PORT, RADIO_DIO_2_PIN, &cfg_dio2);
 
-    DioIrqHandler *DioIrq[] = { NULL, clk_irq_handler, NULL, NULL, NULL, NULL };
+    // Rewire interrupts
+    DioIrqHandler *DioIrq[] = { NULL, cm_clk_irq_handler, NULL, NULL, NULL, NULL };
     SX1276IoIrqInit(DioIrq);
 
     SX1276SetOpMode( RF_OPMODE_TRANSMITTER );
