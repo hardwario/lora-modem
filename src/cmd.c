@@ -1100,7 +1100,7 @@ static void cw(atci_param_t *param)
     if (!atci_param_is_comma(param)) abort(ERR_PARAM);
     if (!atci_param_get_uint(param, &timeout)) abort(ERR_PARAM);
 
-    atci_printf("$CW: freq=%ld power=%ld timeout=%ld\r\n",  freq, power, timeout);
+    log_debug("$CW: freq=%ld power=%ld timeout=%ld\r\n",  freq, power, timeout);
 
     MlmeReq_t mlr = { .Type = MLME_TXCW };
     mlr.Req.TxCw.Timeout = timeout;
@@ -1133,7 +1133,7 @@ static void SX1276SetOpMode( uint8_t opMode )
 static void clk_irq_handler( void* context )
 {
     (void) context;
-    static bool pin = true;
+    //static bool pin = true;
 
     static uint32_t i = 0;
     i++;
@@ -1170,7 +1170,7 @@ static void cm(atci_param_t *param)
     if (!atci_param_is_comma(param)) abort(ERR_PARAM);
     if (!atci_param_get_uint(param, &timeout)) abort(ERR_PARAM);
 
-    atci_printf("$CM: freq=%ld fdev=%ld datarate=%ld preamble=%ld power=%ld timeout=%ld\r\n", freq, fdev, datarate, preamble, power, timeout);
+    log_debug("$CM: freq=%ld fdev=%ld datarate=%ld preamble=%ld power=%ld timeout=%ld\r\n", freq, fdev, datarate, preamble, power, timeout);
 
     MlmeReq_t mlr = { .Type = MLME_TXCW };
     mlr.Req.TxCw.Timeout = timeout;
@@ -1931,8 +1931,8 @@ static const atci_command_t cmds[] = {
 #endif
     {"$CERT",        NULL,    set_cert,         get_cert,         NULL, "Enable or disable LoRaWAN certification port"},
     {"$SESSION",     NULL,    NULL,             get_session,      NULL, "Get network session information"},
-    {"$CW",          cw,      NULL,             NULL,             NULL, "Continuous carrier"},
-    {"$CM",          cm,      NULL,             NULL,             NULL, "Continuous modulated carrier"},
+    {"$CW",          cw,      NULL,             NULL,             NULL, "Start continuous carrier wave transmission"},
+    {"$CM",          cm,      NULL,             NULL,             NULL, "Start continuous modulated carrier wave transmission"},
     ATCI_COMMAND_CLAC,
     ATCI_COMMAND_HELP};
 
