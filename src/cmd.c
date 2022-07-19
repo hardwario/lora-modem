@@ -1114,23 +1114,6 @@ static void cw(atci_param_t *param)
 }
 
 
-static void SX1276SetOpMode( uint8_t opMode )
-{
-    if( opMode == RF_OPMODE_SLEEP )
-    {
-        SX1276SetAntSwLowPower( true );
-    }
-    else
-    {
-        // Enable TCXO if operating mode different from SLEEP.
-        SX1276SetBoardTcxo( true );
-        SX1276SetAntSwLowPower( false );
-        SX1276SetAntSw( opMode );
-    }
-    SX1276Write( REG_OPMODE, ( SX1276Read( REG_OPMODE ) & RF_OPMODE_MASK ) | opMode );
-}
-
-
 static void cm_clk_irq_handler( void* context )
 {
     (void) context;
@@ -1187,7 +1170,7 @@ static void cm(atci_param_t *param)
 
     timeout = ( uint32_t )timeout * 1000;
 
-    SX1276SetOpMode( RF_OPMODE_STANDBY );
+    SX1276SetStby();
 
     SX1276SetChannel(freq);
     SX1276SetTxConfig( MODEM_FSK, power, fdev, 0, datarate, 0, preamble, false, false, 0, 0, 0, timeout );
@@ -1218,7 +1201,7 @@ static void cm(atci_param_t *param)
     DioIrqHandler *DioIrq[] = { NULL, cm_clk_irq_handler, NULL, NULL, NULL, NULL };
     SX1276IoIrqInit(DioIrq);
 
-    SX1276SetOpMode( RF_OPMODE_TRANSMITTER );
+    SX1276SetTx( timeout );
 
     OK_();
 }
