@@ -1142,9 +1142,9 @@ static void cm(atci_param_t *param)
 {
     (void)param;
 
-    // Example preamble 5, datarate 4800
-    // AT$CM 868300000,250000,4800,5,-10,3
-    uint32_t freq, timeout, fdev, datarate, preamble;
+    // Example freq 868.3 MHz, 250 kHz deviation, datarate 4800, timeout 2 seconds
+    // AT$CM 868300000,250000,4800,-10,2
+    uint32_t freq, timeout, fdev, datarate, preamble = 5;
     int32_t power;
 
     if (!atci_param_get_uint(param, &freq)) abort(ERR_PARAM);
@@ -1152,8 +1152,6 @@ static void cm(atci_param_t *param)
     if (!atci_param_get_uint(param, &fdev)) abort(ERR_PARAM);
     if (!atci_param_is_comma(param)) abort(ERR_PARAM);
     if (!atci_param_get_uint(param, &datarate)) abort(ERR_PARAM);
-    if (!atci_param_is_comma(param)) abort(ERR_PARAM);
-    if (!atci_param_get_uint(param, &preamble)) abort(ERR_PARAM);
     if (!atci_param_is_comma(param)) abort(ERR_PARAM);
     if (!atci_param_get_int(param, &power)) abort(ERR_PARAM);
     if (!atci_param_is_comma(param)) abort(ERR_PARAM);
