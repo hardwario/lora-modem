@@ -1919,7 +1919,7 @@ static const atci_command_t cmds[] = {
     {"$CERT",        NULL,    set_cert,         get_cert,         NULL, "Enable or disable LoRaWAN certification port"},
     {"$SESSION",     NULL,    NULL,             get_session,      NULL, "Get network session information"},
     {"$CW",          cw,      NULL,             NULL,             NULL, "Start continuous carrier wave transmission"},
-    {"$CM",          cm,      NULL,             NULL,             NULL, "Start continuous modulated carrier wave transmission"},
+    {"$CM",          cm,      NULL,             NULL,             NULL, "Start continuous modulated FSK transmission"},
     ATCI_COMMAND_CLAC,
     ATCI_COMMAND_HELP};
 
