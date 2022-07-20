@@ -1123,20 +1123,6 @@ static void cm_clk_irq_handler( void* context )
     static uint32_t i = 0;
     i++;
     gpio_write(RADIO_DIO_2_PORT, RADIO_DIO_2_PIN, (i % 2) == 0);
-
-    /*
-        static bool pin = true;
-
-        // toggle every second when datarate is 4800
-        if(i % 4800 == 0)
-        {
-            atci_printf("X");
-            pin = !pin;
-        }
-
-        gpio_write(RADIO_DIO_2_PORT, RADIO_DIO_2_PIN, pin);
-
-    */
 }
 
 
