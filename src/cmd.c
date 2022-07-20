@@ -1110,6 +1110,8 @@ static void cw(atci_param_t *param)
 
     abort_on_error(LoRaMacMlmeRequest(&mlr));
 
+    schedule_reset = true;
+
     OK_();
 }
 
@@ -1200,6 +1202,8 @@ static void cm(atci_param_t *param)
     SX1276IoIrqInit(DioIrq);
 
     SX1276SetTx( timeout );
+
+    schedule_reset = true;
 
     OK_();
 }
