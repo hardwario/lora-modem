@@ -1098,6 +1098,7 @@ static void pctx(atci_param_t *param)
     request_confirmation = true;
 }
 
+
 static void cw(atci_param_t *param)
 {
     uint32_t freq, timeout;
@@ -1109,7 +1110,7 @@ static void cw(atci_param_t *param)
     if (!atci_param_is_comma(param)) abort(ERR_PARAM);
     if (!atci_param_get_uint(param, &timeout)) abort(ERR_PARAM);
 
-    log_debug("$CW: freq=%ld power=%ld timeout=%ld\r\n",  freq, power, timeout);
+    log_debug("$CW: freq=%ld power=%ld timeout=%ld\r\n", freq, power, timeout);
 
     MlmeReq_t mlr = { .Type = MLME_TXCW };
     mlr.Req.TxCw.Timeout = timeout;
@@ -1124,7 +1125,7 @@ static void cw(atci_param_t *param)
 }
 
 
-static void cm_clk_irq_handler( void* context )
+static void cm_clk_irq_handler(void* context)
 {
     (void) context;
 
@@ -1136,11 +1137,15 @@ static void cm_clk_irq_handler( void* context )
 
 static void cm(atci_param_t *param)
 {
-    (void)param;
+    // Since we're switching the SX1276 radio to a continuous mode, the preamble
+    // is technically needed. The radio only transmits the preamble in the
+    // packet mode. However, SX1276SetTxConfig requires a preamble, so we
+    // configure a dummy value here.
+#define PREAMBLE 0x05
 
     // Example freq 868.3 MHz, 250 kHz deviation, datarate 4800, timeout 2 seconds
     // AT$CM 868300000,250000,4800,-10,2
-    uint32_t freq, timeout, fdev, datarate, preamble = 5;
+    uint32_t freq, timeout, fdev, datarate;
     int32_t power;
 
     if (!atci_param_get_uint(param, &freq)) abort(ERR_PARAM);
@@ -1153,29 +1158,29 @@ static void cm(atci_param_t *param)
     if (!atci_param_is_comma(param)) abort(ERR_PARAM);
     if (!atci_param_get_uint(param, &timeout)) abort(ERR_PARAM);
 
-    log_debug("$CM: freq=%ld fdev=%ld datarate=%ld preamble=%ld power=%ld timeout=%ld\r\n", freq, fdev, datarate, preamble, power, timeout);
+    log_debug("$CM: freq=%ld fdev=%ld datarate=%ld power=%ld timeout=%ld\r\n", freq, fdev, datarate, power, timeout);
 
-    // Call this to set MacState to LORAMAC_TX_RUNNING to keep TX running infinitely
+    // Set MacState to LORAMAC_TX_RUNNING to keep TX running indefinitely
     MlmeReq_t mlr = { .Type = MLME_TXCW };
     mlr.Req.TxCw.Timeout = timeout;
     mlr.Req.TxCw.Frequency = freq;
     mlr.Req.TxCw.Power = power;
     abort_on_error(LoRaMacMlmeRequest(&mlr));
 
-    timeout = ( uint32_t )timeout * 1000;
+    timeout = (uint32_t)timeout * 1000;
 
     SX1276SetStby();
-
     SX1276SetChannel(freq);
-    SX1276SetTxConfig( MODEM_FSK, power, fdev, 0, datarate, 0, preamble, false, false, 0, 0, 0, timeout );
+    SX1276SetTxConfig(MODEM_FSK, power, fdev, 0, datarate, 0, PREAMBLE, false, false, 0, 0, 0, timeout);
 
-    // Disable packet mode
-    SX1276Write( REG_PACKETCONFIG2, ( SX1276Read( REG_PACKETCONFIG2 ) & RF_PACKETCONFIG2_DATAMODE_MASK ) );
-    // Disable radio interrupts, set clock on DIO1
-    SX1276Write( REG_DIOMAPPING1, RF_DIOMAPPING1_DIO0_11 | RF_DIOMAPPING1_DIO1_00 );
-    SX1276Write( REG_DIOMAPPING2, RF_DIOMAPPING2_DIO4_10 | RF_DIOMAPPING2_DIO5_10 );
+    // Disable the SX1276 packet mode
+    SX1276Write(REG_PACKETCONFIG2, SX1276Read(REG_PACKETCONFIG2) & RF_PACKETCONFIG2_DATAMODE_MASK);
 
-    // Reconfigure CLK falling interrupt. SX samples on rising edge
+    // Disable radio interrupts, enable the SX1276 modulator clock on DIO1
+    SX1276Write(REG_DIOMAPPING1, RF_DIOMAPPING1_DIO0_11 | RF_DIOMAPPING1_DIO1_00);
+    SX1276Write(REG_DIOMAPPING2, RF_DIOMAPPING2_DIO4_10 | RF_DIOMAPPING2_DIO5_10);
+
+    // Generate interrupts on the falling clock edge. SX1276 samples on the rising edge.
     GPIO_InitTypeDef cfg_dio1 = {
         .Mode = GPIO_MODE_IT_FALLING,
         .Pull = GPIO_PULLUP,
@@ -1183,7 +1188,7 @@ static void cm(atci_param_t *param)
     };
     gpio_init(RADIO_DIO_1_PORT, RADIO_DIO_1_PIN, &cfg_dio1);
 
-    // Configure data pin DIO2 as an output
+    // Configure DIO2 GPIO as an output
     GPIO_InitTypeDef cfg_dio2 = {
         .Mode = GPIO_MODE_OUTPUT_PP,
         .Pull = GPIO_NOPULL,
@@ -1191,12 +1196,15 @@ static void cm(atci_param_t *param)
     };
     gpio_init(RADIO_DIO_2_PORT, RADIO_DIO_2_PIN, &cfg_dio2);
 
-    // Rewire interrupts
+    // Rewire SX1276 interrupts
+
     DioIrqHandler *DioIrq[] = { NULL, cm_clk_irq_handler, NULL, NULL, NULL, NULL };
     SX1276IoIrqInit(DioIrq);
+    SX1276SetTx(timeout);
 
-    SX1276SetTx( timeout );
-
+    // Since we currently have no code to restore the original settings, the
+    // modem must be rebooted after AT$CM has ended to restore the original
+    // configuration.
     schedule_reset = true;
 
     OK_();
