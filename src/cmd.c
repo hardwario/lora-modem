@@ -1110,7 +1110,7 @@ static void cw(atci_param_t *param)
     if (!atci_param_is_comma(param)) abort(ERR_PARAM);
     if (!atci_param_get_uint(param, &timeout)) abort(ERR_PARAM);
 
-    log_debug("$CW: freq=%ld power=%ld timeout=%ld\r\n", freq, power, timeout);
+    log_debug("$CW: freq=%ld Hz power=%ld dBm timeout=%ld s", freq, power, timeout);
 
     MlmeReq_t mlr = { .Type = MLME_TXCW };
     mlr.Req.TxCw.Timeout = timeout;
@@ -1158,7 +1158,7 @@ static void cm(atci_param_t *param)
     if (!atci_param_is_comma(param)) abort(ERR_PARAM);
     if (!atci_param_get_uint(param, &timeout)) abort(ERR_PARAM);
 
-    log_debug("$CM: freq=%ld fdev=%ld datarate=%ld power=%ld timeout=%ld\r\n", freq, fdev, datarate, power, timeout);
+    log_debug("$CM: freq=%ld Hz fdev=%ld Hz datarate=%ld Bd power=%ld dBm timeout=%ld s", freq, fdev, datarate, power, timeout);
 
     // Set MacState to LORAMAC_TX_RUNNING to keep TX running indefinitely
     MlmeReq_t mlr = { .Type = MLME_TXCW };
