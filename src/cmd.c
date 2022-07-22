@@ -1106,9 +1106,16 @@ static void cw(atci_param_t *param)
 
     if (!atci_param_get_uint(param, &freq)) abort(ERR_PARAM);
     if (!atci_param_is_comma(param)) abort(ERR_PARAM);
+
     if (!atci_param_get_int(param, &power)) abort(ERR_PARAM);
+    if (power < INT8_MIN || power > INT8_MAX) abort(ERR_PARAM);
     if (!atci_param_is_comma(param)) abort(ERR_PARAM);
+
     if (!atci_param_get_uint(param, &timeout)) abort(ERR_PARAM);
+    if (timeout > UINT16_MAX) abort(ERR_PARAM);
+
+    // Make sure there are no additional parameters that we don't understand.
+    if (param->offset != param->length) abort(ERR_PARAM);
 
     log_debug("$CW: freq=%ld Hz power=%ld dBm timeout=%ld s", freq, power, timeout);
 
@@ -1120,7 +1127,6 @@ static void cw(atci_param_t *param)
     abort_on_error(LoRaMacMlmeRequest(&mlr));
 
     schedule_reset = true;
-
     OK_();
 }
 
