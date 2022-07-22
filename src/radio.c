@@ -70,14 +70,14 @@ static bool SX1276CheckRfFrequency(__attribute__((unused)) uint32_t frequency)
 }
 
 
-void SetChannel(uint32_t freq)
+static void SetChannel(uint32_t freq)
 {
     log_debug("SX1276SetChannel: %.3f MHz", (float)freq / (float)1000000);
     SX1276SetChannel(freq);
 }
 
 
-void SetTxConfig(RadioModems_t modem, int8_t power, uint32_t fdev,
+static void SetTxConfig(RadioModems_t modem, int8_t power, uint32_t fdev,
     uint32_t bandwidth, uint32_t datarate, uint8_t coderate,
     uint16_t preambleLen, bool fixLen, bool crcOn, bool freqHopOn,
     uint8_t hopPeriod, bool iqInverted, uint32_t timeout)
@@ -112,7 +112,7 @@ void SetTxConfig(RadioModems_t modem, int8_t power, uint32_t fdev,
 }
 
 
-void SetRxConfig(RadioModems_t modem, uint32_t bandwidth, uint32_t datarate,
+static void SetRxConfig(RadioModems_t modem, uint32_t bandwidth, uint32_t datarate,
     uint8_t coderate, uint32_t bandwidthAfc, uint16_t preambleLen,
     uint16_t symbTimeout, bool fixLen, uint8_t payloadLen, bool crcOn,
     bool freqHopOn, uint8_t hopPeriod, bool iqInverted, bool rxContinuous)
