@@ -523,6 +523,14 @@ static void join_callback(MlmeConfirm_t *param)
 }
 
 
+static void cw_callback(MlmeConfirm_t *param)
+{
+    if (param->Status == LORAMAC_EVENT_INFO_STATUS_TX_TIMEOUT) {
+        cmd_event(CMD_EVENT_CW, CMD_CW_END);
+    }
+}
+
+
 static void mlme_confirm(MlmeConfirm_t *param)
 {
     log_debug("mlme_confirm: MlmeRequest: %d Status: %d", param->MlmeRequest, param->Status);
@@ -535,6 +543,10 @@ static void mlme_confirm(MlmeConfirm_t *param)
 
         case MLME_LINK_CHECK:
             linkcheck_callback(param);
+            break;
+
+        case MLME_TXCW:
+            cw_callback(param);
             break;
 
         default:

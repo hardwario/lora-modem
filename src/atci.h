@@ -100,6 +100,14 @@ size_t atci_param_get_buffer_from_hex(atci_param_t *param, void *buffer, size_t 
 
 bool atci_param_get_uint(atci_param_t *param, uint32_t *value);
 
+//! @brief Parse string to int and move parsing cursor forward
+//! @param[in] param Param instance
+//! @param[in] value pointer to number
+//! @return true On success
+//! @return false On failure
+
+bool atci_param_get_int(atci_param_t *param, int32_t *value);
+
 //! @brief Check if the character at cursor is comma and move parsing cursor forward
 //! @param[in] param Param instance
 //! @return true Is comma

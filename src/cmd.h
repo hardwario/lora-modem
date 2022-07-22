@@ -7,7 +7,8 @@
 enum cmd_event {
     CMD_EVENT_MODULE  = 0,
     CMD_EVENT_JOIN    = 1,
-    CMD_EVENT_NETWORK = 2
+    CMD_EVENT_NETWORK = 2,
+    CMD_EVENT_CW = 50
 };
 
 
@@ -30,6 +31,12 @@ enum cmd_event_net {
     CMD_NET_ANSWER         = 1,
     CMD_NET_RETRANSMISSION = 2
 };
+
+
+enum cmd_event_cw {
+    CMD_CW_END       = 0
+};
+
 
 extern bool schedule_reset;
 

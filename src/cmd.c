@@ -14,6 +14,7 @@
 #include "nvm.h"
 #include "halt.h"
 #include "utils.h"
+#include "sx1276-board.h"
 
 // These are global variables exported by radio.c that store the RSSI and SNR of
 // the most recent received packet.
@@ -1097,6 +1098,110 @@ static void pctx(atci_param_t *param)
     request_confirmation = true;
 }
 
+static void cw(atci_param_t *param)
+{
+    uint32_t freq, timeout;
+    int32_t power;
+
+    if (!atci_param_get_uint(param, &freq)) abort(ERR_PARAM);
+    if (!atci_param_is_comma(param)) abort(ERR_PARAM);
+    if (!atci_param_get_int(param, &power)) abort(ERR_PARAM);
+    if (!atci_param_is_comma(param)) abort(ERR_PARAM);
+    if (!atci_param_get_uint(param, &timeout)) abort(ERR_PARAM);
+
+    log_debug("$CW: freq=%ld power=%ld timeout=%ld\r\n",  freq, power, timeout);
+
+    MlmeReq_t mlr = { .Type = MLME_TXCW };
+    mlr.Req.TxCw.Timeout = timeout;
+    mlr.Req.TxCw.Frequency = freq;
+    mlr.Req.TxCw.Power = power;
+
+    abort_on_error(LoRaMacMlmeRequest(&mlr));
+
+    schedule_reset = true;
+
+    OK_();
+}
+
+
+static void cm_clk_irq_handler( void* context )
+{
+    (void) context;
+
+    static uint32_t i = 0;
+    i++;
+    gpio_write(RADIO_DIO_2_PORT, RADIO_DIO_2_PIN, (i % 2) == 0);
+}
+
+
+static void cm(atci_param_t *param)
+{
+    (void)param;
+
+    // Example freq 868.3 MHz, 250 kHz deviation, datarate 4800, timeout 2 seconds
+    // AT$CM 868300000,250000,4800,-10,2
+    uint32_t freq, timeout, fdev, datarate, preamble = 5;
+    int32_t power;
+
+    if (!atci_param_get_uint(param, &freq)) abort(ERR_PARAM);
+    if (!atci_param_is_comma(param)) abort(ERR_PARAM);
+    if (!atci_param_get_uint(param, &fdev)) abort(ERR_PARAM);
+    if (!atci_param_is_comma(param)) abort(ERR_PARAM);
+    if (!atci_param_get_uint(param, &datarate)) abort(ERR_PARAM);
+    if (!atci_param_is_comma(param)) abort(ERR_PARAM);
+    if (!atci_param_get_int(param, &power)) abort(ERR_PARAM);
+    if (!atci_param_is_comma(param)) abort(ERR_PARAM);
+    if (!atci_param_get_uint(param, &timeout)) abort(ERR_PARAM);
+
+    log_debug("$CM: freq=%ld fdev=%ld datarate=%ld preamble=%ld power=%ld timeout=%ld\r\n", freq, fdev, datarate, preamble, power, timeout);
+
+    // Call this to set MacState to LORAMAC_TX_RUNNING to keep TX running infinitely
+    MlmeReq_t mlr = { .Type = MLME_TXCW };
+    mlr.Req.TxCw.Timeout = timeout;
+    mlr.Req.TxCw.Frequency = freq;
+    mlr.Req.TxCw.Power = power;
+    abort_on_error(LoRaMacMlmeRequest(&mlr));
+
+    timeout = ( uint32_t )timeout * 1000;
+
+    SX1276SetStby();
+
+    SX1276SetChannel(freq);
+    SX1276SetTxConfig( MODEM_FSK, power, fdev, 0, datarate, 0, preamble, false, false, 0, 0, 0, timeout );
+
+    // Disable packet mode
+    SX1276Write( REG_PACKETCONFIG2, ( SX1276Read( REG_PACKETCONFIG2 ) & RF_PACKETCONFIG2_DATAMODE_MASK ) );
+    // Disable radio interrupts, set clock on DIO1
+    SX1276Write( REG_DIOMAPPING1, RF_DIOMAPPING1_DIO0_11 | RF_DIOMAPPING1_DIO1_00 );
+    SX1276Write( REG_DIOMAPPING2, RF_DIOMAPPING2_DIO4_10 | RF_DIOMAPPING2_DIO5_10 );
+
+    // Reconfigure CLK falling interrupt. SX samples on rising edge
+    GPIO_InitTypeDef cfg_dio1 = {
+        .Mode = GPIO_MODE_IT_FALLING,
+        .Pull = GPIO_PULLUP,
+        .Speed = GPIO_SPEED_HIGH
+    };
+    gpio_init(RADIO_DIO_1_PORT, RADIO_DIO_1_PIN, &cfg_dio1);
+
+    // Configure data pin DIO2 as an output
+    GPIO_InitTypeDef cfg_dio2 = {
+        .Mode = GPIO_MODE_OUTPUT_PP,
+        .Pull = GPIO_NOPULL,
+        .Speed = GPIO_SPEED_HIGH
+    };
+    gpio_init(RADIO_DIO_2_PORT, RADIO_DIO_2_PIN, &cfg_dio2);
+
+    // Rewire interrupts
+    DioIrqHandler *DioIrq[] = { NULL, cm_clk_irq_handler, NULL, NULL, NULL, NULL };
+    SX1276IoIrqInit(DioIrq);
+
+    SX1276SetTx( timeout );
+
+    schedule_reset = true;
+
+    OK_();
+}
+
 
 static void get_frmcnt(void)
 {
@@ -1342,6 +1447,7 @@ static void dbg(atci_param_t *param)
     // RF_CAD,        //!< The radio is doing channel activity detection
     atci_printf("$DBG: sleep_lock=%d stop_lock=%d radio_state=%d loramac_busy=%d\r\n",
         system_sleep_lock, system_stop_lock, Radio.GetStatus(), LoRaMacIsBusy());
+
     OK_();
 }
 #endif
@@ -1810,6 +1916,8 @@ static const atci_command_t cmds[] = {
 #endif
     {"$CERT",        NULL,    set_cert,         get_cert,         NULL, "Enable or disable LoRaWAN certification port"},
     {"$SESSION",     NULL,    NULL,             get_session,      NULL, "Get network session information"},
+    {"$CW",          cw,      NULL,             NULL,             NULL, "Start continuous carrier wave transmission"},
+    {"$CM",          cm,      NULL,             NULL,             NULL, "Start continuous modulated FSK transmission"},
     ATCI_COMMAND_CLAC,
     ATCI_COMMAND_HELP};
 
