@@ -1,4 +1,8 @@
 #include "atci.h"
+#include <string.h>
+#include <stdarg.h>
+#include <ctype.h>
+#include <stdio.h>
 #include "lpuart.h"
 #include "log.h"
 #include "halt.h"

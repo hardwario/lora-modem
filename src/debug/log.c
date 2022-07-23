@@ -1,5 +1,7 @@
 #include "log.h"
 
+#include <string.h>
+#include <stdio.h>
 #include <rtt/segger_rtt.h>
 #include "rtc.h"
 #include "system.h"

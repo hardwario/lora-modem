@@ -33,8 +33,7 @@ Maintainer: Miguel Luis and Gregory Cristian
 #ifndef __UTILITIES_H__
 #define __UTILITIES_H__
 
-
-#include "common.h"
+#include "irq.h"
 #include "atci.h"
 /* BACKUP_PRIMASK MUST be implemented at the begining of the funtion
    that implement a critical section

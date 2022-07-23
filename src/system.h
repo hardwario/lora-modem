@@ -1,7 +1,7 @@
 #ifndef _SYSTEM_H
 #define _SYSTEM_H
 
-#include "common.h"
+#include <stdint.h>
 
 extern volatile unsigned system_stop_lock;
 extern volatile unsigned system_sleep_lock;

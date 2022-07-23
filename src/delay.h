@@ -1,7 +1,6 @@
 #ifndef _DELAY_H
 #define _DELAY_H
 
-#include "common.h"
 #include "rtc.h"
 
 //! @brief  Blocking delay of "s" seconds

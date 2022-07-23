@@ -3,7 +3,6 @@
 
 #include <LoRaWAN/Utilities/timer.h>
 #include <stm/STM32L0xx_HAL_Driver/Inc/stm32l0xx_hal.h>
-#include "common.h"
 
 //! @param Temperature coefficient of the clock source
 

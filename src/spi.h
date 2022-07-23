@@ -1,7 +1,6 @@
 #ifndef _HW_SPI_H
 #define _HW_SPI_H
 
-#include "common.h"
 #include "gpio.h"
 #include "radio.h"
 

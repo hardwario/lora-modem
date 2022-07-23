@@ -1,4 +1,5 @@
 #include "eeprom.h"
+#include <string.h>
 #include <LoRaWAN/Utilities/timeServer.h>
 #include <stm/STM32L0xx_HAL_Driver/Inc/stm32l0xx_hal_flash.h>
 #include "irq.h"

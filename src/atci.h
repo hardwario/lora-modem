@@ -1,7 +1,8 @@
 #ifndef _ATCI_H
 #define _ATCI_H
 
-#include "common.h"
+#include <stdint.h>
+#include <stdbool.h>
 #include "lpuart.h"
 
 #define ATCI_COMMANDS_LENGTH(COMMANDS) (sizeof(COMMANDS) / sizeof(COMMANDS[0]))

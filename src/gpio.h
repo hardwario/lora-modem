@@ -2,7 +2,6 @@
 #define _HW_GPIO_H
 
 #include <stm/STM32L0xx_HAL_Driver/Inc/stm32l0xx_hal.h>
-#include "common.h"
 
 typedef void(gpio_irq_handler_t)(void *context);
 

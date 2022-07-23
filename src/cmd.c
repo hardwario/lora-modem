@@ -1,4 +1,5 @@
 #include "cmd.h"
+#include <string.h>
 #include <loramac-node/src/radio/radio.h>
 #include <loramac-node/src/radio/sx1276/sx1276.h>
 #include <loramac-node/src/mac/secure-element.h>

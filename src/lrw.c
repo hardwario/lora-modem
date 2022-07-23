@@ -1,5 +1,6 @@
 #include "lrw.h"
 #include <assert.h>
+#include <string.h>
 #include <LoRaWAN/Utilities/timeServer.h>
 #include <LoRaWAN/Utilities/utilities.h>
 #include <loramac-node/src/mac/LoRaMac.h>

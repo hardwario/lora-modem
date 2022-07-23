@@ -1,5 +1,6 @@
 #include "nvm.h"
 #include <assert.h>
+#include <string.h>
 #include <stm/include/stm32l072xx.h>
 #include <loramac-node/src/mac/LoRaMacTypes.h>
 #include <loramac-node/src/mac/LoRaMac.h>

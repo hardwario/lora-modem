@@ -1,7 +1,7 @@
 #ifndef _LOG_H
 #define _LOG_H
 
-#include "common.h"
+#include <stddef.h>
 
 #ifndef LOG_BUFFER_SIZE
 #define LOG_BUFFER_SIZE 256

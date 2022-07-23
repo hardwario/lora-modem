@@ -1,7 +1,9 @@
 #ifndef _EEPROM_H
 #define _EEPROM_H
 
-#include "common.h"
+#include <stdbool.h>
+#include <stdint.h>
+#include <stddef.h>
 
 //! @brief Write buffer to EEPROM area and verify it
 //! @param[in] address EEPROM start address (starts at 0)

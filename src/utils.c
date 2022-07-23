@@ -1,5 +1,6 @@
 #include "utils.h"
 #include <stdint.h>
+#include <string.h>
 #include <LoRaWAN/Utilities/utilities.h>
 
 
