@@ -32,7 +32,7 @@ void gpio_init(GPIO_TypeDef *port, uint16_t pin, GPIO_InitTypeDef *init_struct)
 
 void gpio_set_irq(GPIO_TypeDef *port, uint16_t pin, uint32_t prio, gpio_irq_handler_t *irqHandler)
 {
-    (void) port; 
+    (void) port;
     IRQn_Type irq_nb;
 
     uint32_t bit_pos = HW_GPIO_Getbit_pos(pin);
@@ -160,4 +160,10 @@ void EXTI4_15_IRQHandler(void)
     HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_14);
 
     HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_15);
+}
+
+
+void GpioWrite(Gpio_t *obj, uint32_t value)
+{
+    gpio_write(obj->port, obj->pinIndex, value);
 }

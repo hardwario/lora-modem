@@ -1,58 +1,77 @@
 #include "spi.h"
-#include "gpio.h"
 #include "halt.h"
 
-#define RADIO_MOSI_PORT GPIOA
-#define RADIO_MOSI_PIN GPIO_PIN_7
 
-#define RADIO_MISO_PORT GPIOA
-#define RADIO_MISO_PIN  GPIO_PIN_6
-
-#define RADIO_SCLK_PORT GPIOB
-#define RADIO_SCLK_PIN  GPIO_PIN_3
-
-
-static SPI_HandleTypeDef hspi;
-
-static uint32_t _spi_calc_divisor_for_frequency(uint32_t hz);
-
-void spi_init(uint32_t speed)
+static uint32_t calc_divisor_for_frequency(uint32_t hz)
 {
-    hspi.Instance = SPI1;
+    uint32_t divisor = 0;
+    uint32_t SysClkTmp = SystemCoreClock;
+    uint32_t baudRate;
 
-    hspi.Init.BaudRatePrescaler = _spi_calc_divisor_for_frequency(speed);
-    hspi.Init.Direction = SPI_DIRECTION_2LINES;
-    hspi.Init.Mode = SPI_MODE_MASTER;
-    hspi.Init.CLKPolarity = SPI_POLARITY_LOW;
-    hspi.Init.CLKPhase = SPI_PHASE_1EDGE;
-    hspi.Init.DataSize = SPI_DATASIZE_8BIT;
-    hspi.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
-    hspi.Init.FirstBit = SPI_FIRSTBIT_MSB;
-    hspi.Init.NSS = SPI_NSS_SOFT;
-    hspi.Init.TIMode = SPI_TIMODE_DISABLE;
+    while (SysClkTmp > hz) {
+        divisor++;
+        SysClkTmp = (SysClkTmp >> 1);
+        if (divisor >= 7) break;
+    }
+
+    baudRate = (((divisor & 0x4) == 0) ? 0x0 : SPI_CR1_BR_2) |
+               (((divisor & 0x2) == 0) ? 0x0 : SPI_CR1_BR_1) |
+               (((divisor & 0x1) == 0) ? 0x0 : SPI_CR1_BR_0);
+
+    return baudRate;
+}
+
+
+void spi_init(Spi_t *spi, uint32_t speed)
+{
+    spi->hspi.Instance = SPI1;
+
+    spi->hspi.Init.BaudRatePrescaler = calc_divisor_for_frequency(speed);
+    spi->hspi.Init.Direction = SPI_DIRECTION_2LINES;
+    spi->hspi.Init.Mode = SPI_MODE_MASTER;
+    spi->hspi.Init.CLKPolarity = SPI_POLARITY_LOW;
+    spi->hspi.Init.CLKPhase = SPI_PHASE_1EDGE;
+    spi->hspi.Init.DataSize = SPI_DATASIZE_8BIT;
+    spi->hspi.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
+    spi->hspi.Init.FirstBit = SPI_FIRSTBIT_MSB;
+    spi->hspi.Init.NSS = SPI_NSS_SOFT;
+    spi->hspi.Init.TIMode = SPI_TIMODE_DISABLE;
+
+    spi->Nss.port = GPIOA;
+    spi->Nss.pinIndex = GPIO_PIN_15;
+
+    spi->miso.port = GPIOA;
+    spi->miso.pinIndex = GPIO_PIN_6;
+
+    spi->mosi.port = GPIOA;
+    spi->mosi.pinIndex = GPIO_PIN_7;
+
+    spi->sclk.port = GPIOB;
+    spi->sclk.pinIndex = GPIO_PIN_3;
 
     __HAL_RCC_SPI1_CLK_ENABLE();
 
-    if (HAL_SPI_Init(&hspi) != HAL_OK)
-    {
+    if (HAL_SPI_Init(&spi->hspi) != HAL_OK)
         halt("Error while initializing SPI subsystem");
-    }
 
-    spi_io_init();
+    spi_io_init(spi);
+
 }
 
-void spi_deinit(void)
+
+void spi_deinit(Spi_t *spi)
 {
-    HAL_SPI_DeInit(&hspi);
+    HAL_SPI_DeInit(&spi->hspi);
 
     // Reset peripherals
     __HAL_RCC_SPI1_FORCE_RESET();
     __HAL_RCC_SPI1_RELEASE_RESET();
 
-    spi_io_deinit();
+    spi_io_deinit(spi);
 }
 
-void spi_io_init(void)
+
+void spi_io_init(Spi_t *spi)
 {
     GPIO_InitTypeDef cfg = {
         .Mode = GPIO_MODE_AF_PP,
@@ -61,69 +80,45 @@ void spi_io_init(void)
         .Alternate = GPIO_AF0_SPI1
     };
 
-    gpio_init(RADIO_SCLK_PORT, RADIO_SCLK_PIN, &cfg);
-    gpio_init(RADIO_MOSI_PORT, RADIO_MOSI_PIN, &cfg);
+    gpio_init(spi->sclk.port, spi->sclk.pinIndex, &cfg);
+    gpio_init(spi->mosi.port, spi->mosi.pinIndex, &cfg);
 
     cfg.Pull = GPIO_PULLDOWN;
-    gpio_init(RADIO_MISO_PORT, RADIO_MISO_PIN, &cfg);
+    gpio_init(spi->miso.port, spi->miso.pinIndex, &cfg);
 
     cfg.Mode = GPIO_MODE_OUTPUT_PP;
     cfg.Pull = GPIO_NOPULL;
-    gpio_init(RADIO_NSS_PORT, RADIO_NSS_PIN, &cfg);
-    gpio_write(RADIO_NSS_PORT, RADIO_NSS_PIN, 1);
+    gpio_init(spi->Nss.port, spi->Nss.pinIndex, &cfg);
+    gpio_write(spi->Nss.port, spi->Nss.pinIndex, 1);
 }
 
-void spi_io_deinit(void)
+
+void spi_io_deinit(Spi_t *spi)
 {
     GPIO_InitTypeDef cfg = {
         .Mode = GPIO_MODE_OUTPUT_PP,
         .Pull = GPIO_NOPULL
     };
 
-    gpio_init(RADIO_MOSI_PORT, RADIO_MOSI_PIN, &cfg);
-    gpio_write(RADIO_MOSI_PORT, RADIO_MOSI_PIN, 0);
+    gpio_init(spi->mosi.port, spi->mosi.pinIndex, &cfg);
+    gpio_write(spi->mosi.port, spi->mosi.pinIndex, 0);
 
-    gpio_init(RADIO_SCLK_PORT, RADIO_SCLK_PIN, &cfg);
-    gpio_write(RADIO_SCLK_PORT, RADIO_SCLK_PIN, 0);
+    gpio_init(spi->sclk.port, spi->sclk.pinIndex, &cfg);
+    gpio_write(spi->sclk.port, spi->sclk.pinIndex, 0);
 
-    gpio_init(RADIO_NSS_PORT, RADIO_NSS_PIN, &cfg);
-    gpio_write(RADIO_NSS_PORT, RADIO_NSS_PIN, 1);
+    gpio_init(spi->Nss.port, spi->Nss.pinIndex, &cfg);
+    gpio_write(spi->Nss.port, spi->Nss.pinIndex, 1);
 
     cfg.Mode = GPIO_MODE_INPUT;
     cfg.Pull = GPIO_PULLDOWN;
-    gpio_write(RADIO_MISO_PORT, RADIO_MISO_PIN, 0);
-    gpio_init(RADIO_MISO_PORT, RADIO_MISO_PIN, &cfg);
+    gpio_write(spi->miso.port, spi->miso.pinIndex, 0);
+    gpio_init(spi->miso.port, spi->miso.pinIndex, &cfg);
 }
 
-uint8_t spi_transfer(uint8_t tx)
+
+uint16_t SpiInOut(Spi_t *obj, uint16_t outData)
 {
-    uint8_t rx;
-
-    HAL_SPI_TransmitReceive(&hspi, &tx, &rx, 1, HAL_MAX_DELAY);
-
+    uint8_t rx, tx = outData;
+    HAL_SPI_TransmitReceive(&obj->hspi, &tx, &rx, 1, HAL_MAX_DELAY);
     return rx;
-}
-
-static uint32_t _spi_calc_divisor_for_frequency(uint32_t hz)
-{
-    uint32_t divisor = 0;
-    uint32_t SysClkTmp = SystemCoreClock;
-    uint32_t baudRate;
-
-    while (SysClkTmp > hz)
-    {
-        divisor++;
-        SysClkTmp = (SysClkTmp >> 1);
-
-        if (divisor >= 7)
-        {
-            break;
-        }
-    }
-
-    baudRate = (((divisor & 0x4) == 0) ? 0x0 : SPI_CR1_BR_2) |
-               (((divisor & 0x2) == 0) ? 0x0 : SPI_CR1_BR_1) |
-               (((divisor & 0x1) == 0) ? 0x0 : SPI_CR1_BR_0);
-
-    return baudRate;
 }

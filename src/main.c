@@ -3,7 +3,6 @@
 #include "atci.h"
 #include "cmd.h"
 #include "adc.h"
-#include "sx1276io.h"
 #include "lrw.h"
 #include "system.h"
 #include "log.h"
@@ -17,6 +16,7 @@
 #include "eeprom.h"
 #include "halt.h"
 #include "nvm.h"
+#include "sx1276-board.h"
 
 
 int main(void)
@@ -35,8 +35,24 @@ int main(void)
     cmd_init(sysconf.uart_baudrate);
 
     adc_init();
-    spi_init(10000000);
-    sx1276io_init();
+
+    SX1276.DIO0.port = GPIOB;
+    SX1276.DIO0.pinIndex = GPIO_PIN_4;
+    SX1276.DIO1.port = GPIOB;
+    SX1276.DIO1.pinIndex = GPIO_PIN_1;
+    SX1276.DIO2.port = GPIOB;
+    SX1276.DIO2.pinIndex = GPIO_PIN_0;
+    SX1276.DIO3.port = GPIOC;
+    SX1276.DIO3.pinIndex = GPIO_PIN_13;
+    SX1276.DIO4.port = GPIOA;
+    SX1276.DIO4.pinIndex = GPIO_PIN_5;
+    SX1276.DIO5.port = GPIOA;
+    SX1276.DIO5.pinIndex = GPIO_PIN_4;
+    SX1276.Reset.port = GPIOC;
+    SX1276.Reset.pinIndex = GPIO_PIN_0;
+
+    spi_init(&SX1276.Spi, 10000000);
+    SX1276IoInit();
 
     lrw_init();
     log_debug("LoRaMac: Starting");
@@ -85,8 +101,8 @@ int main(void)
 
 void system_before_stop(void)
 {
-    sx1276io_deinit();
-    spi_io_deinit();
+    SX1276IoDeInit();
+    spi_io_deinit(&SX1276.Spi);
     adc_before_stop();
     lpuart_before_stop();
 }
@@ -96,6 +112,6 @@ void system_after_stop(void)
 {
     lpuart_after_stop();
     adc_after_stop();
-    spi_io_init();
-    sx1276io_init();
+    spi_io_init(&SX1276.Spi);
+    SX1276IoInit();
 }

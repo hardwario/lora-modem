@@ -3,6 +3,7 @@
 
 #include <stm/STM32L0xx_HAL_Driver/Inc/stm32l0xx_hal.h>
 
+
 typedef void(gpio_irq_handler_t)(void *context);
 
 //! @brief Initializes the given GPIO object
@@ -39,11 +40,17 @@ uint32_t gpio_read(GPIO_TypeDef *port, uint16_t pin);
 
 void gpio_hal_msp_irq_handler(uint16_t pin);
 
+
+// The following function is a wrapper for LoRaMac-node
+
 typedef struct
 {
-    void *port;
+    GPIO_TypeDef *port;
     uint16_t pinIndex;
 } Gpio_t;
+
+
+void GpioWrite(Gpio_t *obj, uint32_t value);
 
 #endif // _HW_GPIO_H
 

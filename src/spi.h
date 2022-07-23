@@ -1,35 +1,38 @@
 #ifndef _HW_SPI_H
 #define _HW_SPI_H
 
+#include <stm/STM32L0xx_HAL_Driver/Inc/stm32l0xx_hal.h>
 #include "gpio.h"
-#include "radio.h"
+
+
+typedef struct
+{
+    SPI_HandleTypeDef hspi;
+    Gpio_t Nss;   // First character is upper-case for compatiblity with LoRaMac-node
+    Gpio_t mosi;
+    Gpio_t miso;
+    Gpio_t sclk;
+} Spi_t;
+
 
 //! @brief Initialize SPI channel
 //! @param[in] speed SPI communication speed [hz]
 
-void spi_init(uint32_t speed);
+void spi_init(Spi_t *spi, uint32_t speed);
 
 //! @brief Deinitialize SPI channel
 
-void spi_deinit(void);
+void spi_deinit(Spi_t *spi);
 
 //! @brief Initialize the SPI IOs
 
-void spi_io_init(void);
+void spi_io_init(Spi_t *spi);
 
 //! @brief Deinitialize the SPI IOs
 
-void spi_io_deinit(void);
+void spi_io_deinit(Spi_t *spi);
 
-//! @brief outData and receives inData
-//! @param [IN] tx Byte to be sent
-//! @retval Received byte.
 
-uint8_t spi_transfer(uint8_t tx);
-
-typedef struct
-{
-    Gpio_t Nss;
-} Spi_t;
+uint16_t SpiInOut(Spi_t *obj, uint16_t outData);
 
 #endif // _HW_SPI_H
