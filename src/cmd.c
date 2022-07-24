@@ -1,7 +1,6 @@
 #include "cmd.h"
 #include <string.h>
 #include <loramac-node/src/radio/radio.h>
-#include <loramac-node/src/radio/sx1276/sx1276.h>
 #include <loramac-node/src/mac/secure-element.h>
 #include <loramac-node/src/mac/secure-element-nvm.h>
 #include <loramac-node/src/mac/LoRaMacTest.h>
@@ -1120,13 +1119,29 @@ static void cw(atci_param_t *param)
 
     log_debug("$CW: freq=%ld Hz power=%ld dBm timeout=%ld s", freq, power, timeout);
 
-    MlmeReq_t mlr = { .Type = MLME_TXCW };
-    mlr.Req.TxCw.Timeout = timeout;
-    mlr.Req.TxCw.Frequency = freq;
-    mlr.Req.TxCw.Power = power;
+    // We could have invoked Radio.SetTxContinuousWave directly here. The
+    // benefit of invoking the function via the MIB is that it forces the MAC
+    // into a LORAMAC_TX_RUNNING state for the duration of the transmission,
+    // which will prevent other transmission attempts from disrupting the
+    // ongoing carrier wave transmission. There appears to be no other way to
+    // transition into that state manually.
 
-    abort_on_error(LoRaMacMlmeRequest(&mlr));
+    MlmeReq_t r = {
+        .Type = MLME_TXCW,
+        .Req = { .TxCw = {
+            .Timeout = timeout,
+            .Frequency = freq,
+            .Power = power
+    }}};
+    abort_on_error(LoRaMacMlmeRequest(&r));
 
+    lrw_event_subtype = CMD_CERT_CW_ENDED;
+
+    // Continuous carrier wave transmission internally reconfigures some of the
+    // SX1276 DIO pins and interrupts. Rather than trying to restore everything
+    // to a functioning state, we automatically perform a modem reset after the
+    // transmission has ended. This command is for certification purposes only,
+    // so this behavior is fine.
     schedule_reset = true;
     OK_();
 }
@@ -1135,85 +1150,116 @@ static void cw(atci_param_t *param)
 static void cm_clk_irq_handler(void* context)
 {
     (void) context;
+    static uint32_t i;
 
-    static uint32_t i = 0;
-    i++;
-    gpio_write(RADIO_DIO_2_PORT, RADIO_DIO_2_PIN, (i % 2) == 0);
+    // AT$CM generates a continuous stream of ones and zeros modulated with FSK.
+    // This interrupt handler is invoked on the falling edge of the clock signal
+    // generated on DIO1. It alternates the state of DIO2 in order to generate
+    // the sequence of ones and zeroes.
+    GpioWrite(&SX1276.DIO2, (i++ % 2) == 0);
 }
 
 
 static void cm(atci_param_t *param)
 {
-    // Since we're switching the SX1276 radio to a continuous mode, the preamble
-    // is technically needed. The radio only transmits the preamble in the
-    // packet mode. However, SX1276SetTxConfig requires a preamble, so we
-    // configure a dummy value here.
-#define PREAMBLE 0x05
-
-    // Example freq 868.3 MHz, 250 kHz deviation, datarate 4800, timeout 2 seconds
+    // Example with 868.3 MHz center frequency, 250 kHz deviation, 4800 Bd data
+    // rate, transmission power -10 dBm, and 2 second timeout:
     // AT$CM 868300000,250000,4800,-10,2
     uint32_t freq, timeout, fdev, datarate;
     int32_t power;
 
     if (!atci_param_get_uint(param, &freq)) abort(ERR_PARAM);
     if (!atci_param_is_comma(param)) abort(ERR_PARAM);
+
     if (!atci_param_get_uint(param, &fdev)) abort(ERR_PARAM);
     if (!atci_param_is_comma(param)) abort(ERR_PARAM);
+
     if (!atci_param_get_uint(param, &datarate)) abort(ERR_PARAM);
     if (!atci_param_is_comma(param)) abort(ERR_PARAM);
+
     if (!atci_param_get_int(param, &power)) abort(ERR_PARAM);
+    if (power < INT8_MIN || power > INT8_MAX) abort(ERR_PARAM);
+
     if (!atci_param_is_comma(param)) abort(ERR_PARAM);
     if (!atci_param_get_uint(param, &timeout)) abort(ERR_PARAM);
+    if (timeout > UINT16_MAX) abort(ERR_PARAM);
 
-    log_debug("$CM: freq=%ld Hz fdev=%ld Hz datarate=%ld Bd power=%ld dBm timeout=%ld s", freq, fdev, datarate, power, timeout);
+    // Make sure there are no additional parameters that we don't understand.
+    if (param->offset != param->length) abort(ERR_PARAM);
 
-    // Set MacState to LORAMAC_TX_RUNNING to keep TX running indefinitely
-    MlmeReq_t mlr = { .Type = MLME_TXCW };
-    mlr.Req.TxCw.Timeout = timeout;
-    mlr.Req.TxCw.Frequency = freq;
-    mlr.Req.TxCw.Power = power;
-    abort_on_error(LoRaMacMlmeRequest(&mlr));
+    log_debug("$CM: freq=%ld Hz fdev=%ld Hz datarate=%ld Bd power=%ld dBm timeout=%ld s",
+        freq, fdev, datarate, power, timeout);
 
-    timeout = (uint32_t)timeout * 1000;
+    // Rewire SX1276 interrupt handlers. We disable everything but the interrupt
+    // handler on DIO1, which points to our continuous mode interrupt handler.
+    DioIrqHandler *irq[] = { NULL, cm_clk_irq_handler, NULL, NULL, NULL, NULL };
+    SX1276IoIrqInit(irq);
 
-    SX1276SetStby();
-    SX1276SetChannel(freq);
-    SX1276SetTxConfig(MODEM_FSK, power, fdev, 0, datarate, 0, PREAMBLE, false, false, 0, 0, 0, timeout);
+    // Invoke the continuous carrier wave MIB request. This is the same
+    // operation that AT$CW performs. We technically don't need to invoke this
+    // command here since the SetTxConfig command invoked below resets most of
+    // the settings performed by TXCW and stops the radio again. We primarily
+    // invoke the MIB command here to move the MAC into LORAMAC_TX_RUNNING
+    // state. This solution is a bit hackish, but LoRaMac-node does not seem to
+    // provide any other API.
 
-    // Disable the SX1276 packet mode
+    MlmeReq_t r = {
+        .Type = MLME_TXCW,
+        .Req = { .TxCw = {
+            .Timeout = timeout,
+            .Frequency = freq,
+            .Power = power
+    }}};
+    abort_on_error(LoRaMacMlmeRequest(&r));
+    schedule_reset = true;
+
+    timeout *= 1000;
+
+    // Configure the radio in FSK mode with the selected transmission power, FSK
+    // deviation, and data rate. We provide 0x5 as a dummy preamble, but since
+    // we're operating in the continuous mode here, the preamble won't be used
+    // (it's only used in the packet mode). Internally, SetTXConfig switches the
+    // radio into the packet mode and puts on stand by.
+    Radio.SetTxConfig(MODEM_FSK, power, fdev, 0, datarate, 0, 5, false, false, 0, 0, 0, timeout);
+
+    // Since SetTxConfig internally forces the radio into packet mode, we need
+    // to switch to the continous mode here.
     SX1276Write(REG_PACKETCONFIG2, SX1276Read(REG_PACKETCONFIG2) & RF_PACKETCONFIG2_DATAMODE_MASK);
 
-    // Disable radio interrupts, enable the SX1276 modulator clock on DIO1
+    // Disable DIO0, enable modulator clock on DIO1
     SX1276Write(REG_DIOMAPPING1, RF_DIOMAPPING1_DIO0_11 | RF_DIOMAPPING1_DIO1_00);
-    SX1276Write(REG_DIOMAPPING2, RF_DIOMAPPING2_DIO4_10 | RF_DIOMAPPING2_DIO5_10);
 
-    // Generate interrupts on the falling clock edge. SX1276 samples on the rising edge.
-    GPIO_InitTypeDef cfg_dio1 = {
+    // Generate falling edge interrupts on DIO1. We have configured the radio to
+    // generate a FSK modulator clock on this pin. The radio samples on the
+    // rising edge which means that we can modify the state of DIO2 on the
+    // falling edge.
+    GPIO_InitTypeDef dio1 = {
         .Mode = GPIO_MODE_IT_FALLING,
         .Pull = GPIO_PULLUP,
         .Speed = GPIO_SPEED_HIGH
     };
-    gpio_init(RADIO_DIO_1_PORT, RADIO_DIO_1_PIN, &cfg_dio1);
+    gpio_init(SX1276.DIO1.port, SX1276.DIO1.pinIndex, &dio1);
 
-    // Configure DIO2 GPIO as an output
-    GPIO_InitTypeDef cfg_dio2 = {
+    // Configure DIO2 GPIO as output
+    GPIO_InitTypeDef dio2 = {
         .Mode = GPIO_MODE_OUTPUT_PP,
         .Pull = GPIO_NOPULL,
         .Speed = GPIO_SPEED_HIGH
     };
-    gpio_init(RADIO_DIO_2_PORT, RADIO_DIO_2_PIN, &cfg_dio2);
+    gpio_init(SX1276.DIO2.port, SX1276.DIO2.pinIndex, &dio2);
 
-    // Rewire SX1276 interrupts
-
-    DioIrqHandler *DioIrq[] = { NULL, cm_clk_irq_handler, NULL, NULL, NULL, NULL };
-    SX1276IoIrqInit(DioIrq);
+    // Radio.SetTxConfig we call above puts the modem into a standby mode again
+    // and resets the TX timeout timer. Thus, we need to invoke SX1276SetTx here
+    // to start transmitting and to reset the TX timeout timer.
     SX1276SetTx(timeout);
 
-    // Since we currently have no code to restore the original settings, the
-    // modem must be rebooted after AT$CM has ended to restore the original
-    // configuration.
-    schedule_reset = true;
+    lrw_event_subtype = CMD_CERT_CM_ENDED;
 
+    // Reboot the modem once the transmission has finished. Since the AT$CW and
+    // AT$CM commands are primarily for certification, we don't bother restoring
+    // DIO port configuration and interrupt handlers and instead force the modem
+    // to reboot.
+    schedule_reset = true;
     OK_();
 }
 

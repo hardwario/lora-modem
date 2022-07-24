@@ -8,7 +8,7 @@ enum cmd_event {
     CMD_EVENT_MODULE  = 0,
     CMD_EVENT_JOIN    = 1,
     CMD_EVENT_NETWORK = 2,
-    CMD_EVENT_CW = 50
+    CMD_EVENT_CERT    = 9
 };
 
 
@@ -33,8 +33,9 @@ enum cmd_event_net {
 };
 
 
-enum cmd_event_cw {
-    CMD_CW_END       = 0
+enum cmd_event_cert {
+    CMD_CERT_CW_ENDED = 0,
+    CMD_CERT_CM_ENDED = 1
 };
 
 
