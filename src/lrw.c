@@ -22,6 +22,7 @@
 #define MAX_BAT 254
 
 
+unsigned int lrw_event_subtype;
 static McpsConfirm_t tx_params;
 static int joins_left = 0;
 static TimerEvent_t join_retry_timer;
@@ -524,10 +525,10 @@ static void join_callback(MlmeConfirm_t *param)
 }
 
 
-static void cw_callback(MlmeConfirm_t *param)
+static void cert_callback(MlmeConfirm_t *param)
 {
     if (param->Status == LORAMAC_EVENT_INFO_STATUS_TX_TIMEOUT) {
-        cmd_event(CMD_EVENT_CW, CMD_CW_END);
+        cmd_event(CMD_EVENT_CERT, lrw_event_subtype);
     }
 }
 
@@ -547,7 +548,7 @@ static void mlme_confirm(MlmeConfirm_t *param)
             break;
 
         case MLME_TXCW:
-            cw_callback(param);
+            cert_callback(param);
             break;
 
         default:

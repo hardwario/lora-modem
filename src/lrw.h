@@ -16,6 +16,9 @@ typedef struct
 } lrw_channel_list_t;
 
 
+extern unsigned int lrw_event_subtype;
+
+
 /** @brief Initialize the LoRaMac stack
  *
  * If previously-saved state is found in NVM, the state will be restored and
