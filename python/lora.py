@@ -3100,6 +3100,42 @@ class OpenLoRaModem(MurataModem):
             rv['dev_addr'] = data[4]
         return rv
 
+    def cw(self, freq: int, power: int, timeout: int):
+        '''Start continuous carrier wave (CW) transmission.
+
+        This method takes three parameters freq, power, timeout and activates
+        the radio transmitter at the given center frequency (in Hz) with the
+        given transmission power (in dBm) for the given number of seconds. The
+        radio will transmit a continuous carrier wave only without modulation.
+        The method blocks until the end of the transmission.
+
+        The modem also performs automatic reboot at the end of the transmission.
+
+        This method is primarily intended for device certification.
+        '''
+        with self.modem.lock:
+            self.modem.AT(f'$CW {freq},{power},{timeout}')
+            self.modem.wait_for_event('event=9,0', timeout=timeout+1)
+
+    def cm(self, freq: int, fdev: int, datarate: int, power: int, timeout: int):
+        '''Start continuous modulated frequency shift keying (FSK) transmission.
+
+        This method starts a continuous modulated FSK transmission of
+        alternating ones and zeroes. The parameter freq determines the center
+        (channel) frequency in Hz. The parameter fdev determines the frequency
+        deviation for FSK in Hz. The parameter datarate determines the baud rate
+        in Bd (typically 4800). The parameter power indicates the transmission
+        power in dBm. The parameter timeout configures the transmission time in
+        seconds. The method blocks until the end of the transmission.
+
+        The modem also performs automatic reboot at the end of the transmission.
+
+        This command is primarily intended for device certification.
+        '''
+        with self.modem.lock:
+            self.modem.AT(f'$CM {freq},{fdev},{datarate},{power},{timeout}')
+            self.modem.wait_for_event('event=9,1', timeout=timeout+1)
+
 
 def uartconfig_to_str(uart):
     if uart.parity == 0:
