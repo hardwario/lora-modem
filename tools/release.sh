@@ -53,7 +53,7 @@ name="$basename-$version"
 
 # Create the tag in the local git repository clone. Fail if the tag already
 # exists.
-git tag "$new_tag"
+git tag -a "$new_tag" -m "Release $version"
 
 # Build both release and debug versions of the firmware binary
 make release
