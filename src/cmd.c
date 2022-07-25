@@ -58,7 +58,7 @@ bool schedule_reset = false;
     return;                                \
 } while (0)
 
-#define EOL() atci_print("\r\n\n");
+#define EOL() atci_print("\r\n\r\n");
 
 #define OK(...) do {                 \
     atci_printf("+OK=" __VA_ARGS__); \
