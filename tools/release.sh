@@ -14,7 +14,7 @@ fi
 
 version="$1"
 
-if [ -z "$(python --version | grep "^Python 3.*")"] ; then
+if [ -z "$(python --version | grep "^Python 3.*")" ] ; then
     bail "Error: Make sure the binary python points to Python 3"
 fi
 
