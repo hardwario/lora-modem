@@ -290,7 +290,7 @@ void atci_clac_action(atci_param_t *param)
     {
         atci_printf("AT%s\r\n", _atci.commands[i].command);
     }
-    lpuart_write_blocking("\r\n", 2);
+    lpuart_write_blocking("+OK\r\n\r\n", 7);
 }
 
 void atci_help_action(atci_param_t *param)
@@ -300,7 +300,7 @@ void atci_help_action(atci_param_t *param)
     {
         atci_printf("AT%s %s\r\n", _atci.commands[i].command, _atci.commands[i].hint);
     }
-    lpuart_write_blocking("\r\n", 2);
+    lpuart_write_blocking("+OK\r\n\r\n", 7);
 }
 
 static void _atci_process_command(void)
