@@ -1487,7 +1487,7 @@ static void get_channels(void)
 
         int is_enabled = (i / 16) < list.chmask_length ? (list.chmask[i / 16] >> (i % 16)) & 0x01 : 0;
 
-        atci_printf("$CHANNELS: %d,%ld,%ld,%d,%d,%d\r\n",
+        atci_printf("%d,%ld,%ld,%d,%d,%d\r\n",
             is_enabled,
             list.channels[i].Frequency,
             list.channels[i].Rx1Frequency,
