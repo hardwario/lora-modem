@@ -34,11 +34,12 @@ import sys
 import re
 import serial # type: ignore
 import binascii
+import select
 from abc import ABC
 from functools import lru_cache
 from collections import namedtuple
 from contextlib import contextmanager
-from typing import Optional, Tuple, Union, List, Any
+from typing import Optional, Tuple, Union, List, Any, Set
 from datetime import datetime, timedelta
 from enum import Enum, unique, auto
 from threading import Thread, RLock
@@ -58,6 +59,7 @@ from base64 import b64encode, b64decode
 
 machine_readable = False
 show_keys = False
+twr_sdk = False
 
 
 @unique
@@ -280,7 +282,6 @@ def region_to_data_rate(value: str | LoRaRegion) -> LoRaDataRate:
     return globals()[f'LoRaDataRate{value}']
 
 
-
 @unique
 class LoRaClass(Enum):
     A = 0
@@ -361,8 +362,22 @@ error_messages = {
 }
 
 
-def raise_for_error(response):
-    errno = int(response[5:])
+class EventSubscription(EventEmitter):
+    def wait_for(self, event: str, timeout: Optional[float] = None):
+        q: "Queue[tuple]" = Queue()
+
+        cb = lambda *params: q.put_nowait(params)
+        self.once(event, cb)
+        try:
+            data = q.get(timeout=timeout)
+            q.task_done()
+            return data
+        except Empty:
+            self.off(event, cb)
+            raise TimeoutError('Timed out')
+
+
+def raise_for_error(errno):
     try:
         errstr = error_messages[errno]
     except KeyError:
@@ -374,8 +389,9 @@ def raise_for_error(response):
         raise ModemError(f'Command failed: {errstr} ({errno})', errno)
 
 
-class TypeABZ(EventEmitter):
+class TypeABZ:
     port: serial.Serial | None
+    subscriptions: Set[EventSubscription]
     prev_at: datetime | None
 
     def __init__(self, pathname: str, verbose: bool = False, guard: Optional[float] = None):
@@ -383,9 +399,10 @@ class TypeABZ(EventEmitter):
         self.pathname = pathname
         self.verbose = verbose
         self.hide_value = False
+        self.port = None
+        self.subscriptions = set()
         self.guard = guard
         self.prev_at = None
-        self.port = None
 
     def __str__(self):
         return self.pathname
@@ -399,46 +416,89 @@ class TypeABZ(EventEmitter):
         finally:
             self.hide_value = False
 
-    def detect_baud_rate(self, speeds=[9600, 19200, 38400, 4800], timeout=0.3) -> Optional[int]:
+    @property  # type: ignore
+    @contextmanager
+    def events(self):
+        sub = EventSubscription()
+        self.subscriptions.add(sub)
+        try:
+            yield sub
+        finally:
+            self.subscriptions.remove(sub)
+            sub.off_all()
+
+    def detect_baud_rate(self, speeds=[9600, 19200, 38400, 4800], response=b'+OK\r', timeout=0.3) -> Optional[int]:
         if self.port is not None:
             raise Exception('Baudrate detection must be performed before the device is open')
 
         for speed in speeds:
-            with serial.Serial(self.pathname, speed, timeout=timeout) as port:
-                port.reset_input_buffer()
-                port.reset_output_buffer()
-                port.write(b'\rAT\r')
+            with serial.Serial(self.pathname, speed, timeout=0) as port:
+                self.flush_atci(port=port)
+
+                port.write(b'AT\r\n')
                 if self.verbose:
                     print(f'< AT @ {speed}')
                 port.flush()
 
-                for c in b'+OK\r':
-                    d = port.read(1)
+                for c in response:
+                    select.select([port.fd], [], [], timeout)
+                    d = port.read()
                     if not len(d) or ord(d) != c:
                         if self.verbose:
                             print(f'! Incorrect response @ {speed}')
                         break
                 else:
                     if self.verbose:
-                        print(f'> +OK @ {speed}')
+                        print(f'> OK @ {speed}')
                     return speed
         return None
 
-    def open(self, speed: int):
-        self.speed = speed
-        self.port = serial.Serial(self.pathname, speed)
+    def emit(self, *args, **kwargs):
+        for sub in self.subscriptions:
+            sub.emit(*args, **kwargs)
 
+    def flush(self):
         self.port.flush()
-        self.port.reset_input_buffer()
-        self.port.reset_output_buffer()
-        self.response: "Queue[bytes]" = Queue()
 
+    def flush_atci(self, timeout=0.1, port=None):
+        # Note: this function assumes that the port has been opened with
+        # timeout=0
+        port = port or self.port
+
+        # Write a CRLF sequence to the modem, just in case the modem has any
+        # data in its input buffer that hasn't been processed yet, e.g., due to
+        # missing CRLF.
+        port.reset_output_buffer()
+        port.write(b'\r\n')
+        port.flush()
+
+        # If there was any data stuck in the modem's input buffer, sending CRLF
+        # (above) could trigger a response. Keep reading and throwing away any
+        # data sent by the modem from now on until it becomes idle.
+        while True:
+            rd, _, _ = select.select([port.fd], [], [], timeout)
+            if not len(rd): break
+            port.read()
+
+        # At this point, the communication link between the host and the modem
+        # should be empty in both directions and ready for more AT traffic.
+
+    def open(self, speed: int):
+        # Open the port and configure reads to be non-blocking so that we can
+        # specify a different timeout in different read requests.
+        self.speed = speed
+        self.port = serial.Serial(self.pathname, speed, timeout=0)
+
+        self.flush_atci()
+
+        self.response: "Queue[bytes]" = Queue()
         self.lock = RLock()
         self.thread = Thread(target=self.reader)
         self.thread.daemon = True
         self.thread.start()
 
     def close(self):
+        self.port.flush()
         self.port.close()
 
     def read_line(self) -> bytes:
@@ -446,7 +506,8 @@ class TypeABZ(EventEmitter):
 
         line: bytes = b''
         while True:
-            c = self.port.read(1)
+            select.select([self.port.fd], [], [])
+            c = self.port.read()
             if len(c) == 0:
                 raise Exception('No data')
             if c == b'\r':
@@ -467,65 +528,69 @@ class TypeABZ(EventEmitter):
 
                 if self.verbose:
                     if self.hide_value:
-                        msg = re.sub(b'^(.*)=.+$', b'\\1=<redacted>', data)
+                        msg = re.sub(b'^(.*)([= ]).+$', b'\\1\\2<redacted>', data)
                     else:
                         msg = data
                     print(f'> {msg.decode("ascii", errors="replace")}')
 
                 try:
-                    if data.startswith(b'+EVENT'):
-                        payload = data[7:]
-                        if len(payload) == 0:
-                            self.emit('event')
-                        else:
-                            params = tuple(map(int, payload.split(b',')))
-                            if len(params) != 2:
-                                raise Exception('Unsupported event parameters')
-
-                            # For each event received from the LoRa module, we
-                            # generate three events. The event "event" allows
-                            # the application to subscribe to all event, event
-                            # "event=x" allows the application to subscribe to
-                            # all events from a specific subsystem, and
-                            # event=x,y allows the application to subscribe to
-                            # one specific event.
-                            self.emit('event', *params)
-                            self.emit(f'event={params[0]}', params[1])
-                            self.emit(f'event={params[0]},{params[1]}')
-                    elif data.startswith(b'+ANS'):
-                        self.emit('answer', *tuple(map(int, data[5:].split(b','))))
-                    elif data.startswith(b'+ACK'):
-                        self.emit('ack', True)
-                    elif data.startswith(b'+NOACK'):
-                        self.emit('ack', False)
-                    elif data.startswith(b'+RECV'):
-                        port, size = tuple(map(int, data[6:].split(b',')))
-                        # We use +2 here to skip an empty line sent by the modem
-                        data = self.port.read(size + 2)
-                        # The message is passed to the event callback as bytes
-                        self.emit('message', port, data[2:])
-                    else:
-                        self.response.put_nowait(data)
+                    self.receive(data)
                 except Exception as error:
                     print(f'Ignoring reader thread error: {error}')
         finally:
             if self.verbose:
                 print('Terminating reader thread')
 
-    def send(self, cmd: bytes, flush=True):
+    def write(self, cmd: bytes, flush=True):
         assert self.port is not None
 
         if self.verbose:
             if self.hide_value:
-                msg = re.sub(b'^(.*)=.+$', b'\\1=<redacted>', cmd)
+                msg = re.sub(b'^(.*)([= ]).+$', b'\\1\\2<redacted>', cmd)
             else:
                 msg = cmd
 
-            print(f'< AT{msg.decode("ascii", errors="replace")}')
+            print(f'< {msg.decode("ascii", errors="replace")}')
 
-        self.port.write(b'AT' + cmd + b'\r')
+        self.port.write(cmd + b'\r\n')
         if flush:
-            self.port.flush()
+            self.flush()
+
+    def receive(self, data: bytes):
+        assert self.port is not None
+
+        if data.startswith(b'+EVENT'):
+            payload = data[7:]
+            if len(payload) == 0:
+                self.emit('event')
+            else:
+                params = tuple(map(int, payload.split(b',')))
+                if len(params) != 2:
+                    raise Exception('Unsupported event parameters')
+
+                # For each event received from the LoRa module, we generate
+                # three events. The event "event" allows the application to
+                # subscribe to all event, event "event=x" allows the application
+                # to subscribe to all events from a specific subsystem, and
+                # event=x,y allows the application to subscribe to one specific
+                # event.
+                self.emit('event', *params)
+                self.emit(f'event={params[0]}', params[1])
+                self.emit(f'event={params[0]},{params[1]}')
+        elif data.startswith(b'+ANS'):
+            self.emit('answer', *tuple(map(int, data[5:].split(b','))))
+        elif data.startswith(b'+ACK'):
+            self.emit('ack', True)
+        elif data.startswith(b'+NOACK'):
+            self.emit('ack', False)
+        elif data.startswith(b'+RECV'):
+            port, size = tuple(map(int, data[6:].split(b',')))
+            # We use +2 here to skip an empty line sent by the modem
+            data = self.port.read(size + 2)
+            # The message is passed to the event callback as bytes
+            self.emit('message', port, data[2:])
+        else:
+            self.response.put_nowait(data)
 
     def read_inline_response(self, timeout: float = None):
         try:
@@ -533,18 +598,19 @@ class TypeABZ(EventEmitter):
         except Empty:
             raise TimeoutError('No response received')
         try:
-            if response.startswith(b'+ERR'):
-                raise_for_error(response)
-            elif response.startswith(b'+OK'):
-                if len(response) > 3:
-                    return response[4:]
+            if response.startswith(b'+ERR=') and len(response) > 6:
+                raise_for_error(int(response[5:]))
+            elif response == b'+OK':
+                return
+            elif response.startswith(b'+OK=') and len(response) > 4:
+                return response[4:]
             else:
                 raise Exception('Invalid response')
 
         finally:
             self.response.task_done()
 
-    def read_response(self, timeout: float = None):
+    def read_multiline_response(self, timeout: float = None):
         body: List[bytes] = []
         while True:
             try:
@@ -553,15 +619,15 @@ class TypeABZ(EventEmitter):
                 raise TimeoutError('Incomplete response received')
             else:
                 try:
-                    if len(body) == 0 and line.startswith(b'+ERR'):
-                        raise_for_error(line)
+                    if len(body) == 0 and line.startswith(b'+ERR='):
+                        raise_for_error(int(line[5:]))
                     elif line == b'+OK':
                         return b'\n'.join(body)
                     body.append(line)
                 finally:
                     self.response.task_done()
 
-    def AT(self, cmd: str = '', timeout: Optional[float] = 5, wait=True, inline=True, flush=True, encoding='ascii'):
+    def AT(self, cmd: str = '', timeout: Optional[float] = 5, wait=True, inline=True, flush=True, encoding='ascii', prefix=b'AT'):
         # Implement rudimentary throttling of AT commands send to the device. It
         # appears the original modem firmware cannot properly interpret AT
         # commands that come quickly after a previous response. Thus, if the
@@ -575,16 +641,16 @@ class TypeABZ(EventEmitter):
 
         rv = None
         with self.lock:
-            # We intentionally do not add the errors keyword parameters to the
+            # We intentionally do not add the errors keyword parameter to the
             # following encode function to alert the user if they use
             # incompatible encoding in their AT commands. The encode function
             # will raise an error in that case.
-            self.send(cmd.encode(encoding), flush=flush)
+            self.write(prefix + cmd.encode(encoding), flush=flush)
             if wait:
                 if inline:
                     rv = self.read_inline_response(timeout=timeout)
                 else:
-                    rv = self.read_response(timeout=timeout)
+                    rv = self.read_multiline_response(timeout=timeout)
 
                 # We assume the responses generated by the ATCI are encoded in
                 # ASCII by default with no characters above 127. The encoding
@@ -596,33 +662,53 @@ class TypeABZ(EventEmitter):
             self.prev_at = datetime.now()
             return rv
 
-    def wait_for_event(self, event: str, timeout: Optional[float] = None):
-        q: "Queue[tuple]" = Queue()
 
-        cb = lambda *params: q.put_nowait(params)
-        self.once(event, cb)
-        try:
-            data = q.get(timeout=timeout)
-            q.task_done()
-            return data
-        except Empty:
-            self.off(event, cb)
-            raise TimeoutError('Timed out')
+class TowerSDK(TypeABZ):
+    prefix = b'$LORA: '
 
-    def flush(self):
-        # Send CR in case there is some data in the modem's buffers
-        self.port.write(b'\r')
-        self.port.flush()
-        self.port.reset_input_buffer()
-        self.port.reset_output_buffer()
+    def open(self, speed: int):
+        super().open(speed)
+        self.sdk_response: "Queue[bytes]" = Queue()
+        self.SDK_AT('$LORA>ATCI=1')
 
-        # Read any input from the device until we time out.
+    def close(self):
+        self.SDK_AT('$LORA>ATCI=0')
+        super().close()
+
+    def detect_baud_rate(self, speeds=[115200, 57600, 38400, 19200, 9600], timeout=0.3) -> Optional[int]:
+        return super().detect_baud_rate(speeds=speeds, timeout=timeout, response=b'OK\r')
+
+    def read_sdk_response(self, timeout: float = None):
         while True:
             try:
-                self.response.get(timeout=0.2)
-                self.response.task_done()
+                line = self.sdk_response.get(timeout=timeout)
             except Empty:
-                break
+                raise TimeoutError('Incomplete Tower SDK AT response received')
+            else:
+                try:
+                    if line == b'ERROR':
+                        raise Exception('Tower SDK AT command returned error')
+                    elif line == b'OK':
+                        return
+                finally:
+                    self.sdk_response.task_done()
+
+    def SDK_AT(self, cmd: str='', timeout: Optional[float] = 5):
+        with self.lock:
+            while not self.sdk_response.empty():
+                self.sdk_response.get()
+                self.sdk_response.task_done()
+            self.write(b'AT' + cmd.encode('ascii'))
+            self.read_sdk_response()
+
+    def AT(self, cmd: str = '', timeout: Optional[float] = 5, wait = True, inline = True, flush = True, encoding = 'ascii'):
+        return super().AT(cmd, timeout=timeout, wait=wait, inline=inline, flush=flush, encoding=encoding, prefix=b'AT$LORA AT')
+
+    def receive(self, data: bytes):
+        if data.startswith(self.prefix):
+            return super().receive(data[len(self.prefix):])
+        else:
+            self.sdk_response.put_nowait(data)
 
 
 class ATCI(ABC):
@@ -674,11 +760,10 @@ class ATCI(ABC):
 
         raise AttributeError(f'Unsupported setting')
 
-    def on(self, *args, **kwargs):
-        return self.modem.on(*args, **kwargs)
-
-    def of(self, *args, **kwargs):
-        return self.modem.on(*args, **kwargs)
+    @property  # type: ignore
+    @contextmanager
+    def events(self):
+        yield self.modem.events
 
 
 class MurataModem(ATCI):
@@ -688,9 +773,10 @@ class MurataModem(ATCI):
         This method performs reboot, checks that the AT command interface is
         present and can be used.
         '''
-        # Flush the AT command interface to maximize the likelyhood that the
-        # following reboot command succeeds.
-        self.modem.flush()
+        # Flush the serial port buffers interface to maximize the likelyhood
+        # that the following reboot command succeeds in case it is being used to
+        # unstuck.
+        self.modem.flush_atci()
 
         # Reboot the device and wait for it to signal that it has rebooted. The
         # reboot applies any parameters that may have been changed before if the
@@ -761,8 +847,9 @@ class MurataModem(ATCI):
         the modem restarts.
         '''
         with self.modem.lock:
-            self.modem.AT('+REBOOT')
-            self.modem.wait_for_event('event=0,0')
+            with self.modem.events as events:
+                self.modem.AT('+REBOOT')
+                events.wait_for('event=0,0')
 
     def facnew(self):
         '''Re-initialize all modem parameters to factory defaults.
@@ -771,8 +858,9 @@ class MurataModem(ATCI):
         reboot. The method blocks until the modem has been restarted.
         '''
         with self.modem.lock:
-            self.modem.AT('+FACNEW')
-            self.modem.wait_for_event('event=0,1')
+            with self.modem.events as events:
+                self.modem.AT('+FACNEW')
+                events.wait_for('event=0,1')
 
     factory_reset = facnew
 
@@ -820,9 +908,10 @@ class MurataModem(ATCI):
 
         wait = self.band.value != value
         with self.modem.lock:
-            self.modem.AT(f'+BAND={value}')
-            if wait:
-                self.modem.wait_for_event('event=0,0')
+            with self.modem.events as events:
+                self.modem.AT(f'+BAND={value}')
+                if wait:
+                    events.wait_for('event=0,0')
 
     region = band
 
@@ -1149,14 +1238,15 @@ class MurataModem(ATCI):
         documentation for the propert "joindc" for more details.
         '''
         with self.modem.lock:
-            self.modem.AT('+JOIN')
-            status = self.modem.wait_for_event('event', timeout=timeout)
-            if status == (1, 1):
-                return
-            elif status == (1, 0):
-                raise JoinFailed('OTAA Join failed')
-            else:
-                raise Exception('Unsupported event received')
+            with self.modem.events as events:
+                self.modem.AT('+JOIN')
+                status = events.wait_for('event', timeout=timeout)
+                if status == (1, 1):
+                    return
+                elif status == (1, 0):
+                    raise JoinFailed('OTAA Join failed')
+                else:
+                    raise Exception('Unsupported event received')
 
     @property
     def joindc(self):
@@ -1290,11 +1380,11 @@ class MurataModem(ATCI):
         Note: Link check requests are not retransmitted. The modem will send
         only one link check request for each invocation of the method.
         '''
-        q: "Queue[tuple]" = Queue()
-        cb = lambda *params: q.put_nowait(params)
-        self.modem.once('event', cb)
-        self.modem.once('answer', cb)
-        try:
+        with self.modem.events as events:
+            q: "Queue[tuple]" = Queue()
+            cb = lambda *params: q.put_nowait(params)
+            events.once('event', cb)
+            events.once('answer', cb)
             with self.modem.lock:
                 self.modem.AT(f'+LNCHECK={1 if piggyback is True else 0}')
                 event = q.get(timeout=timeout)
@@ -1303,9 +1393,6 @@ class MurataModem(ATCI):
                     if rc != 2:
                         raise Exception('Invalid answer code')
                     return (margin, count)
-        finally:
-            self.modem.off('event', cb)
-            self.modem.off('answer', cb)
 
     link_check = lncheck
 
@@ -1916,19 +2003,20 @@ class MurataModem(ATCI):
         assert self.modem.port is not None
         type = 'C' if confirmed else 'U'
         with self.modem.lock:
-            self.modem.AT(f'+{type}TX {len(data)}', wait=False, flush=False)
-            if hex:
-                self.modem.port.write(binascii.hexlify(data))
-            else:
-                self.modem.port.write(data)
-            self.modem.port.flush()
-            self.modem.read_inline_response()
-            if confirmed:
-                # The +ACK +NOACK events carry one boolean value (True for +ACK,
-                # False for +NOACK)
-                return self.modem.wait_for_event('ack', timeout=timeout)[0]
-            else:
-                return None
+            with self.modem.events as events:
+                self.modem.AT(f'+{type}TX {len(data)}', wait=False, flush=False)
+                if hex:
+                    self.modem.port.write(binascii.hexlify(data))
+                else:
+                    self.modem.port.write(data)
+                self.modem.flush()
+                self.modem.read_inline_response()
+                if confirmed:
+                    # The +ACK +NOACK events carry one boolean value (True for +ACK,
+                    # False for +NOACK)
+                    return events.wait_for('ack', timeout=timeout)[0]
+                else:
+                    return None
 
     @property
     def mcast(self):
@@ -2004,19 +2092,20 @@ class MurataModem(ATCI):
         assert self.modem.port is not None
         type = 'C' if confirmed else 'U'
         with self.modem.lock:
-            self.modem.AT(f'+P{type}TX {port},{len(data)}', wait=False, flush=False)
-            if hex:
-                self.modem.port.write(binascii.hexlify(data))
-            else:
-                self.modem.port.write(data)
-            self.modem.port.flush()
-            self.modem.read_inline_response()
-            if confirmed:
-                # The +ACK +NOACK events carry one boolean value (True for +ACK,
-                # False for +NOACK)
-                return self.modem.wait_for_event('ack', timeout=timeout)[0]
-            else:
-                return None
+            with self.modem.events as events:
+                self.modem.AT(f'+P{type}TX {port},{len(data)}', wait=False, flush=False)
+                if hex:
+                    self.modem.port.write(binascii.hexlify(data))
+                else:
+                    self.modem.port.write(data)
+                self.modem.flush()
+                self.modem.read_inline_response()
+                if confirmed:
+                    # The +ACK +NOACK events carry one boolean value (True for +ACK,
+                    # False for +NOACK)
+                    return events.wait_for('ack', timeout=timeout)[0]
+                else:
+                    return None
 
     @property
     def frmcnt(self):
@@ -2352,7 +2441,7 @@ class OpenLoRaModem(MurataModem):
 
         `firmware_version`. This attribute contains the version of the modem
         firmware. The version string has the following format:
-        v1.0.2-10-g08e86e66 (modified). v1.0.2 represents the firmware release
+        1.0.2-10-g08e86e66 (modified). 1.0.2 represents the firmware release
         version. If the firmware is based on unreleased code from the git
         repository, a suffix like -10-g08e86e66 will be present. The suffix
         includes the number of commits since the most recent release and the git
@@ -2439,8 +2528,9 @@ class OpenLoRaModem(MurataModem):
         The method blocks until the modem has been restarted.
         '''
         with self.modem.lock:
-            self.modem.AT(f'+REBOOT{" 1" if hard else ""}', wait=not hard)
-            self.modem.wait_for_event('event=0,0')
+            with self.modem.events as events:
+                self.modem.AT(f'+REBOOT{" 1" if hard else ""}', wait=not hard)
+                events.wait_for('event=0,0')
 
     def facnew(self, reset_devnonce=False, reset_deveui=False):
         '''Reset the modem to factory defaults.
@@ -2449,12 +2539,12 @@ class OpenLoRaModem(MurataModem):
         reset, the modem automatically restarts. This method blocks until the
         restart has restarted.
 
-        Since v1.1.0, factory reset does NOT reset the LoRaWAN DevNonce value by
+        Since 1.1.0, factory reset does NOT reset the LoRaWAN DevNonce value by
         default. This ensures that the device can rejoin the network with an
         OTAA Join upon factory reset. If you wish to reset the DevNonce value to
         zero, pass reset_devnonce=True to the method.
 
-        Since v1.1.1, factory reset does NOT reset the DevEUI value by default.
+        Since 1.1.1, factory reset does NOT reset the DevEUI value by default.
         To reset DevEUI, pass reset_deveui=True to the method.
         '''
         flags: int = 0
@@ -2462,8 +2552,9 @@ class OpenLoRaModem(MurataModem):
         if reset_deveui:   flags |= (1 << 1)
 
         with self.modem.lock:
-            self.modem.AT(f'+FACNEW{f" {flags}" if flags else ""}')
-            self.modem.wait_for_event('event=0,1')
+            with self.modem.events as events:
+                self.modem.AT(f'+FACNEW{f" {flags}" if flags else ""}')
+                events.wait_for('event=0,1')
 
     factory_reset = facnew
 
@@ -2582,7 +2673,7 @@ class OpenLoRaModem(MurataModem):
         +EVENT=1,0 to the application to indicate that the Join request timed
         out.
 
-        Since lora-modem-abz v1.1.0, Join requests are retransmitted up to eight
+        Since lora-modem-abz 1.1.0, Join requests are retransmitted up to eight
         times. Thus, a single AT+JOIN can generate up to nine Join transmissions
         in total. This also means that it will take longer to receive an
         +EVENT=1,{0,1}, up to a minute if no Join answer is received from the
@@ -2609,14 +2700,15 @@ class OpenLoRaModem(MurataModem):
         documentation for AT+JOINDC for more details.
         '''
         with self.modem.lock:
-            self.modem.AT(f'+JOIN{f" {retransmissions}" if retransmissions is not None else ""}')
-            status = self.modem.wait_for_event('event', timeout=timeout)
-            if status == (1, 1):
-                return
-            elif status == (1, 0):
-                raise JoinFailed('OTAA Join failed')
-            else:
-                raise Exception('Unsupported event received')
+            with self.modem.events as events:
+                self.modem.AT(f'+JOIN{f" {retransmissions}" if retransmissions is not None else ""}')
+                status = events.wait_for('event', timeout=timeout)
+                if status == (1, 1):
+                    return
+                elif status == (1, 0):
+                    raise JoinFailed('OTAA Join failed')
+                else:
+                    raise Exception('Unsupported event received')
 
     @property
     def rfpower(self):
@@ -2758,8 +2850,9 @@ class OpenLoRaModem(MurataModem):
         This method blocks until the modem has been halted.
         '''
         with self.modem.lock:
-            self.modem.AT('$HALT')
-            self.modem.wait_for_event('event=0,3')
+            with self.modem.events as events:
+                self.modem.AT('$HALT')
+                events.wait_for('event=0,3')
 
     @property
     def dbg(self):
@@ -3114,8 +3207,9 @@ class OpenLoRaModem(MurataModem):
         This method is primarily intended for device certification.
         '''
         with self.modem.lock:
-            self.modem.AT(f'$CW {freq},{power},{timeout}')
-            self.modem.wait_for_event('event=9,0', timeout=timeout+1)
+            with self.modem.events as events:
+                self.modem.AT(f'$CW {freq},{power},{timeout}')
+                events.wait_for('event=9,0', timeout=timeout+1)
 
     def cm(self, freq: int, fdev: int, datarate: int, power: int, timeout: int):
         '''Start continuous modulated frequency shift keying (FSK) transmission.
@@ -3133,8 +3227,9 @@ class OpenLoRaModem(MurataModem):
         This command is primarily intended for device certification.
         '''
         with self.modem.lock:
-            self.modem.AT(f'$CM {freq},{fdev},{datarate},{power},{timeout}')
-            self.modem.wait_for_event('event=9,1', timeout=timeout+1)
+            with self.modem.events as events:
+                self.modem.AT(f'$CM {freq},{fdev},{datarate},{power},{timeout}')
+                events.wait_for('event=9,1', timeout=timeout+1)
 
 
 def uartconfig_to_str(uart):
@@ -3164,13 +3259,14 @@ def random_key():
 @click.group(invoke_without_command=True)
 @click.option('--port', '-p', help='Pathname to the serial port', show_default=True)
 @click.option('--baudrate', '-b', type=int, default=None, help='Serial port baud rate [default: detect]')
+@click.option('--twr-sdk', '-t', 'twr', default=False, is_flag=True, help='Communicate with modem through twr-sdk.')
 @click.option('--reset', '-r', default=False, is_flag=True, help='Reset the modem before issuing any AT commands.')
 @click.option('--verbose', '-v', default=False, is_flag=True, help='Show all AT communication.')
 @click.option('--guard', '-g', type=int, default=None, help='AT command guard interval [s]')
 @click.option('--machine', '-m', default=False, is_flag=True, help='Produce machine-readable output.')
 @click.option('--show-keys', '-k', 'with_keys', default=False, is_flag=True, help='Show security keys.')
 @click.pass_context
-def cli(ctx, port, baudrate, reset, verbose, guard, machine, with_keys):
+def cli(ctx, port, baudrate, twr, reset, verbose, guard, machine, with_keys):
     '''Command line interface to the Murata TypeABZ LoRaWAN modem.
 
     This tool provides a number of commands for managing Murata TypeABZ
@@ -3200,9 +3296,10 @@ def cli(ctx, port, baudrate, reset, verbose, guard, machine, with_keys):
     the output of the commands device and network. They keys are ommited
     from the output by default for security reasons.
     '''
-    global machine_readable, show_keys
+    global machine_readable, show_keys, twr_sdk
     machine_readable = machine
     show_keys = with_keys
+    twr_sdk = twr
 
     @lru_cache(maxsize=None)
     def get_modem():
@@ -3212,21 +3309,25 @@ def cli(ctx, port, baudrate, reset, verbose, guard, machine, with_keys):
             click.echo('Error: Please specify a serial port', err=True)
             sys.exit(1)
 
-        device = TypeABZ(port, verbose=verbose, guard=guard)
+        if twr_sdk:
+            dev = TowerSDK(port, verbose=verbose, guard=guard)
+        else:
+            dev = TypeABZ(port, verbose=verbose, guard=guard)
+
         if baudrate is None:
-            baudrate = device.detect_baud_rate()
+            baudrate = dev.detect_baud_rate()
             if baudrate is None:
                 click.echo('Error: Could not detect serial port speed', err=True)
                 sys.exit(1)
 
-        device.open(baudrate)
+        dev.open(baudrate)
 
-        modem = OpenLoRaModem(device)
+        modem = OpenLoRaModem(dev)
 
         if reset:
             modem.reset()
 
-        ctx.call_on_close(device.close)
+        ctx.call_on_close(dev.close)
         return modem
 
     try:
@@ -3254,7 +3355,7 @@ def device(get_modem: Callable[[], OpenLoRaModem]):
     +---------------------+-------------------------------------------------------------------+
     | Port configuration  | 19200 8N1                                                         |
     | Device model        | ABZ                                                               |
-    | Firmware version    | v1.1.1-43-gf86592d2 (modified) [LoRaMac-node v4.6.0-23-g50155c55] |
+    | Firmware version    | 1.1.1-43-gf86592d2 (modified) [LoRaMac-node 4.6.0-23-g50155c55]   |
     | Data encoding       | binary                                                            |
     | LoRaWAN version     | 1.1.1 / 1.0.4 (1.0.4 for ABP)                                     |
     | Regional parameters | RP002-1.0.3                                                       |
@@ -3574,6 +3675,10 @@ def trx(get_modem: Callable[[], OpenLoRaModem], encoding, delimiter: str, messag
     encodings. If you reconfigure the delimiter character, make sure to select a
     character outside of the base64 and hexadecimal alphabets.
     '''
+    if twr_sdk:
+        click.echo('Error: This functionality is unavailable through the Tower SDK', err=True)
+        sys.exit(1)
+
     modem = get_modem()
 
     hex = modem.data_encoding == 1
@@ -3666,8 +3771,6 @@ def trx(get_modem: Callable[[], OpenLoRaModem], encoding, delimiter: str, messag
         sys.stdout.buffer.write(b'\n')
         sys.stdout.buffer.flush()
 
-    modem.on('message', on_message)
-
     def send(message: bytes):
         comps = message.split(delim)
         if len(comps) == 1:
@@ -3689,11 +3792,13 @@ def trx(get_modem: Callable[[], OpenLoRaModem], encoding, delimiter: str, messag
         else:
             raise Exception('Invalid input format')
 
-    if message is not None:
-        send(message.encode('utf-8'))
-    else:
-        for line in sys.stdin.buffer:
-            send(line.rstrip(b'\n'))
+    with modem.events as events:
+        events.on('message', on_message)
+        if message is not None:
+            send(message.encode('utf-8'))
+        else:
+            for line in sys.stdin.buffer:
+                send(line.rstrip(b'\n'))
 
 
 @cli.command()
@@ -3980,10 +4085,10 @@ def get(get_modem: Callable[[], OpenLoRaModem], names, all, long, names_only):
                 click.echo(f'{value}')
 
 
-@cli.command()
+@cli.command('set')
 @click.argument('arguments', nargs=-1)
 @click.pass_obj
-def set(get_modem: Callable[[], OpenLoRaModem], arguments):
+def set_param(get_modem: Callable[[], OpenLoRaModem], arguments):
     '''Update modem setting(s).
 
     This command can be used to update the value of one or more modem settings.

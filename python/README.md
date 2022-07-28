@@ -11,7 +11,7 @@ Alternatively, you can also install the library from the Github repository as fo
 ```
 git clone https://github.com/hardwario/lora-modem-abz
 cd lora-modem-abz/python
-pip install --editable . 
+pip install --editable .
 ```
 
 ## Usage from Python
@@ -33,10 +33,10 @@ try:
     # Create an API instance depending on the firmware
     # Use MurataModem instead if your module has the original firmware
     modem = OpenLoRaModem(device)
-    
+
     # Show fimware version
     print(modem.version)
-    
+
     # Send an unconfirmed uplink to the default port
     # The message must be a bytes value, not str
     modem.utx(b'ping')
@@ -52,12 +52,12 @@ The class `TypeABZ` represents the physical modem device. The classes `OpenLoRaM
 
 The library provides a command line tool installed under the name `lora`. The tool can be used to interact with TypeABZ LoRaWAN modems from shell scripts and the terminal. To invoke the tool, pass the pathname to the modem's serial port either via the environment variable PORT, or via the command line option `-p`. Without any arguments, the tool displays information about the selected modem:
 ```
-$ lora -p /dev/serial0 
+$ lora -p /dev/serial0
 Device information for modem /dev/serial0:
 +---------------------+-------------------------------------------------------------------+
 | Port configuration  | 19200 8N1                                                         |
 | Device model        | ABZ                                                               |
-| Firmware version    | v1.1.1-43-gf86592d2 (modified) [LoRaMac-node v4.6.0-23-g50155c55] |
+| Firmware version    | 1.1.1-43-gf86592d2 (modified) [LoRaMac-node 4.6.0-23-g50155c55]   |
 | Data encoding       | binary                                                            |
 | LoRaWAN version     | 1.1.1 / 1.0.4 (1.0.4 for ABP)                                     |
 | Regional parameters | RP002-1.0.3                                                       |
