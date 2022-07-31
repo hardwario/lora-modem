@@ -52,8 +52,8 @@ new_tag="v$version"
 name="$basename-$version"
 
 # Create the tag in the local git repository clone. Fail if the tag already
-# exists.
-git tag -a "$new_tag" -m "Release $version"
+# exists. Create a signed and annotated tag.
+git tag -s -a "$new_tag" -m "Version $version"
 
 # Build both release and debug versions of the firmware binary
 make release
@@ -67,8 +67,11 @@ cp -f out/debug/firmware.hex   "$name.debug.hex"
 cp -f out/debug/firmware.map   "$name.debug.map"
 
 # Compute SHA-256 checksums of the binary files
-sums=$(sha256sum -b "$name.bin" "$name.hex" \
+checksums=$(sha256sum -b "$name.bin" "$name.hex" \
     "$name.debug.bin" "$name.debug.hex" "$name.debug.map")
+
+# Generate a signed version of the checksums
+signed_checksums=$(echo "$sums" | gpg --clear-sign)
 
 # Push the newly created tag into the Github repository
 git push origin "$new_tag"
@@ -87,7 +90,7 @@ Release $version
 
 **SHA256 checksums**:
 \`\`\`txt
-$sums
+$signed_checksums
 \`\`\`
 
 **Full changelog**: https://github.com/hardwario/$basename/compare/$previous_tag...$new_tag
