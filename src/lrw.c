@@ -878,7 +878,7 @@ int lrw_send(uint8_t port, void *buffer, uint8_t length, bool confirmed)
 }
 
 
-void lrw_process()
+void lrw_process(void)
 {
     uint32_t mask = disable_irq();
     unsigned ev = events;
@@ -895,7 +895,7 @@ void lrw_process()
 }
 
 
-LoRaMacNvmData_t *lrw_get_state()
+LoRaMacNvmData_t *lrw_get_state(void)
 {
     MibRequestConfirm_t r = { .Type = MIB_NVM_CTXS };
     LoRaMacMibGetRequestConfirm(&r);
