@@ -635,17 +635,62 @@ static void lncheck(atci_param_t *param)
 }
 
 
-// static void get_rfparam(void)
-// {
-//     abort(ERR_UNKNOWN_CMD);
-// }
+static void get_rfparam(void)
+{
+    ChannelParams_t *c;
+    LoRaMacNvmData_t *state = lrw_get_state();
+    GetPhyParams_t pr = { .Attribute = PHY_MAX_NB_CHANNELS };
+    unsigned nb_channels = RegionGetPhyParam(state->MacGroup2.Region, &pr).Value;
+
+    MibRequestConfirm_t r = { .Type = MIB_CHANNELS };
+    abort_on_error(LoRaMacMibGetRequestConfirm(&r));
+
+    // Count the number of channels that have non-zero frequency
+    unsigned n = 0;
+    for (unsigned i = 0; i < nb_channels; i++)
+        if (r.Param.ChannelList[i].Frequency != 0) n++;
+
+    atci_printf("+OK=%d", n);
+    for (unsigned i = 0; i < nb_channels; i++) {
+        c = r.Param.ChannelList + i;
+        if (c->Frequency == 0) continue;
+        atci_printf(";%d,%ld,%d,%d", i, c->Frequency, c->DrRange.Fields.Min, c->DrRange.Fields.Max);
+    }
+    EOL();
+}
 
 
-// static void set_rfparam(atci_param_t *param)
-// {
-//     (void)param;
-//     abort(ERR_UNKNOWN_CMD);
-// }
+static void set_rfparam(atci_param_t *param)
+{
+    uint32_t id, freq, min_dr, max_dr;
+    if (!atci_param_get_uint(param, &id)) abort(ERR_PARAM);
+    if (id > UINT8_MAX) abort(ERR_PARAM);
+    if (!atci_param_is_comma(param)) abort(ERR_PARAM);
+
+    if (!atci_param_get_uint(param, &freq)) abort(ERR_PARAM);
+    if (!atci_param_is_comma(param)) abort(ERR_PARAM);
+
+    if (!atci_param_get_uint(param, &min_dr)) abort(ERR_PARAM);
+    if (min_dr > INT8_MAX) abort(ERR_PARAM);
+    if (!atci_param_is_comma(param)) abort(ERR_PARAM);
+
+    if (!atci_param_get_uint(param, &max_dr)) abort(ERR_PARAM);
+    if (max_dr > INT8_MAX) abort(ERR_PARAM);
+
+    LoRaMacStatus_t rc;
+    ChannelParams_t params;
+    params.Frequency = freq;
+    params.DrRange.Fields.Min = min_dr;
+    params.DrRange.Fields.Max = max_dr;
+
+    if (freq != 0) {
+        rc = LoRaMacChannelAdd(id, params);
+    } else {
+        rc = LoRaMacChannelRemove(id);
+    }
+    abort_on_error(rc);
+    OK_();
+}
 
 
 // A version compatible with the original Type ABZ firmware
@@ -1952,7 +1997,7 @@ static const atci_command_t cmds[] = {
     {"+JOIN",        join,    NULL,             NULL,             NULL, "Send OTAA Join packet"},
     {"+JOINDC",      NULL,    set_joindc,       get_joindc,       NULL, "Configure OTAA Join duty cycling"},
     {"+LNCHECK",     lncheck, lncheck,          NULL,             NULL, "Perform link check"},
-    // {"+RFPARAM",     NULL,    set_rfparam,      get_rfparam,      NULL, "Configure RF channel parameters"},
+    {"+RFPARAM",     NULL,    set_rfparam,      get_rfparam,      NULL, "Configure RF channel parameters"},
     {"+RFPOWER",     NULL,    set_rfpower_comp, get_rfpower_comp, NULL, "Configure RF power"},
     {"+NWK",         NULL,    set_nwk,          get_nwk,          NULL, "Configure public/private LoRa network setting"},
     {"+ADR",         NULL,    set_adr,          get_adr,          NULL, "Configure adaptive data rate (ADR)"},
