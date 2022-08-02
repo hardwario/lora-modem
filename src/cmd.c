@@ -1544,31 +1544,6 @@ static void set_netid(atci_param_t *param)
 }
 
 
-static void get_channels(void)
-{
-    lrw_channel_list_t list = lrw_get_channel_list();
-
-    // log_debug("%d %d", list.length, list.chmask_length);
-    // log_dump(list.chmask, list.chmask_length * 2, "masks");
-    // log_dump(list.chmask_default, list.chmask_length * 2, "default_mask");
-
-    for (unsigned int i = 0; i < list.length; i++) {
-        if (list.channels[i].Frequency == 0)
-            continue;
-
-        int is_enabled = (i / 16) < list.chmask_length ? (list.chmask[i / 16] >> (i % 16)) & 0x01 : 0;
-
-        atci_printf("%d,%ld,%ld,%d,%d,%d\r\n",
-            is_enabled,
-            list.channels[i].Frequency,
-            list.channels[i].Rx1Frequency,
-            list.channels[i].DrRange.Fields.Min,
-            list.channels[i].DrRange.Fields.Max,
-            list.channels[i].Band);
-    }
-    OK_();
-}
-
 #if defined(DEBUG)
 static void dbg(atci_param_t *param)
 {
@@ -2027,7 +2002,6 @@ static const atci_command_t cmds[] = {
     {"+CHMASK",      NULL,    set_chmask_comp,  get_chmask_comp,  NULL, "Configure channel mask"},
     {"+RTYNUM",      NULL,    set_rtynum,       get_rtynum,       NULL, "Configure number of confirmed uplink message retries"},
     {"+NETID",       NULL,    set_netid,        get_netid,        NULL, "Configure LoRaWAN network identifier"},
-    {"$CHANNELS",    NULL,    NULL,             get_channels,     NULL, ""},
     {"$VER",         NULL,    NULL,             get_version,      NULL, "Firmware version and build time"},
 #if defined(DEBUG)
     {"$DBG",         dbg,     NULL,             NULL,             NULL, ""},

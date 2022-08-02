@@ -6,16 +6,6 @@
 #include "part.h"
 
 
-typedef struct
-{
-    ChannelParams_t *channels;
-    uint8_t length;
-    uint16_t* chmask;
-    uint8_t chmask_length;
-    uint16_t* chmask_default;
-} lrw_channel_list_t;
-
-
 extern unsigned int lrw_event_subtype;
 
 
@@ -166,12 +156,6 @@ int lrw_set_dwell(bool uplink, bool downlink);
  * @return Current region's channel mask length in words
  */
 int lrw_get_chmask_length(void);
-
-
-/** @brief Return a descriptor structure with information about configured RF channels
- * @return Channel descriptor structure
- */
-lrw_channel_list_t lrw_get_channel_list(void);
 
 
 #endif // _LRW_H

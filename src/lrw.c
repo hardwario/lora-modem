@@ -1130,31 +1130,3 @@ int lrw_get_chmask_length(void)
             return 1;
     }
 }
-
-
-lrw_channel_list_t lrw_get_channel_list(void)
-{
-    lrw_channel_list_t result;
-    LoRaMacNvmData_t *state = lrw_get_state();
-    MibRequestConfirm_t r;
-
-    result.chmask_length = lrw_get_chmask_length();
-
-    GetPhyParams_t req = { .Attribute = PHY_MAX_NB_CHANNELS };
-    PhyParam_t resp = RegionGetPhyParam(state->MacGroup2.Region, &req);
-    result.length = resp.Value;
-
-    r.Type = MIB_CHANNELS;
-    LoRaMacMibGetRequestConfirm(&r);
-    result.channels = r.Param.ChannelList;
-
-    r.Type = MIB_CHANNELS_MASK;
-    LoRaMacMibGetRequestConfirm(&r);
-    result.chmask = r.Param.ChannelsMask;
-
-    r.Type = MIB_CHANNELS_DEFAULT_MASK;
-    LoRaMacMibGetRequestConfirm(&r);
-    result.chmask_default = r.Param.ChannelsDefaultMask;
-
-    return result;
-}
