@@ -323,8 +323,8 @@ static void set_band(atci_param_t *param)
 {
     uint32_t value;
 
-    if (!atci_param_get_uint(param, &value))
-        abort(ERR_PARAM);
+    if (!atci_param_get_uint(param, &value)) abort(ERR_PARAM);
+    if (value > 9) abort(ERR_PARAM);
 
     int rv = lrw_set_region(value);
     abort_on_error(rv);
