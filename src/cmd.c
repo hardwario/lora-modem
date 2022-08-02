@@ -818,17 +818,43 @@ static void set_delay(atci_param_t *param)
 }
 
 
-// static void get_adrack(void)
-// {
-//     abort(ERR_UNKNOWN_CMD);
-// }
+static void get_adrack(void)
+{
+    uint16_t limit;
+    MibRequestConfirm_t r;
+
+    r.Type = MIB_ADR_ACK_LIMIT;
+    abort_on_error(LoRaMacMibGetRequestConfirm(&r));
+    limit = r.Param.AdrAckLimit;
+
+    r.Type = MIB_ADR_ACK_DELAY;
+    abort_on_error(LoRaMacMibGetRequestConfirm(&r));
+
+    OK("%d,%d", limit, r.Param.AdrAckDelay);
+}
 
 
-// static void set_adrack(atci_param_t *param)
-// {
-//     (void)param;
-//     abort(ERR_UNKNOWN_CMD);
-// }
+static void set_adrack(atci_param_t *param)
+{
+    uint32_t limit, delay;
+    if (!atci_param_get_uint(param, &limit)) abort(ERR_PARAM);
+    if (limit > UINT16_MAX) abort(ERR_PARAM);
+
+    if (!atci_param_is_comma(param)) abort(ERR_PARAM);
+
+    if (!atci_param_get_uint(param, &delay)) abort(ERR_PARAM);
+    if (delay > UINT16_MAX) abort(ERR_PARAM);
+
+    MibRequestConfirm_t r = { .Type = MIB_ADR_ACK_LIMIT };
+    r.Param.AdrAckLimit = limit;
+    abort_on_error(LoRaMacMibSetRequestConfirm(&r));
+
+    r.Type = MIB_ADR_ACK_DELAY;
+    r.Param.AdrAckDelay = delay;
+    abort_on_error(LoRaMacMibSetRequestConfirm(&r));
+
+    OK_();
+}
 
 
 // A version compatible with the original Type ABZ firmware
@@ -1932,7 +1958,7 @@ static const atci_command_t cmds[] = {
     {"+ADR",         NULL,    set_adr,          get_adr,          NULL, "Configure adaptive data rate (ADR)"},
     {"+DR",          NULL,    set_dr_comp,      get_dr_comp,      NULL, "Configure data rate (DR)"},
     {"+DELAY",       NULL,    set_delay,        get_delay,        NULL, "Configure receive window offsets"},
-    // {"+ADRACK",      NULL,    set_adrack,       get_adrack,       NULL, "Configure ADR ACK parameters"},
+    {"+ADRACK",      NULL,    set_adrack,       get_adrack,       NULL, "Configure ADR ACK parameters"},
     {"+RX2",         NULL,    set_rx2_comp,     get_rx2_comp,     NULL, "Configure RX2 window frequency and data rate"},
     {"+DUTYCYCLE",   NULL,    set_dutycycle,    get_dutycycle,    NULL, "Configure duty cycling in EU868"},
     {"+SLEEP",       NULL,    set_sleep,        get_sleep,        NULL, "Configure low power (sleep) mode"},
