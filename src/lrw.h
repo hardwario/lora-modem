@@ -3,11 +3,12 @@
 
 #include <loramac-node/src/mac/LoRaMac.h>
 #include <loramac-node/src/mac/region/Region.h>
+#include <stdint.h>
 #include "part.h"
 
 
 extern unsigned int lrw_event_subtype;
-
+extern TimerTime_t lrw_dutycycle_deadline;
 
 /** @brief Initialize the LoRaMac stack
  *
@@ -157,5 +158,10 @@ int lrw_set_dwell(bool uplink, bool downlink);
  */
 int lrw_get_chmask_length(void);
 
+
+LoRaMacStatus_t lrw_mlme_request(MlmeReq_t* req);
+
+
+LoRaMacStatus_t lrw_mcps_request(McpsReq_t* req);
 
 #endif // _LRW_H

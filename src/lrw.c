@@ -18,6 +18,7 @@
 #include "eeprom.h"
 #include "irq.h"
 #include "nvm.h"
+#include "rtc.h"
 
 #define MAX_BAT 254
 
@@ -26,6 +27,8 @@ unsigned int lrw_event_subtype;
 static McpsConfirm_t tx_params;
 static int joins_left = 0;
 static TimerEvent_t join_retry_timer;
+
+TimerTime_t lrw_dutycycle_deadline;
 
 
 enum lora_event {
@@ -443,7 +446,7 @@ static int send_join(void)
     MlmeReq_t mlme = { .Type = MLME_JOIN };
     mlme.Req.Join.NetworkActivation = ACTIVATION_TYPE_OTAA;
     mlme.Req.Join.Datarate = DR_0;
-    return LoRaMacMlmeRequest(&mlme);
+    return lrw_mlme_request(&mlme);
 }
 
 
@@ -830,7 +833,7 @@ int lrw_send(uint8_t port, void *buffer, uint8_t length, bool confirmed)
         mr.Req.Unconfirmed.fBuffer = NULL;
         mr.Req.Unconfirmed.fBufferSize = 0;
         mr.Req.Unconfirmed.Datarate = r.Param.ChannelsDatarate;
-        LoRaMacMcpsRequest(&mr);
+        lrw_mcps_request(&mr);
 
         // Return the original status to the caller to indicate that we haven't
         // sent the requested payload.
@@ -870,7 +873,7 @@ int lrw_send(uint8_t port, void *buffer, uint8_t length, bool confirmed)
         return rc;
     }
 
-    rc = LoRaMacMcpsRequest(&mr);
+    rc = lrw_mcps_request(&mr);
     if (rc != LORAMAC_STATUS_OK)
         log_debug("Transmission failed: %d", rc);
 
@@ -926,7 +929,7 @@ int lrw_join(unsigned int retries)
         // initialization.
         MlmeReq_t mlme = { .Type = MLME_JOIN };
         mlme.Req.Join.NetworkActivation = ACTIVATION_TYPE_ABP;
-        return LoRaMacMlmeRequest(&mlme);
+        return lrw_mlme_request(&mlme);
     } else {
         if (retries > 15)
             return LORAMAC_STATUS_PARAMETER_INVALID;
@@ -1072,7 +1075,7 @@ int lrw_check_link(bool piggyback)
     LoRaMacStatus_t rc;
     MlmeReq_t mlr = { .Type = MLME_LINK_CHECK };
 
-    rc = LoRaMacMlmeRequest(&mlr);
+    rc = lrw_mlme_request(&mlr);
     if (rc != LORAMAC_STATUS_OK) {
         log_debug("Link check request failed: %d", rc);
         return rc;
@@ -1090,7 +1093,7 @@ int lrw_check_link(bool piggyback)
         // the value from MIB
         mcr.Req.Unconfirmed.Datarate = mbr.Param.ChannelsDatarate;
 
-        rc = LoRaMacMcpsRequest(&mcr);
+        rc = lrw_mcps_request(&mcr);
         if (rc != LORAMAC_STATUS_OK)
             log_debug("Empty frame TX failed: %d", rc);
     }
@@ -1129,4 +1132,56 @@ int lrw_get_chmask_length(void)
         default:
             return 1;
     }
+}
+
+
+static void update_duty_cycle_deadline(LoRaMacStatus_t rc, TimerTime_t time)
+{
+    switch(rc) {
+        case LORAMAC_STATUS_PARAMETER_INVALID:
+            // This return code indicates that the value passed through req may
+            // have been invalid. In that case, DutyCycleWaitTime will be either
+            // unset or set to 0. We ignore the value in that case and keep
+            // lrw_dutycycle_deadline unmodified.
+            break;
+
+        case LORAMAC_STATUS_BUSY:
+            // The busy return code can be returned by the MAC in a variety of
+            // cases, even when the MAC is in the middle of a dutycycle quiet
+            // period and is not transmitting. LoRaMac{Mlme,Mcps} do not always
+            // update DutyCycleWaitTime in that case, in some cases the variable
+            // is left initialized to 0. Only update lrw_dutycycle_deadline if
+            // we get a non-zero DutyCycleWaitTime. In other cases, we rely on
+            // the value we remember from previous invocations of the Mlme and
+            // Mcps request functions.
+            if (time != 0)
+                lrw_dutycycle_deadline = rtc_tick2ms(rtc_get_timer_value()) + time;
+            break;
+
+        default:
+            // In all other cases write the new value through to
+            // lrw_dutycycle_deadline.
+            lrw_dutycycle_deadline = rtc_tick2ms(rtc_get_timer_value()) + time;
+            break;
+    }
+}
+
+
+// This function is a simple wrapper over LoRaMacMlmeRequest that keeps track of
+// the duty cycle wait time returned by the function for the benefit of AT+BACKOFF
+LoRaMacStatus_t lrw_mlme_request(MlmeReq_t* req)
+{
+    LoRaMacStatus_t rc = LoRaMacMlmeRequest(req);
+    update_duty_cycle_deadline(rc, req->ReqReturn.DutyCycleWaitTime);
+    return rc;
+}
+
+
+// This function is a simple wrapper over LoRaMacMcpsRequest that keeps track of
+// the duty cycle wait time returned by the function for the benefit of AT+BACKOFF
+LoRaMacStatus_t lrw_mcps_request(McpsReq_t* req)
+{
+    LoRaMacStatus_t rc = LoRaMacMcpsRequest(req);
+    update_duty_cycle_deadline(rc, req->ReqReturn.DutyCycleWaitTime);
+    return rc;
 }

@@ -1204,7 +1204,7 @@ static void cw(atci_param_t *param)
             .Frequency = freq,
             .Power = power
     }}};
-    abort_on_error(LoRaMacMlmeRequest(&r));
+    abort_on_error(lrw_mlme_request(&r));
 
     lrw_event_subtype = CMD_CERT_CW_ENDED;
 
@@ -1281,7 +1281,7 @@ static void cm(atci_param_t *param)
             .Frequency = freq,
             .Power = power
     }}};
-    abort_on_error(LoRaMacMlmeRequest(&r));
+    abort_on_error(lrw_mlme_request(&r));
     schedule_reset = true;
 
     timeout *= 1000;
@@ -1458,10 +1458,11 @@ static void set_maxeirp(atci_param_t *param)
 // }
 
 
-// static void get_backoff(void)
-// {
-//     abort(ERR_UNKNOWN_CMD);
-// }
+static void get_backoff(void)
+{
+    TimerTime_t now = rtc_tick2ms(rtc_get_timer_value());
+    OK("%ld", lrw_dutycycle_deadline > now ? lrw_dutycycle_deadline - now : 0);
+}
 
 
 // A version compatible with the original Type ABZ firmware
@@ -1998,7 +1999,7 @@ static const atci_command_t cmds[] = {
     {"+MAXEIRP",     NULL,    set_maxeirp,      get_maxeirp,      NULL, "Configure maximum EIRP"},
     // {"+RSSITH",      NULL,    set_rssith,       get_rssith,       NULL, "Configure RSSI threshold for LBT"},
     // {"+CST",         NULL,    set_cst,          get_cst,          NULL, "Configure carrier sensor time (CST) for LBT"},
-    // {"+BACKOFF",     NULL,    NULL,             get_backoff,      NULL, "Return duty cycle backoff time for EU868"},
+    {"+BACKOFF",     NULL,    NULL,             get_backoff,      NULL, "Return duty cycle backoff time for EU868"},
     {"+CHMASK",      NULL,    set_chmask_comp,  get_chmask_comp,  NULL, "Configure channel mask"},
     {"+RTYNUM",      NULL,    set_rtynum,       get_rtynum,       NULL, "Configure number of confirmed uplink message retries"},
     {"+NETID",       NULL,    set_netid,        get_netid,        NULL, "Configure LoRaWAN network identifier"},
