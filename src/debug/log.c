@@ -87,14 +87,14 @@ static void _write_message(log_level_t level, char id, const char *format, va_li
 
     if (_log.state == LOG_STATE_SIMPLE_MSG || _log.state == LOG_STATE_COMPOSITE_MSG) {
         if (_log.timestamp == LOG_TIMESTAMP_ABS) {
-            uint32_t tick_now = rtc_get_timer_value();
-            uint32_t timestamp_abs = tick_now / 10;
+            TimerTime_t now = rtc_tick2ms(rtc_get_timer_value());
+            TimerTime_t timestamp_abs = now / 10;
             offset = sprintf(_log.buffer, "# %lu.%02lu <%c> ", timestamp_abs / 100, timestamp_abs % 100, id);
         } else if (_log.timestamp == LOG_TIMESTAMP_REL) {
-            uint32_t tick_now = rtc_get_timer_value();
-            uint32_t timestamp_rel = (tick_now - _log.tick_last) / 10;
+            TimerTime_t now = rtc_tick2ms(rtc_get_timer_value());
+            TimerTime_t timestamp_rel = (now - _log.tick_last) / 10;
             offset = sprintf(_log.buffer, "# +%lu.%02lu <%c> ", timestamp_rel / 100, timestamp_rel % 100, id);
-            _log.tick_last = tick_now;
+            _log.tick_last = now;
         } else {
             strcpy(_log.buffer, "# <!> ");
             _log.buffer[3] = id;
