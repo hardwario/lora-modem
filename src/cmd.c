@@ -136,6 +136,18 @@ static int parse_port(atci_param_t *param)
 }
 
 
+static uint8_t *find_key(KeyIdentifier_t id)
+{
+    LoRaMacNvmData_t *state = lrw_get_state();
+
+    for (int i = 0; i < NUM_OF_KEYS; i++) {
+        if (state->SecureElement.KeyList[i].KeyID == id)
+            return state->SecureElement.KeyList[i].KeyValue;
+    }
+    return NULL;
+}
+
+
 static void get_uart(void)
 {
     OK("%d,%d,%d,%d,%d", sysconf.uart_baudrate, 8, 1, 0, 0);
@@ -456,14 +468,13 @@ static void set_joineui(atci_param_t *param)
 
 static void get_nwkskey(void)
 {
-    LoRaMacNvmData_t *state = lrw_get_state();
     atci_print("+OK=");
 
     // We operate in a backwards-compatible 1.0 mode here and in that mode, the
     // various network session keys are the same and the canonical version is in
     // FNwkSIntKey.
 
-    atci_print_buffer_as_hex(&state->SecureElement.KeyList[F_NWK_S_INT_KEY].KeyValue, SE_KEY_SIZE);
+    atci_print_buffer_as_hex(find_key(F_NWK_S_INT_KEY), SE_KEY_SIZE);
     EOL();
 }
 
@@ -508,9 +519,8 @@ static void set_nwkskey(atci_param_t *param)
 
 static void get_appskey(void)
 {
-    LoRaMacNvmData_t *state = lrw_get_state();
     atci_print("+OK=");
-    atci_print_buffer_as_hex(&state->SecureElement.KeyList[APP_S_KEY].KeyValue, SE_KEY_SIZE);
+    atci_print_buffer_as_hex(find_key(APP_S_KEY), SE_KEY_SIZE);
     EOL();
 }
 
@@ -534,9 +544,8 @@ static void set_appskey(atci_param_t *param)
 
 static void get_appkey(void)
 {
-    LoRaMacNvmData_t *state = lrw_get_state();
     atci_print("+OK=");
-    atci_print_buffer_as_hex(&state->SecureElement.KeyList[APP_KEY].KeyValue, SE_KEY_SIZE);
+    atci_print_buffer_as_hex(find_key(APP_KEY), SE_KEY_SIZE);
     EOL();
 }
 
@@ -1134,17 +1143,86 @@ static void ctx(atci_param_t *param)
 }
 
 
-// static void get_mcast(void)
-// {
-//     abort(ERR_UNKNOWN_CMD);
-// }
+static void get_mcast(void)
+{
+    McChannelParams_t *c;
+    LoRaMacNvmData_t *state = lrw_get_state();
+    int n = 0;
+    KeyIdentifier_t keys[LORAMAC_MAX_MC_CTX * 2] = {
+        MC_NWK_S_KEY_0, MC_APP_S_KEY_0,
+        MC_NWK_S_KEY_1, MC_APP_S_KEY_1,
+        MC_NWK_S_KEY_2, MC_APP_S_KEY_2,
+        MC_NWK_S_KEY_3, MC_APP_S_KEY_3
+    };
+
+    for (int i = 0; i < LORAMAC_MAX_MC_CTX; i++) {
+        c = &state->MacGroup2.MulticastChannelList[i].ChannelParams;
+        if (c->IsEnabled) n++;
+    }
+
+    atci_printf("+OK=%d", n);
+    for (int i = 0; i < LORAMAC_MAX_MC_CTX; i++) {
+        c = &state->MacGroup2.MulticastChannelList[i].ChannelParams;
+        if (!c->IsEnabled) continue;
+
+        atci_printf(";%d,%08lX,", c->GroupID, c->Address);
+        atci_print_buffer_as_hex(find_key(keys[2 * i]), SE_KEY_SIZE);
+        atci_print(",");
+        atci_print_buffer_as_hex(find_key(keys[2 * i + 1]), SE_KEY_SIZE);
+    }
+    EOL();
+}
 
 
-// static void set_mcast(atci_param_t *param)
-// {
-//     (void)param;
-//     abort(ERR_UNKNOWN_CMD);
-// }
+static void set_mcast(atci_param_t *param)
+{
+    uint32_t id, addr;
+    LoRaMacStatus_t rc;
+    uint8_t nwkskey[SE_KEY_SIZE];
+    uint8_t appskey[SE_KEY_SIZE];
+
+    if (!atci_param_get_uint(param, &id)) abort(ERR_PARAM);
+    if (id >= LORAMAC_MAX_MC_CTX) abort(ERR_PARAM);
+
+    if (!atci_param_is_comma(param)) abort(ERR_PARAM);
+
+    if (atci_param_get_buffer_from_hex(param, &addr, sizeof(addr), sizeof(addr) * 2) != sizeof(addr))
+        abort(ERR_PARAM);
+
+    if (addr != 0) {
+        if (!atci_param_is_comma(param)) abort(ERR_PARAM);
+
+        if (atci_param_get_buffer_from_hex(param, nwkskey, SE_KEY_SIZE, SE_KEY_SIZE * 2) != SE_KEY_SIZE)
+            abort(ERR_PARAM);
+
+        if (!atci_param_is_comma(param)) abort(ERR_PARAM);
+
+        if (atci_param_get_buffer_from_hex(param, appskey, SE_KEY_SIZE, SE_KEY_SIZE * 2) != SE_KEY_SIZE)
+            abort(ERR_PARAM);
+
+        McChannelParams_t c = {
+            .IsEnabled = true,
+            .IsRemotelySetup = false,
+            .GroupID = id,
+            .Address = ntohl(addr),
+            .McKeys = {
+                .Session = {
+                    .McNwkSKey = nwkskey,
+                    .McAppSKey = appskey
+                }
+            },
+            .FCountMin = 0,
+            .FCountMax = UINT32_MAX
+        };
+
+        LoRaMacMcChannelDelete(id);
+        rc = LoRaMacMcChannelSetup(&c);
+    } else {
+        rc = LoRaMacMcChannelDelete(id);
+    }
+    abort_on_error(rc);
+    OK_();
+}
 
 
 static void putx(atci_param_t *param)
@@ -1572,9 +1650,8 @@ static void do_halt(atci_param_t *param)
 
 static void get_nwkkey(void)
 {
-    LoRaMacNvmData_t *state = lrw_get_state();
     atci_print("+OK=");
-    atci_print_buffer_as_hex(&state->SecureElement.KeyList[NWK_KEY].KeyValue, SE_KEY_SIZE);
+    atci_print_buffer_as_hex(find_key(NWK_KEY), SE_KEY_SIZE);
     EOL();
 }
 
@@ -1598,9 +1675,8 @@ static void set_nwkkey(atci_param_t *param)
 
 static void get_fnwksintkey(void)
 {
-    LoRaMacNvmData_t *state = lrw_get_state();
     atci_print("+OK=");
-    atci_print_buffer_as_hex(&state->SecureElement.KeyList[F_NWK_S_INT_KEY].KeyValue, SE_KEY_SIZE);
+    atci_print_buffer_as_hex(find_key(F_NWK_S_INT_KEY), SE_KEY_SIZE);
     EOL();
 }
 
@@ -1624,9 +1700,8 @@ static void set_fnwksintkey(atci_param_t *param)
 
 static void get_snwksintkey(void)
 {
-    LoRaMacNvmData_t *state = lrw_get_state();
     atci_print("+OK=");
-    atci_print_buffer_as_hex(&state->SecureElement.KeyList[S_NWK_S_INT_KEY].KeyValue, SE_KEY_SIZE);
+    atci_print_buffer_as_hex(find_key(S_NWK_S_INT_KEY), SE_KEY_SIZE);
     EOL();
 }
 
@@ -1650,9 +1725,8 @@ static void set_snwksintkey(atci_param_t *param)
 
 static void get_nwksenckey(void)
 {
-    LoRaMacNvmData_t *state = lrw_get_state();
     atci_print("+OK=");
-    atci_print_buffer_as_hex(&state->SecureElement.KeyList[NWK_S_ENC_KEY].KeyValue, SE_KEY_SIZE);
+    atci_print_buffer_as_hex(find_key(NWK_S_ENC_KEY), SE_KEY_SIZE);
     EOL();
 }
 
@@ -1989,7 +2063,7 @@ static const atci_command_t cmds[] = {
     {"+TO",          NULL,    set_to,           get_to,           NULL, "Configure UART port timeout"},
     {"+UTX",         utx,     NULL,             NULL,             NULL, "Send unconfirmed uplink message"},
     {"+CTX",         ctx,     NULL,             NULL,             NULL, "Send confirmed uplink message"},
-    // {"+MCAST",       NULL,    set_mcast,        get_mcast,        NULL, "Configure multicast addresses"},
+    {"+MCAST",       NULL,    set_mcast,        get_mcast,        NULL, "Configure multicast addresses and keys"},
     {"+PUTX",        putx,    NULL,             NULL,             NULL, "Send unconfirmed uplink message to port"},
     {"+PCTX",        pctx,    NULL,             NULL,             NULL, "Send confirmed uplink message to port"},
     {"+FRMCNT",      NULL,    NULL,             get_frmcnt,       NULL, "Return current values for uplink and downlink counters"},
