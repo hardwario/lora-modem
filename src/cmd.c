@@ -903,8 +903,14 @@ static void set_adrack(atci_param_t *param)
     r.Param.AdrAckLimit = limit;
     abort_on_error(LoRaMacMibSetRequestConfirm(&r));
 
+    r.Type = MIB_ADR_ACK_DEFAULT_LIMIT;
+    abort_on_error(LoRaMacMibSetRequestConfirm(&r));
+
     r.Type = MIB_ADR_ACK_DELAY;
     r.Param.AdrAckDelay = delay;
+    abort_on_error(LoRaMacMibSetRequestConfirm(&r));
+
+    r.Type = MIB_ADR_ACK_DEFAULT_DELAY;
     abort_on_error(LoRaMacMibSetRequestConfirm(&r));
 
     OK_();
