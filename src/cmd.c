@@ -1516,30 +1516,63 @@ static void set_maxeirp(atci_param_t *param)
 }
 
 
-// static void get_rssith(void)
-// {
-//     abort(ERR_UNKNOWN_CMD);
-// }
+static void get_rssith(void)
+{
+    MibRequestConfirm_t r = { .Type = MIB_RSSI_FREE_THRESHOLD };
+
+    LoRaMacStatus_t rc = LoRaMacMibGetRequestConfirm(&r);
+    if (rc == LORAMAC_STATUS_ERROR) abort(ERR_UNSUPPORTED);
+    abort_on_error(rc);
+
+    OK("%d", r.Param.RssiFreeThreshold);
+}
 
 
-// static void set_rssith(atci_param_t *param)
-// {
-//     (void)param;
-//     abort(ERR_UNKNOWN_CMD);
-// }
+static void set_rssith(atci_param_t *param)
+{
+    int32_t rssi;
+
+    if (!atci_param_get_int(param, &rssi)) abort(ERR_PARAM);
+    if (rssi < INT16_MIN || rssi > INT16_MAX) abort(ERR_PARAM);
+
+    MibRequestConfirm_t r = { .Type = MIB_RSSI_FREE_THRESHOLD };
+    r.Param.RssiFreeThreshold = rssi;
+
+    LoRaMacStatus_t rc = LoRaMacMibSetRequestConfirm(&r);
+    if (rc == LORAMAC_STATUS_ERROR) abort(ERR_UNSUPPORTED);
+    abort_on_error(rc);
+
+    OK_();
+}
 
 
-// static void get_cst(void)
-// {
-//     abort(ERR_UNKNOWN_CMD);
-// }
+static void get_cst(void)
+{
+    MibRequestConfirm_t r = { .Type = MIB_CARRIER_SENSE_TIME };
+
+    LoRaMacStatus_t rc = LoRaMacMibGetRequestConfirm(&r);
+    if (rc == LORAMAC_STATUS_ERROR) abort(ERR_UNSUPPORTED);
+    abort_on_error(rc);
+
+    OK("%lu", r.Param.CarrierSenseTime);
+}
 
 
-// static void set_cst(atci_param_t *param)
-// {
-//     (void)param;
-//     abort(ERR_UNKNOWN_CMD);
-// }
+static void set_cst(atci_param_t *param)
+{
+    uint32_t cst;
+
+    if (!atci_param_get_uint(param, &cst)) abort(ERR_PARAM);
+
+    MibRequestConfirm_t r = { .Type = MIB_CARRIER_SENSE_TIME };
+    r.Param.CarrierSenseTime = cst;
+
+    LoRaMacStatus_t rc = LoRaMacMibSetRequestConfirm(&r);
+    if (rc == LORAMAC_STATUS_ERROR) abort(ERR_UNSUPPORTED);
+    abort_on_error(rc);
+
+    OK_();
+}
 
 
 static void get_backoff(void)
@@ -2077,8 +2110,8 @@ static const atci_command_t cmds[] = {
     {"+RFQ",         NULL,    NULL,             get_rfq,          NULL, "Return RSSI and SNR of the last received message"},
     {"+DWELL",       NULL,    set_dwell,        get_dwell,        NULL, "Configure dwell setting for AS923"},
     {"+MAXEIRP",     NULL,    set_maxeirp,      get_maxeirp,      NULL, "Configure maximum EIRP"},
-    // {"+RSSITH",      NULL,    set_rssith,       get_rssith,       NULL, "Configure RSSI threshold for LBT"},
-    // {"+CST",         NULL,    set_cst,          get_cst,          NULL, "Configure carrier sensor time (CST) for LBT"},
+    {"+RSSITH",      NULL,    set_rssith,       get_rssith,       NULL, "Configure RSSI threshold for LBT"},
+    {"+CST",         NULL,    set_cst,          get_cst,          NULL, "Configure carrier sensor time (CST) for LBT"},
     {"+BACKOFF",     NULL,    NULL,             get_backoff,      NULL, "Return duty cycle backoff time for EU868"},
     {"+CHMASK",      NULL,    set_chmask_comp,  get_chmask_comp,  NULL, "Configure channel mask"},
     {"+RTYNUM",      NULL,    set_rtynum,       get_rtynum,       NULL, "Configure number of confirmed uplink message retries"},
