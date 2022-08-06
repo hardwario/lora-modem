@@ -164,4 +164,7 @@ LoRaMacStatus_t lrw_mlme_request(MlmeReq_t* req);
 
 LoRaMacStatus_t lrw_mcps_request(McpsReq_t* req);
 
+
+void lrw_factory_reset(bool reset_devnonce, bool reset_deveui);
+
 #endif // _LRW_H

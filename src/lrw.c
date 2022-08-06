@@ -8,6 +8,8 @@
 #include <loramac-node/src/mac/region/Region.h>
 #include <loramac-node/src/radio/radio.h>
 #include <loramac-node/src/mac/LoRaMacCrypto.h>
+#include <loramac-node/src/mac/secure-element.h>
+#include <loramac-node/src/mac/secure-element-nvm.h>
 #include "adc.h"
 #include "cmd.h"
 #include "system.h"
@@ -1185,3 +1187,82 @@ LoRaMacStatus_t lrw_mcps_request(McpsReq_t* req)
     update_duty_cycle_deadline(rc, req->ReqReturn.DutyCycleWaitTime);
     return rc;
 }
+
+
+void lrw_factory_reset(bool reset_devnonce, bool reset_deveui)
+{
+    uint16_t dev_nonce = 0;
+    uint8_t dev_eui[SE_EUI_SIZE];
+
+    if (!reset_devnonce)
+        dev_nonce = lrw_get_state()->Crypto.DevNonce;
+
+    if (!reset_deveui)
+        memcpy(dev_eui, SecureElementGetDevEui(), SE_EUI_SIZE);
+
+    if (nvm_erase() == 0) {
+        cmd_event(CMD_EVENT_MODULE, CMD_MODULE_FACNEW);
+
+        // Re-initialize NVM so that we can preserve some of the values in it if
+        // we have to, depending on the flags.
+        nvm_init();
+
+        // Unless the application explicitly asks for the DevNonce to be also
+        // reset, we preserve the original value to make sure that OTAA Join
+        // continues working from this device after factory reset.
+        if (!reset_devnonce) {
+            log_debug("Preserving original DevNonce (%d)", dev_nonce);
+
+            // To preserve DevNonce, we create a new NVM crypto data structure,
+            // initialize it, restore the DevNonce attribute and update the CRC.
+            LoRaMacCryptoNvmData_t c;
+            if (LoRaMacCryptoInit(&c) != LORAMAC_CRYPTO_SUCCESS)
+                log_error("Error while reinitializing crypto NVM partition");
+
+            c.DevNonce = dev_nonce;
+            update_block_crc(&c, sizeof(c));
+
+            // Write the data structure initialized in the previous step into
+            // the crypto part.
+            if (!part_write(&nvm_parts.crypto, 0, &c, sizeof(c)))
+                log_error("Error while saving DevNonce to NVM during factory reset");
+        } else {
+            log_debug("Resetting DevNonce");
+        }
+
+        if (!reset_deveui) {
+            log_debug("Preserving original DevEUI");
+
+            SecureElementNvmData_t s;
+            if (SecureElementInit(&s) != SECURE_ELEMENT_SUCCESS)
+                log_error("Error while reinitializing crypto NVM partition");
+
+            memcpy(s.DevEui, dev_eui, SE_EUI_SIZE);
+
+            // We don't want to calculate a valid CRC for the entire block here
+            // since we want everything to be initialized to factory defaults
+            // upon reset. However, we need to signal to the initialization code
+            // that it needs to restore the DevUI from the value saved here.  We
+            // do that by calculating a CRC value over the DevEUI property only.
+            // The initialization code will take that as a hint to restore the
+            // DevEUI, but initialize everything else to factory defaults.
+            s.Crc32 = Crc32(s.DevEui, sizeof(s.DevEui));
+
+            // Write the data structure initialized in the previous step into
+            // the secure element part.
+            if (!part_write(&nvm_parts.se, 0, &s, sizeof(s)))
+                log_error("Error while saving DevEUI to NVM during factory reset");
+        } else {
+            log_debug("Resetting DevEUI");
+        }
+    } else {
+        log_error("Error while erasing NVM during factory reset");
+    }
+
+    // Schedule reset regardless of whether the factory reset operation above
+    // succeeded. That way, the caller can know if factory reset was
+    // successfully performed by observing the arrival of +EVENT=0,1 prior to
+    // the arrival of +EVENT=0,0
+    schedule_reset = true;
+}
+

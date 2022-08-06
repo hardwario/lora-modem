@@ -5,7 +5,9 @@
 #include "rtc.h"
 #include "irq.h"
 #include "halt.h"
+#include "gpio.h"
 #include "nvm.h"
+#include "lrw.h"
 
 
 // Unique Devices IDs register set ( STM32L0xxx )
@@ -99,10 +101,10 @@ static void init_flash(void)
 static void init_gpio(void)
 {
     // Configure all GPIOs as analog to reduce power consumption by unused ports
-    __HAL_RCC_GPIOA_CLK_ENABLE();
-    __HAL_RCC_GPIOB_CLK_ENABLE();
-    __HAL_RCC_GPIOC_CLK_ENABLE();
-    __HAL_RCC_GPIOH_CLK_ENABLE();
+    __GPIOA_CLK_ENABLE();
+    __GPIOB_CLK_ENABLE();
+    __GPIOC_CLK_ENABLE();
+    __GPIOH_CLK_ENABLE();
 
     // gpio.Mode = GPIO_MODE_ANALOG;
     // gpio.Pull = GPIO_NOPULL;
@@ -149,25 +151,29 @@ static void init_gpio(void)
     GPIOH->MODER   = 0x003c000f;
 
     // Disable all GPIO clocks again
-    __HAL_RCC_GPIOA_CLK_DISABLE();
-    __HAL_RCC_GPIOB_CLK_DISABLE();
-    __HAL_RCC_GPIOC_CLK_DISABLE();
-    __HAL_RCC_GPIOH_CLK_DISABLE();
+    __GPIOA_CLK_DISABLE();
+    __GPIOB_CLK_DISABLE();
+    __GPIOC_CLK_DISABLE();
+    __GPIOH_CLK_DISABLE();
 }
 
 
-static void init_debug(void)
+#if defined(DEBUG)
+static void init_dbgmcu(void)
 {
-    GPIO_InitTypeDef gpio = { 0 };
-#ifdef DEBUG
+    // Note: This function is mutually-exclusive with init_facnew_gpio (they
+    // share the same GPIO pin).
+
     // Enable the GPIO B clock
-    __HAL_RCC_GPIOB_CLK_ENABLE();
+    __GPIOB_CLK_ENABLE();
 
     // Configure debugging GPIO pins
-    gpio.Mode = GPIO_MODE_OUTPUT_PP;
-    gpio.Pull = GPIO_PULLUP;
-    gpio.Speed = GPIO_SPEED_HIGH;
-    gpio.Pin = (GPIO_PIN_12 | GPIO_PIN_13 | GPIO_PIN_14 | GPIO_PIN_15);
+    GPIO_InitTypeDef gpio = {
+        .Mode = GPIO_MODE_OUTPUT_PP,
+        .Pull = GPIO_PULLUP,
+        .Speed = GPIO_SPEED_HIGH,
+        .Pin = GPIO_PIN_12 | GPIO_PIN_13 | GPIO_PIN_14 | GPIO_PIN_15
+    };
     HAL_GPIO_Init(GPIOB, &gpio);
 
     // Reset debugging pins
@@ -176,28 +182,87 @@ static void init_debug(void)
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_RESET);
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_15, GPIO_PIN_RESET);
 
-    __HAL_RCC_DBGMCU_CLK_ENABLE();
+    __DBGMCU_CLK_ENABLE();
     HAL_DBGMCU_EnableDBGSleepMode();
     HAL_DBGMCU_EnableDBGStopMode();
     HAL_DBGMCU_EnableDBGStandbyMode();
-#else
+}
+#endif
+
+
+#if defined(RELEASE)
+static void disable_swd(void)
+{
     // init_gpio called before this function does not touch GPIO A 13 & 14 (SWD)
     // to keep the SWD port operational. In release mode, we re-configure the
     // two pins in analog mode to minimize power consumption.
-    gpio.Mode = GPIO_MODE_ANALOG;
-    gpio.Pull = GPIO_NOPULL;
-    gpio.Pin = (GPIO_PIN_13 | GPIO_PIN_14);
+
+    GPIO_InitTypeDef gpio = {
+        .Mode = GPIO_MODE_ANALOG,
+        .Pull = GPIO_NOPULL,
+        .Pin = GPIO_PIN_13 | GPIO_PIN_14
+    };
+
     __GPIOA_CLK_ENABLE();
     HAL_GPIO_Init(GPIOA, &gpio);
     __GPIOA_CLK_DISABLE();
 
-    __HAL_RCC_DBGMCU_CLK_ENABLE();
+    __DBGMCU_CLK_ENABLE();
     HAL_DBGMCU_DisableDBGSleepMode();
     HAL_DBGMCU_DisableDBGStopMode();
     HAL_DBGMCU_DisableDBGStandbyMode();
-    __HAL_RCC_DBGMCU_CLK_DISABLE();
-#endif
+    __DBGMCU_CLK_DISABLE();
 }
+
+
+#if defined(ENABLE_FACTORY_RESET_PIN)
+static Gpio_t facnew_pin = {
+    .port     = GPIOB,
+    .pinIndex = GPIO_PIN_15
+};
+
+
+static void facnew_isr(void *ctx)
+{
+    (void)ctx;
+    static bool old = 1;
+    static TimerTime_t start;
+
+    bool new = gpio_read(facnew_pin.port, facnew_pin.pinIndex);
+    TimerTime_t now = rtc_tick2ms(rtc_get_timer_value());
+
+    if (old && !new) {
+        // Falling edge. The factory reset pin was pulled down. Record the
+        // timestamp of the event so that we can calculate how long the pin was
+        // held down.
+        start = now;
+    } else if (!old && new) {
+        // Rising edge. Measure how long the pin was held down. It it was held
+        // down for more than five seconds, invoke factory reset.
+        if (now - start > 5000)
+            lrw_factory_reset(false, false);
+    }
+
+    old = new;
+}
+
+
+static void init_facnew_gpio(void)
+{
+    // Note: This function is mutually-exclusive with init_dbgmcu (they share
+    // the same GPIO pin).
+
+    __GPIOA_CLK_ENABLE();
+    GPIO_InitTypeDef gpio = {
+        .Mode  = GPIO_MODE_IT_RISING_FALLING,
+        .Pull  = GPIO_PULLUP,
+        .Speed = GPIO_SPEED_HIGH,
+    };
+    gpio_init(facnew_pin.port, facnew_pin.pinIndex, &gpio);
+    gpio_set_irq(facnew_pin.port, facnew_pin.pinIndex, 0, facnew_isr);
+}
+#endif // ENABLE_FACTORY_RESET_PIN
+#endif // RELEASE
 
 
 static void init_clock(void)
@@ -260,7 +325,15 @@ void system_init(void)
     HAL_Init();
     init_flash();
     init_gpio();
-    init_debug();
+#if defined(RELEASE)
+    disable_swd();
+#if defined(ENABLE_FACTORY_RESET_PIN)
+    init_facnew_gpio();
+#endif
+#endif
+#if defined(DEBUG)
+    init_dbgmcu();
+#endif
     init_clock();
     rtc_init();
 }

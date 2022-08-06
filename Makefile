@@ -22,6 +22,19 @@ ENABLED_REGIONS ?= AS923 AU915 CN470 CN779 EU433 EU868 IN865 KR920 RU864 US915
 # application.
 DEFAULT_ACTIVE_REGION ?= EU868
 
+# Uncomment the following line to configure pin 14 (GPIOB15/SPI2_MOSI) as a
+# factory reset pin. During normal operation, the pin should be pulled up or
+# left floating. When continuously pulled down for more than five seconds and
+# then pulled up, the modem resets itself to factory defaults.
+#
+# This functionality is only available in release builds. In debug builds, the
+# same pin is used by the SWD debugging interface.
+#
+# Since the modem can also be reset through the AT command interface, this
+# functionality is disabled by default to save a little bit of power.
+#
+# ENABLE_FACTORY_RESET_PIN = 1
+
 # The default channel plan for the AS923 region. One of:
 #  - CHANNEL_PLAN_GROUP_AS923_1
 #  - CHANNEL_PLAN_GROUP_AS923_2
@@ -283,6 +296,10 @@ CFLAGS += -DREGION_CN470_DEFAULT_CHANNEL_PLAN=$(CN470_DEFAULT_CHANNEL_PLAN)
 
 CFLAGS += -DVERSION_COMPAT='"$(VERSION_COMPAT)"'
 CFLAGS += -DENABLED_REGIONS='"$(ENABLED_REGIONS)"'
+
+ifdef ENABLE_FACTORY_RESET_PIN
+CFLAGS += -DENABLE_FACTORY_RESET_PIN
+endif
 
 ifneq (,$(LORAMAC_ABP_VERSION))
 CFLAGS += -DLORAMAC_ABP_VERSION=$(LORAMAC_ABP_VERSION)
