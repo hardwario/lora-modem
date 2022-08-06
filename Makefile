@@ -55,7 +55,7 @@ VERSION_COMPAT ?= 1.1.06
 # variable. Use with caution. This feature is designed as a work-around for
 # incorrectly configured LoRa networks. If you are unsure, leave the variable
 # commented out.
-#RESTORE_CHMASK_AFTER_JOIN ?= 1
+# RESTORE_CHMASK_AFTER_JOIN = 1
 
 ELF ?= $(OUT_DIR)/$(TYPE)/$(BASENAME).elf
 MAP ?= $(OUT_DIR)/$(TYPE)/$(BASENAME).map
