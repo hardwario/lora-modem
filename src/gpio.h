@@ -22,21 +22,21 @@ void gpio_init(GPIO_TypeDef *port, uint16_t pin, GPIO_InitTypeDef *init_struct);
 void gpio_set_irq(GPIO_TypeDef *port, uint16_t pin, uint32_t prio,  gpio_irq_handler_t *irqHandler);
 
 //! @brief Writes the given value to the GPIO output
-//! @param [IN] pin specifies the port bit to be written.
+//! @param [IN] pin specifies the port bit to be written
 //! @param [IN] value New GPIO output value
 
 void gpio_write(GPIO_TypeDef *port, uint16_t pin,  uint32_t value);
 
 //! @brief Reads the current GPIO input value
 //! @param [IN] port where x can be (A..E and H)
-//! @param [IN] pin specifies the port bit to be written.
+//! @param [IN] pin specifies the port bit to be read
 //! @retval value Current GPIO input value
 
 uint32_t gpio_read(GPIO_TypeDef *port, uint16_t pin);
 
 //! @brief Execute the interrupt from the object
 //! @param [IN] port where x can be (A..E and H)
-//! @param [IN] pin specifies the port bit to be written.
+//! @param [IN] pin specifies the port bit to set the irq handler for
 
 void gpio_hal_msp_irq_handler(uint16_t pin);
 
