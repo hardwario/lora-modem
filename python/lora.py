@@ -2354,7 +2354,14 @@ class MurataModem(ATCI):
 
     @property
     def backoff(self):
-        '''Not yet implemented.
+        '''Query the duty cycling state.
+
+        If the end-device is configured in a region with duty cycling, has duty
+        cycling enabled, and is currently enforcing a duty cycling quiet period,
+        this property returns the number of milliseconds until the end of the
+        quiet period. In all other cases the property returns 0.
+
+        If the property returns a non-zero value, the end-device cannot transmit.
         '''
         return int(self.modem.AT('+BACKOFF?'))
 
@@ -3524,6 +3531,7 @@ def state(get_modem: Callable[[], OpenLoRaModem]):
     | ADR enabled               | True                                                      |
     | ADR acknowledgements      | Every 64-96 unconfirmed uplinks                           |
     | Duty cycling enabled      | False                                                     |
+    | Duty cycle backoff        | 0 ms                                                      |
     | Join duty cycling enabled | True                                                      |
     | Maximum EIRP              | 32 dBm                                                    |
     | Uplink frame counter      | 1                                                         |
@@ -3558,6 +3566,7 @@ def state(get_modem: Callable[[], OpenLoRaModem]):
         ['ADR enabled',               modem.adr],
         ['ADR acknowledgements',      f'Every {adr_ack_limit}-{adr_ack_limit + adr_ack_delay} unconfirmed uplinks']
         ['Duty cycling enabled',      modem.duty_cycle],
+        ['Duty cycle backoff',        f'{modem.backoff} ms'],
         ['Join duty cycling enabled', modem.join_duty_cycle],
         ['Maximum EIRP',              f'{modem.max_eirp} dBm'],
         ['Uplink frame counter',      uplink],
