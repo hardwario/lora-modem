@@ -3575,7 +3575,6 @@ def state(get_modem: Callable[[], OpenLoRaModem]):
     +---------------------------+-----------------------------------------------------------+
     | Current region            | US915                                                     |
     | LoRaWAN class             | A                                                         |
-    | Active RF channels        | ...                                                       |
     | Channel mask              | 00FF00000000000000000000                                  |
     | Data rate                 | SF10_125                                                  |
     | Maximum message size      | 11 B                                                      |
@@ -3593,6 +3592,7 @@ def state(get_modem: Callable[[], OpenLoRaModem]):
     | RX1 window                | Delay: 5000 ms                                            |
     | RX2 window                | Delay: 6000 ms, Frequency: 923.3 MHz, Data rate: SF12_500 |
     | Join response windows     | RX1: 5000 ms, RX2: 6000 ms                                |
+    | Listen before talk        | RSSI threshold: -65 dBm, carrier sense time: 6 ms         |
     +---------------------------+-----------------------------------------------------------+
     '''
     modem = get_modem()
@@ -3610,13 +3610,12 @@ def state(get_modem: Callable[[], OpenLoRaModem]):
     data = [
         ['Current region',            region.name],
         ['LoRaWAN class',             modem.CLASS.name],
-        ['Active RF channels',        modem.rf_param],
         ['Channel mask',              modem.chmask[0]],
         ['Data rate',                 modem.dr[0]],
         ['Maximum message size',      f'{modem.message_size} B'],
         ['RF power index',            modem.rfpower[0]],
         ['ADR enabled',               modem.adr],
-        ['ADR acknowledgements',      f'Every {adr_ack_limit}-{adr_ack_limit + adr_ack_delay} unconfirmed uplinks']
+        ['ADR acknowledgements',      f'Every {adr_ack_limit}-{adr_ack_limit + adr_ack_delay} unconfirmed uplinks'],
         ['Duty cycling enabled',      modem.duty_cycle],
         ['Duty cycle backoff',        f'{modem.backoff} ms'],
         ['Join duty cycling enabled', modem.join_duty_cycle],
@@ -3628,6 +3627,16 @@ def state(get_modem: Callable[[], OpenLoRaModem]):
         ['RX1 window',                f'Delay: {delay.rx_window_1} ms'],
         ['RX2 window',                f'Delay: {delay.rx_window_2} ms, Frequency: {rx2[0] / 1000000} MHz, Data rate: {rx2[1]}'],
         ['Join response windows',     f'RX1: {delay.join_accept_1} ms, RX2: {delay.join_accept_2} ms']]
+
+    try:
+        rssith = modem.rssi_threshold
+        cst = modem.carrier_sense_time
+        if rssith != 0 and cst != 0:
+            data.append(['Carrier sense time', f'RSSI threshold {rssith} dBm, carrier sense time: {cst} ms'])
+    except ModemError as e:
+        if e.errno != -17:
+            raise e
+
     render(data)
 
 
