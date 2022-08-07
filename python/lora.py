@@ -2370,17 +2370,39 @@ class MurataModem(ATCI):
 
     @property
     def cst(self):
-        '''Not yet implemented.
+        '''Return the listen before talk (LBT) carrier sense time (CST).
+
+        In regions that employ LBT, (KR920 and selected AS923 channel plans),
+        this property can be used to get the carrier sense time (CST). The CST
+        value represents the duration in milliseconds for which the receiver
+        will listen on the channel to determine whether it is free before
+        transmitting.
+
+        If the currently active region does not use LBT, the property raises an
+        error. If the currently active region uses LBT but the selected channel
+        plan does not (this is the case for most AS923 channel plans), the
+        property returns 0.
         '''
         return int(self.modem.AT('+CST?'))
 
     @cst.setter
     def cst(self, value: int):
-        '''Not yet implemented.
+        '''Set the listen before talk (LBT) carrier sense time (CST).
+
+        In regions that employ LBT, (KR920 and selected AS923 channel plans),
+        this property can be used to configure the carrier sense time (CST). The
+        CST value represents the duration in milliseconds for which the receiver
+        will listen on the channel to determine whether it is free before
+        transmitting.
+
+        If the currently active region does not use LBT, the property raises an
+        error. If the currently active region uses LBT but the selected channel
+        plan does not (this is the case for most AS923 channel plans), setting
+        the property has no effect.
         '''
         self.modem.AT(f'+CST={value}')
 
-    carrier_sense_threshold = cst
+    carrier_sense_time = cst
 
     @property
     def backoff(self):
