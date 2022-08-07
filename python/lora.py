@@ -2081,7 +2081,14 @@ class MurataModem(ATCI):
 
     @property
     def mcast(self):
-        '''Not yet implemented.
+        '''Get all currently active multicast addresses.
+
+        This property returns a tuple of all currently active multicast
+        addresses and related security keys. Each address is represented by a
+        MCastAddr object.
+
+        The Murata Modem firmware supports up to 8 address. The open firmware
+        supports up to 4 multicast addresses.
         '''
         data = tuple(self.modem.AT('+MCAST?').split(';'))
         if int(data[0]) != len(data) - 1:
@@ -2090,7 +2097,10 @@ class MurataModem(ATCI):
 
     @mcast.setter
     def mcast(self, value: McastAddr):
-        '''Not yet implemented.
+        '''Add, modify, or delete a multicast address.
+
+        To add a new address, pick an unused logical number. To delete a
+        currently active multicast address, set the 32-bit address to 0.
         '''
         self.modem.AT(f'+MCAST={value.index},{value.addr},{value.nwkskey},{value.appskey}')
 
