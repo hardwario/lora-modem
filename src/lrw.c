@@ -945,8 +945,9 @@ int lrw_join(uint8_t datarate, uint8_t tries)
 #ifdef RESTORE_CHMASK_AFTER_JOIN
         save_chmask();
 #endif
-        joins_left = tries;
-        return send_join();
+        LoRaMacStatus_t rc = send_join();
+        if (rc == LORAMAC_STATUS_OK) joins_left = tries;
+        return rc;
     }
 }
 
