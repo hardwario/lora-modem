@@ -2336,13 +2336,33 @@ class MurataModem(ATCI):
 
     @property
     def rssith(self):
-        '''Not yet implemented.
+        '''Return the listen before talk (LBT) RSSI free channel threshold.
+
+        In regions that employ LBT, (KR920 and selected AS923 channel plans),
+        this property can be used to get the RSSI free channel threshold value
+        in dBm. The RF channel is considered free (without carrier) if its RSSI
+        is below the threshold.
+
+        If the currently active region does not use LBT, this property raises an
+        error. If the currently active region uses LBT but the selected channel
+        plan does not (this is the case for most AS923 channel plans), the
+        property returns 0.
         '''
         return int(self.modem.AT('+RSSITH?'))
 
     @rssith.setter
     def rssith(self, value: int):
-        '''Not yet implemented.
+        '''Set the listen before talk (LBT) RSSI free channel threshold.
+
+        In regions that employ LBT, (KR920 and selected AS923 channel plans),
+        this property can be used to configure the RSSI free channel threshold
+        value in dBm. The RF channel is considered free (without carrier) if its
+        RSSI is below the threshold.
+
+        If the currently active region does not use LBT, this property raises an
+        error. If the currently active region uses LBT but the selected channel
+        plan does not (this is the case for most AS923 channel plans), setting
+        this property will have no effect.
         '''
         self.modem.AT(f'+RSSITH={value}')
 
