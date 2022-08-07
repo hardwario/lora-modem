@@ -13,10 +13,9 @@ TYPE ?= debug
 DEFAULT_UART_BAUDRATE ?= 19200
 
 # Select the regional parameter files that you wish to have included in the
-# firmware. By default the full set is included. Please note that the full set
-# may not fit into the flash memory in the debug mode (it does fit in the
-# release mode).
-ENABLED_REGIONS ?= AS923 AU915 CN470 CN779 EU433 EU868 IN865 KR920 RU864 US915
+# firmware. By default, all regions supported by the Type ABZ radio hardware
+# (860-930 MHz) are included. Excluded regional parameters: CN470, CN779, EU433.
+ENABLED_REGIONS ?= AS923 AU915 EU868 KR920 IN865 US915 RU864
 
 # Activate the following region if no region has been selected by the
 # application.
@@ -48,7 +47,7 @@ AS923_DEFAULT_CHANNEL_PLAN ?= CHANNEL_PLAN_GROUP_AS923_1
 #  - CHANNEL_PLAN_20MHZ_TYPE_B
 #  - CHANNEL_PLAN_26MHZ_TYPE_A
 #  - CHANNEL_PLAN_26MHZ_TYPE_B
-CN470_DEFAULT_CHANNEL_PLAN ?= CHANNEL_PLAN_20MHZ_TYPE_A
+# CN470_DEFAULT_CHANNEL_PLAN ?= CHANNEL_PLAN_20MHZ_TYPE_A
 
 # There is no protocol version negotiation between the node and the network
 # server in the ABP activation mode. Thus, we need to configure the MAC protocol
