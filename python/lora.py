@@ -1398,7 +1398,10 @@ class MurataModem(ATCI):
 
     @property
     def rfparam(self):
-        '''Not yet implemented.
+        '''Query RF channel parameters.
+
+        This property returns a tuple of all currently active RF channels. Each
+        channel is represented by a RFConfig object.
         '''
         data = tuple(self.modem.AT('+RFPARAM?').split(';'))
         if int(data[0]) != len(data) - 1:
@@ -1407,7 +1410,16 @@ class MurataModem(ATCI):
 
     @rfparam.setter
     def rfparam(self, value: RFConfig):
-        '''Not yet implemented.
+        '''Configure an RF channel.
+
+        This setter can be used to configure the parameters of an individual RF
+        channel. The logical channel number is counted from 0.
+
+        To create a new active RF channel, pick  a logical channel number that
+        does not exist yet. The total number of logical channels is
+        region-specific.
+
+        To delete an existing channel, set its center frequency to 0 Hz.
         '''
         self.modem.AT(f'+RFPARAM={value.channel},{value.frequency},{value.min_dr},{value.max_dr}')
 
@@ -3546,6 +3558,7 @@ def state(get_modem: Callable[[], OpenLoRaModem]):
     +---------------------------+-----------------------------------------------------------+
     | Current region            | US915                                                     |
     | LoRaWAN class             | A                                                         |
+    | Active RF channels        | ...                                                       |
     | Channel mask              | 00FF00000000000000000000                                  |
     | Data rate                 | SF10_125                                                  |
     | Maximum message size      | 11 B                                                      |
@@ -3579,6 +3592,7 @@ def state(get_modem: Callable[[], OpenLoRaModem]):
     data = [
         ['Current region',            region.name],
         ['LoRaWAN class',             modem.CLASS.name],
+        ['Active RF channels',        modem.rf_param],
         ['Channel mask',              modem.chmask[0]],
         ['Data rate',                 modem.dr[0]],
         ['Maximum message size',      f'{modem.message_size} B'],
