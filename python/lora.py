@@ -3551,6 +3551,7 @@ def state(get_modem: Callable[[], OpenLoRaModem]):
     | Maximum message size      | 11 B                                                      |
     | RF power index            | 0                                                         |
     | ADR enabled               | True                                                      |
+    | ADR acknowledgements      | Every 64-96 unconfirmed uplinks                           |
     | Duty cycling enabled      | False                                                     |
     | Join duty cycling enabled | True                                                      |
     | Maximum EIRP              | 32 dBm                                                    |
@@ -3573,6 +3574,7 @@ def state(get_modem: Callable[[], OpenLoRaModem]):
     uplink, downlink = modem.frmcnt
     delay = modem.delay
     rx2 = modem.rx2
+    adr_ack_limit, adr_ack_delay = modem.adrack
 
     data = [
         ['Current region',            region.name],
@@ -3582,6 +3584,7 @@ def state(get_modem: Callable[[], OpenLoRaModem]):
         ['Maximum message size',      f'{modem.message_size} B'],
         ['RF power index',            modem.rfpower[0]],
         ['ADR enabled',               modem.adr],
+        ['ADR acknowledgements',      f'Every {adr_ack_limit}-{adr_ack_limit + adr_ack_delay} unconfirmed uplinks']
         ['Duty cycling enabled',      modem.duty_cycle],
         ['Join duty cycling enabled', modem.join_duty_cycle],
         ['Maximum EIRP',              f'{modem.max_eirp} dBm'],
