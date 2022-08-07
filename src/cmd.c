@@ -532,27 +532,28 @@ static void set_appkey_11(atci_param_t *param)
 
 static void join(atci_param_t *param)
 {
+    uint32_t datarate = DR_0;
+
     // Configure the default number of OTAA Join transmissions to nine. In
     // regions that use all 64 channels (such as US915), this is the number of
     // retransmissions that is needed for the Join retransmissions to cycle
     // through all eight-channel sub-bands, plus one extra transmission for the
     // 500 kHz sub-band.
     uint32_t tries = 9;
-    uint32_t datarate = DR_0;
 
     if (param != NULL) {
-        if (!atci_param_get_uint(param, &tries)) abort(ERR_PARAM);
-        if (tries < 1 || tries > 16) abort(ERR_PARAM);
+        if (!atci_param_get_uint(param, &datarate)) abort(ERR_PARAM);
+        if (datarate > 15) abort(ERR_PARAM);
 
         if (param->offset != param->length) {
             if (!atci_param_is_comma(param)) abort(ERR_PARAM);
 
-            if (!atci_param_get_uint(param, &datarate)) abort(ERR_PARAM);
-            if (datarate > 15) abort(ERR_PARAM);
+            if (!atci_param_get_uint(param, &tries)) abort(ERR_PARAM);
+            if (tries < 1 || tries > 16) abort(ERR_PARAM);
         }
     }
 
-    abort_on_error(lrw_join(tries, datarate));
+    abort_on_error(lrw_join(datarate, tries));
     OK_();
 }
 

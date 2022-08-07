@@ -909,7 +909,7 @@ LoRaMacNvmData_t *lrw_get_state(void)
 }
 
 
-int lrw_join(uint8_t tries, uint8_t datarate)
+int lrw_join(uint8_t datarate, uint8_t tries)
 {
     // If we are already transmitting a Join request, abort the request. Do this
     // check in both ABP and OTAA modes. We don't let the application to switch
@@ -934,10 +934,10 @@ int lrw_join(uint8_t tries, uint8_t datarate)
         mlme.Req.Join.NetworkActivation = ACTIVATION_TYPE_ABP;
         return lrw_mlme_request(&mlme);
     } else {
-        if (tries > 16)
+        if (datarate > 15)
             return LORAMAC_STATUS_PARAMETER_INVALID;
 
-        if (datarate > 15)
+        if (tries > 16)
             return LORAMAC_STATUS_PARAMETER_INVALID;
 
         join_datarate = datarate;
@@ -1042,7 +1042,7 @@ int lrw_set_mode(unsigned int mode)
             r.Type = MIB_NETWORK_ACTIVATION;
             r.Param.NetworkActivation = ACTIVATION_TYPE_ABP;
             LoRaMacMibSetRequestConfirm(&r);
-            return lrw_join(0, DR_0);
+            return lrw_join(DR_0, 0);
         }
     } else {
         if (r.Param.NetworkActivation != ACTIVATION_TYPE_OTAA) {

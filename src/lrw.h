@@ -60,11 +60,11 @@ int lrw_send(uint8_t port, void *buffer, uint8_t length, bool confirmed);
  * function will only perform internal re-configuration of the LoRaMac stack for
  * ABP. No messages will be sent to the network in this case.
  *
- * @param[in] tries Total number of OTAA Join transmissions (1-16, 0 for ABP)
  * @param[in] datarate Data rate to be used for OTAA Join (0-15)
+ * @param[in] tries Total number of transmissions (0 for ABP, 1-16 for OTAA)
  * @return Zero on success, a @c LoRaMacState_t value on error
  */
-int lrw_join(uint8_t tries, uint8_t datarate);
+int lrw_join(uint8_t datarate, uint8_t tries);
 
 
 /** @brief Perform a LoRaWAN link check
