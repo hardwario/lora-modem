@@ -909,7 +909,7 @@ LoRaMacNvmData_t *lrw_get_state(void)
 }
 
 
-int lrw_join(unsigned int retries, uint8_t datarate)
+int lrw_join(uint8_t tries, uint8_t datarate)
 {
     // If we are already transmitting a Join request, abort the request. Do this
     // check in both ABP and OTAA modes. We don't let the application to switch
@@ -923,7 +923,7 @@ int lrw_join(unsigned int retries, uint8_t datarate)
     if (r.Param.NetworkActivation == ACTIVATION_TYPE_ABP) {
         // In ABP mode the number of retransmissions must always be set to 0
         // since no actual Join request will be sent to the LNS.
-        if (retries != 0)
+        if (tries != 0)
             return LORAMAC_STATUS_PARAMETER_INVALID;
 
         // LoRaMac uses the same approach for both types of activation. In ABP
@@ -934,7 +934,7 @@ int lrw_join(unsigned int retries, uint8_t datarate)
         mlme.Req.Join.NetworkActivation = ACTIVATION_TYPE_ABP;
         return lrw_mlme_request(&mlme);
     } else {
-        if (retries > 15)
+        if (tries > 16)
             return LORAMAC_STATUS_PARAMETER_INVALID;
 
         if (datarate > 15)
@@ -945,7 +945,7 @@ int lrw_join(unsigned int retries, uint8_t datarate)
 #ifdef RESTORE_CHMASK_AFTER_JOIN
         save_chmask();
 #endif
-        joins_left = retries + 1;
+        joins_left = tries;
         return send_join();
     }
 }
