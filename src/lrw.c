@@ -29,6 +29,7 @@ unsigned int lrw_event_subtype;
 static McpsConfirm_t tx_params;
 static int joins_left = 0;
 static TimerEvent_t join_retry_timer;
+static uint8_t join_datarate;
 
 TimerTime_t lrw_dutycycle_deadline;
 
@@ -447,7 +448,7 @@ static int send_join(void)
 {
     MlmeReq_t mlme = { .Type = MLME_JOIN };
     mlme.Req.Join.NetworkActivation = ACTIVATION_TYPE_OTAA;
-    mlme.Req.Join.Datarate = DR_0;
+    mlme.Req.Join.Datarate = join_datarate;
     return lrw_mlme_request(&mlme);
 }
 
@@ -908,7 +909,7 @@ LoRaMacNvmData_t *lrw_get_state(void)
 }
 
 
-int lrw_join(unsigned int retries)
+int lrw_join(unsigned int retries, uint8_t datarate)
 {
     // If we are already transmitting a Join request, abort the request. Do this
     // check in both ABP and OTAA modes. We don't let the application to switch
@@ -935,6 +936,11 @@ int lrw_join(unsigned int retries)
     } else {
         if (retries > 15)
             return LORAMAC_STATUS_PARAMETER_INVALID;
+
+        if (datarate > 15)
+            return LORAMAC_STATUS_PARAMETER_INVALID;
+
+        join_datarate = datarate;
 
 #ifdef RESTORE_CHMASK_AFTER_JOIN
         save_chmask();
@@ -1036,7 +1042,7 @@ int lrw_set_mode(unsigned int mode)
             r.Type = MIB_NETWORK_ACTIVATION;
             r.Param.NetworkActivation = ACTIVATION_TYPE_ABP;
             LoRaMacMibSetRequestConfirm(&r);
-            return lrw_join(0);
+            return lrw_join(0, DR_0);
         }
     } else {
         if (r.Param.NetworkActivation != ACTIVATION_TYPE_OTAA) {

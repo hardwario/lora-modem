@@ -61,9 +61,10 @@ int lrw_send(uint8_t port, void *buffer, uint8_t length, bool confirmed);
  * ABP. No messages will be sent to the network in this case.
  *
  * @param[in] retries Number of OTAA Join retansmissions (0-15)
+ * @param[in] datarate Data rate to be used for OTAA Join (0-15)
  * @return Zero on success, a @c LoRaMacState_t value on error
  */
-int lrw_join(unsigned int retries);
+int lrw_join(unsigned int retries, uint8_t datarate);
 
 
 /** @brief Perform a LoRaWAN link check

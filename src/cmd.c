@@ -538,13 +538,21 @@ static void join(atci_param_t *param)
     // retransmissions that is needed for the Join retransmissions to cycle
     // through all eight-channel bands and the 500 kHz band.
     uint32_t retries = 8;
+    uint32_t datarate = DR_0;
 
     if (param != NULL) {
         if (!atci_param_get_uint(param, &retries)) abort(ERR_PARAM);
         if (retries > 15) abort(ERR_PARAM);
+
+        if (param->offset != param->length) {
+            if (!atci_param_is_comma(param)) abort(ERR_PARAM);
+
+            if (!atci_param_get_uint(param, &datarate)) abort(ERR_PARAM);
+            if (datarate > 15) abort(ERR_PARAM);
+        }
     }
 
-    abort_on_error(lrw_join(retries));
+    abort_on_error(lrw_join(retries, datarate));
     OK_();
 }
 
