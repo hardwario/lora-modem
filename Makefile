@@ -1,11 +1,5 @@
-SRC_DIR := src
-LIB_DIR := lib
-CFG_DIR := cfg
-OBJ_DIR := obj
-OUT_DIR ?= out
-
+# The base name of binary firmware files.
 BASENAME ?= firmware
-TYPE ?= debug
 
 # The default speed (baudrate) of the AT UART interface. This value will be used
 # unless the system configuration stored in EEPROM provides an alternative
@@ -57,8 +51,8 @@ AS923_DEFAULT_CHANNEL_PLAN ?= CHANNEL_PLAN_GROUP_AS923_1
 LORAMAC_ABP_VERSION ?= 0x01000400
 
 # The version string to be returned by AT+VER. The version string is meant to be
-# compatible with the version string returned by the original Murata firmware.
-# It must be of the form x.x.xx.
+# compatible with the version string returned by the original Murata Modem
+# firmware. It must be of the form x.x.xx.
 VERSION_COMPAT ?= 1.1.06
 
 # The LoRaWAN network server may reconfigure the node's channel mask in the Join
@@ -69,13 +63,27 @@ VERSION_COMPAT ?= 1.1.06
 # commented out.
 # RESTORE_CHMASK_AFTER_JOIN = 1
 
+################################################################################
+# You shouldn't need to edit the text below under normal circumstances.        #
+################################################################################
+
+SRC_DIR := src
+LIB_DIR := lib
+CFG_DIR := cfg
+OBJ_DIR := obj
+OUT_DIR ?= out
+
+# The current compilation type (either debug or release). Passed recursively
+# across make invocations.
+TYPE ?= debug
+
 ELF ?= $(OUT_DIR)/$(TYPE)/$(BASENAME).elf
 MAP ?= $(OUT_DIR)/$(TYPE)/$(BASENAME).map
 BIN ?= $(OUT_DIR)/$(TYPE)/$(BASENAME).bin
 HEX ?= $(OUT_DIR)/$(TYPE)/$(BASENAME).hex
 
 ################################################################################
-# Source files                                                                 #
+# Source code files                                                            #
 ################################################################################
 
 # Add all the application files to the list of directories to scan.
@@ -162,7 +170,7 @@ OBJCOPY = $(TOOLCHAIN)objcopy
 SIZE = $(TOOLCHAIN)size
 
 ################################################################################
-# Verbose build?                                                               #
+# Was verbose build mode requested?                                            #
 ################################################################################
 
 ifeq ("$(BUILD_VERBOSE)","1")
@@ -173,8 +181,6 @@ MAKE += -s
 Q := @
 ECHO = @echo
 endif
-
-ALLDEP := $(MAKEFILE_LIST)
 
 ################################################################################
 # Are we runnign a target that builds?                                         #
@@ -243,11 +249,10 @@ tmp := $(shell \
 	echo "$$cur" > $$f)
 lib_version := $(strip $(shell cat $(OBJ_DIR)/lib_version))
 
-
 endif
 
 ################################################################################
-# Compiler flags for "c" files                                                 #
+# Compiler flags for .c files                                                  #
 ################################################################################
 
 CFLAGS += -std=c11
@@ -309,7 +314,7 @@ CFLAGS += -DRESTORE_CHMASK_AFTER_JOIN
 endif
 
 ################################################################################
-# Compiler flags for "s" files                                                 #
+# Compiler flags for .s files                                                  #
 ################################################################################
 
 ASFLAGS += -mcpu=cortex-m0plus
@@ -341,7 +346,7 @@ LDFLAGS += -Wl,-u,__errno
 LDFLAGS += --specs=nosys.specs
 
 ################################################################################
-# Create list of object files and their dependencies                           #
+# Create a list of object files and their dependencies                         #
 ################################################################################
 
 SRC_FILES += $(foreach dir,$(SRC_DIRS),$(wildcard $(dir)/*.c))
@@ -372,36 +377,36 @@ release:
 	$(Q)$(MAKE) install
 
 .PHONY: install
-install: $(BIN) $(HEX) $(ALLDEP)
+install: $(BIN) $(HEX) $(MAKEFILE_LIST)
 	$(Q)$(ECHO) "Copying $(BIN) to ./$(BASENAME).bin..."
 	$(Q)cp -f "$(BIN)" "$(BASENAME).bin"
 	$(Q)$(ECHO) "Copying $(HEX) to ./$(BASENAME).hex..."
 	$(Q)cp -f "$(HEX)" "$(BASENAME).hex"
 
 .PHONY: python
-python: $(ALLDEP) python/VERSION
+python: $(MAKEFILE_LIST) python/VERSION
 	cd python && python -m build
 
 .PHONY: python/VERSION
-python/VERSION: $(ALLDEP)
+python/VERSION: $(MAKEFILE_LIST)
 	git describe --tags | sed -e 's/.*\([0-9]\+\.[0-9]\+\.[0-9]\+\).*/\1/g' > $@
 
-$(BIN): $(ELF) $(ALLDEP)
+$(BIN): $(ELF) $(MAKEFILE_LIST)
 	$(Q)$(ECHO) "Creating $(BIN) from $(ELF)..."
 	$(Q)$(OBJCOPY) -O binary "$(ELF)" "$(BIN)"
 
-$(HEX): $(ELF) $(ALLDEP)
+$(HEX): $(ELF) $(MAKEFILE_LIST)
 	$(Q)$(ECHO) "Creating $(HEX) from $(ELF)..."
 	$(Q)$(OBJCOPY) -S -O ihex "$(ELF)" "$(HEX)"
 
-$(ELF): $(OBJ) $(ALLDEP)
+$(ELF): $(OBJ) $(MAKEFILE_LIST)
 	$(Q)$(ECHO) "Linking object files into $(ELF)..."
 	$(Q)mkdir -p "$(OUT_DIR)/$(TYPE)"
 	$(Q)$(CC) $(LDFLAGS) $(OBJ) -o "$(ELF)"
 	$(Q)$(MAKE) size
 
 .PHONY: size
-size: $(ELF) $(ALLDEP)
+size: $(ELF) $(MAKEFILE_LIST)
 	$(Q)$(ECHO) "Size of sections:"
 	$(Q)$(SIZE) "$(ELF)"
 
@@ -411,7 +416,7 @@ $(Q)mkdir -p "$(@D)"
 $(Q)$(CC) -MD -MP -MT "$@ $(@:.o=.d)" -c $(CFLAGS) $(1) -isystem $(LIB_DIR) $< -o $@
 endef
 
-$(OBJ_DIR)/$(TYPE)/src/%.o: src/%.c $(ALLDEP)
+$(OBJ_DIR)/$(TYPE)/src/%.o: src/%.c $(MAKEFILE_LIST)
 	$(call compile,\
 		-I $(SRC_DIR) \
 		-I $(SRC_DIR)/debug \
@@ -424,7 +429,7 @@ $(OBJ_DIR)/$(TYPE)/src/%.o: src/%.c $(ALLDEP)
 		-isystem $(LIB_DIR)/stm/include \
 	)
 
-$(OBJ_DIR)/$(TYPE)/lib/LoRaWAN/%.o: lib/LoRaWAN/%.c $(ALLDEP)
+$(OBJ_DIR)/$(TYPE)/lib/LoRaWAN/%.o: lib/LoRaWAN/%.c $(MAKEFILE_LIST)
 	$(call compile,\
 		-I $(SRC_DIR) \
 		-I $(CFG_DIR) \
@@ -440,14 +445,14 @@ $(OBJ_DIR)/$(TYPE)/src/cmd.o: CFLAGS+=-DVERSION='"$(version)"'
 $(OBJ_DIR)/$(TYPE)/src/cmd.o: CFLAGS+=-DLIB_VERSION='"$(lib_version)"'
 $(OBJ_DIR)/$(TYPE)/src/cmd.o: CFLAGS+=-DBUILD_DATE='"$(build_date)"'
 $(OBJ_DIR)/$(TYPE)/src/cmd.o: CFLAGS+=-DBUILD_DATE_COMPAT='"$(build_date_compat)"'
-$(OBJ_DIR)/$(TYPE)/src/cmd.o: $(ALLDEP) $(OBJ_DIR)/version $(OBJ_DIR)/lib_version
+$(OBJ_DIR)/$(TYPE)/src/cmd.o: $(MAKEFILE_LIST) $(OBJ_DIR)/version $(OBJ_DIR)/lib_version
 
 $(OBJ_DIR)/$(TYPE)/src/main.o: CFLAGS+=-DVERSION='"$(version)"'
 $(OBJ_DIR)/$(TYPE)/src/main.o: CFLAGS+=-DLIB_VERSION='"$(lib_version)"'
 $(OBJ_DIR)/$(TYPE)/src/main.o: CFLAGS+=-DBUILD_DATE='"$(build_date)"'
-$(OBJ_DIR)/$(TYPE)/src/main.o: $(ALLDEP) $(OBJ_DIR)/version $(OBJ_DIR)/lib_version
+$(OBJ_DIR)/$(TYPE)/src/main.o: $(MAKEFILE_LIST) $(OBJ_DIR)/version $(OBJ_DIR)/lib_version
 
-$(OBJ_DIR)/$(TYPE)/lib/stm/%.o: lib/stm/%.c $(ALLDEP)
+$(OBJ_DIR)/$(TYPE)/lib/stm/%.o: lib/stm/%.c $(MAKEFILE_LIST)
 	$(call compile,\
 		-Wno-unused-parameter \
 		-I $(LIB_DIR)/stm/STM32L0xx_HAL_Driver/Inc \
@@ -455,10 +460,10 @@ $(OBJ_DIR)/$(TYPE)/lib/stm/%.o: lib/stm/%.c $(ALLDEP)
 		-isystem $(CFG_DIR) \
 	)
 
-$(OBJ_DIR)/$(TYPE)/lib/rtt/%.o: lib/rtt/%.c $(ALLDEP)
+$(OBJ_DIR)/$(TYPE)/lib/rtt/%.o: lib/rtt/%.c $(MAKEFILE_LIST)
 	$(call compile)
 
-$(OBJ_DIR)/$(TYPE)/lib/loramac-node/%.o: lib/loramac-node/%.c $(ALLDEP)
+$(OBJ_DIR)/$(TYPE)/lib/loramac-node/%.o: lib/loramac-node/%.c $(MAKEFILE_LIST)
 	$(call compile,\
 		-Wno-int-conversion \
 		-Wno-unused-parameter \
@@ -473,10 +478,10 @@ $(OBJ_DIR)/$(TYPE)/lib/loramac-node/%.o: lib/loramac-node/%.c $(ALLDEP)
 		-isystem $(CFG_DIR) \
 	)
 
-$(OBJ_DIR)/$(TYPE)/cfg/%.o: cfg/%.c $(ALLDEP)
+$(OBJ_DIR)/$(TYPE)/cfg/%.o: cfg/%.c $(MAKEFILE_LIST)
 	$(call compile,-isystem $(LIB_DIR)/stm/STM32L0xx_HAL_Driver/Inc)
 
-$(OBJ_DIR)/$(TYPE)/%.o: %.s $(ALLDEP)
+$(OBJ_DIR)/$(TYPE)/%.o: %.s $(MAKEFILE_LIST)
 	$(Q)$(ECHO) "Compiling: $<"
 	$(Q)mkdir -p $(@D)
 	$(Q)$(CC) -c $(ASFLAGS) $< -o $@
@@ -486,23 +491,23 @@ $(OBJ_DIR)/$(TYPE)/%.o: %.s $(ALLDEP)
 ################################################################################
 
 .PHONY: clean
-clean: $(ALLDEP)
+clean: $(MAKEFILE_LIST)
 	$(Q)$(MAKE) .clean-obj
 	$(Q)$(MAKE) .clean-out
 	$(Q)$(MAKE) .clean-python
 
 .PHONY: .clean-obj
-.clean-obj: $(ALLDEP)
+.clean-obj: $(MAKEFILE_LIST)
 	$(Q)$(ECHO) "Deleting object files..."
 	$(Q)rm -rf "$(OBJ_DIR)"
 
 .PHONY: .clean-out
-.clean-out: $(ALLDEP)
+.clean-out: $(MAKEFILE_LIST)
 	$(Q)$(ECHO) "Deleting output files..."
 	$(Q)rm -rf "$(OUT_DIR)"
 
 .PHONY: .clean-python
-.clean-python: $(ALLDEP)
+.clean-python: $(MAKEFILE_LIST)
 	$(Q)$(ECHO) "Deleting Python build files..."
 	$(Q)rm -rf "python/build"
 	$(Q)$(ECHO) "Deleting Python dist files..."
@@ -513,7 +518,7 @@ clean: $(ALLDEP)
 ################################################################################
 
 .PHONY: flash
-flash: $(ALLDEP)
+flash: $(MAKEFILE_LIST)
 ifeq ($(OS),Windows_NT)
 	JLink -device stm32l072cz -CommanderScript tools/jlink/flash.jlink
 else
@@ -521,7 +526,7 @@ else
 endif
 
 .PHONY: gdbserver
-gdbserver: $(ALLDEP)
+gdbserver: $(MAKEFILE_LIST)
 ifeq ($(OS),Windows_NT)
 	JLinkGDBServerCL -singlerun -device stm32l072cz -if swd -speed 4000 -localhostonly -reset
 else
@@ -529,17 +534,17 @@ else
 endif
 
 .PHONY: jlink
-jlink: $(ALLDEP)
+jlink: $(MAKEFILE_LIST)
 	$(Q)$(MAKE) jlink-flash
 	$(Q)$(MAKE) jlink-gdbserver
 
 .PHONY: ozone
-ozone: debug $(ALLDEP)
+ozone: debug $(MAKEFILE_LIST)
 	$(Q)$(ECHO) "Launching Ozone debugger..."
 	$(Q)Ozone tools/ozone/ozone.jdebug
 
 .PHONY: openocd
-openocd: $(ALLDEP)
+openocd: $(MAKEFILE_LIST)
 	$(Q)$(ECHO) "Launching OpenOCD..."
 	$(Q)openocd -f interface/stlink.cfg -c "transport select hla_swd" \
 		-f target/stm32l0_dual_bank.cfg
