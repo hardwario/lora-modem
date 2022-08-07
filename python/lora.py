@@ -1667,13 +1667,63 @@ class MurataModem(ATCI):
 
     @property
     def adrack(self):
-        '''Not yet implemented.
+        '''Obtain current ADR ack settings.
+
+        With the adaptive data rate (ADR) enabled, the network server can
+        configure a lower transmission power or a more efficient data rate into
+        the end-device, e.g., to optimize power consumption or channel
+        utilization. In this case, the device needs to periodically verify that
+        the network can still receive its uplinks by requesting periodic
+        confirmations. To request a confirmation, the device sets the ADRAckReq
+        bit after every ADR_ACK_LIMIT unconfirmed uplinks. The network is
+        required to respond with a downlink within the next ADR_ACK_DELAY
+        frames. If the downlink is not received, the device assumes the network
+        cannot receive its transmissions and reverts the settings configured
+        through ADR.
+
+        This AT command can be used to get or set the ADR_ACK_LIMIT and
+        ADR_ACK_DELAY parameters. The command takes and returns two
+        comma-delimited values. The first value represents ADR_ACK_LIMIT. The
+        second value represents ADR_ACK_DELAY. Both values are in terms of
+        number of uplink frames.
+
+        The default value is 64,32, i.e., the device requests a downlink every
+        64 unconfirmed uplinks and expects the downlink to arrive within the
+        next 32 frames.
+
+        Note: The network server can override the values configured with this AT
+        command through ADR.
         '''
         return tuple(map(int, self.modem.AT('+ADRACK?').split(',')))
 
     @adrack.setter
     def adrack(self, value: Tuple[int, int]):
-        '''Not yet implemented.
+        '''Configure how often to request uplink confirmations from the network.
+
+        With the adaptive data rate (ADR) enabled, the network server can
+        configure a lower transmission power or a more efficient data rate into
+        the end-device, e.g., to optimize power consumption or channel
+        utilization. In this case, the device needs to periodically verify that
+        the network can still receive its uplinks by requesting periodic
+        confirmations. To request a confirmation, the device sets the ADRAckReq
+        bit after every ADR_ACK_LIMIT unconfirmed uplinks. The network is
+        required to respond with a downlink within the next ADR_ACK_DELAY
+        frames. If the downlink is not received, the device assumes the network
+        cannot receive its transmissions and reverts the settings configured
+        through ADR.
+
+        This AT command can be used to get or set the ADR_ACK_LIMIT and
+        ADR_ACK_DELAY parameters. The command takes and returns two
+        comma-delimited values. The first value represents ADR_ACK_LIMIT. The
+        second value represents ADR_ACK_DELAY. Both values are in terms of
+        number of uplink frames.
+
+        The default value is 64,32, i.e., the device requests a downlink every
+        64 unconfirmed uplinks and expects the downlink to arrive within the
+        next 32 frames.
+
+        Note: The network server can override the values configured with this AT
+        command through ADR.
         '''
         self.modem.AT(f'+ADRACK={value[0]},{value[1]}')
 
