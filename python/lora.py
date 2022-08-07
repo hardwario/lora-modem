@@ -93,7 +93,6 @@ UARTConfig = namedtuple('UARTConfig', 'baudrate data_bits stop_bits parity flow_
 RFConfig   = namedtuple('RFConfig',   'channel frequency min_dr max_dr')
 Delay      = namedtuple('Delay',      'join_accept_1 join_accept_2 rx_window_1 rx_window_2')
 McastAddr  = namedtuple('McastAddr',  'index addr nwkskey appskey')
-Channel    = namedtuple('Channel',    'enabled freq alt_rx1 min_dr max_dr subband')
 
 
 class ModemError(Exception):
@@ -2960,47 +2959,6 @@ class OpenLoRaModem(MurataModem):
         self.modem.AT(f'$CERT={value}')
 
     certification_port = cert
-
-    @property
-    def channels(self):
-        '''Return a list of available channels and their parameters.
-
-        This property provides additional information about each channel
-        currently configured in the modem. The output is provided line-by-line,
-        with one channel per line, and is terminated with +OK. The format of
-        each line is as follows: $CHANNELS: <enabled>,<frequency>,<RX1
-        frequency>,<min data rate>,<max data rate>,<band>, where:
-
-          * <enabled> is 1 if the channel is enabled and 0 if it is disabled;
-          * <frequency> represents the center frequency of the channel in Hz;
-          * <RX1 frequency> will be non-zero if an alternative RX1 frequency has
-            been defined for the channel;
-          * <min data rate> represents the minimum data rate allowed on the
-            channel;
-          * <max data rate> represents the maximum data rate allowed on the
-            channel;
-          * <band> represents the logical band within the region the channel
-            belongs to.
-
-        Please note that the output may not include all channels. The channels
-        that are not enabled upon factory reset will have their center frequency
-        initially set to zero and such channels will be omitted from the output.
-        They will show up once re-enabled.
-
-        AT$CHANNELS?
-        $CHANNELS: 1,868100000,0,0,5,1
-        $CHANNELS: 1,868300000,0,0,5,1
-        $CHANNELS: 1,868500000,0,0,5,1
-        +OK
-        '''
-        v = self.modem.AT('$CHANNELS?', inline=False)
-        v = re.sub(r'^\$CHANNELS: ', '', v, flags=re.MULTILINE)
-
-        def make_channel(enabled, freq, rx1_freq, min_dr, max_dr, subband):
-            return Channel(enabled == '1', int(freq), None if rx1_freq == '0' else int(rx1_freq), int(min_dr), int(max_dr), int(subband))
-
-        v = map(lambda line: make_channel(*line.split(',')), v.split('\n'))
-        return list(v)
 
     @property
     def nwkkey(self) -> str:
