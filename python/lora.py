@@ -4203,6 +4203,9 @@ def get(get_modem: Callable[[], OpenLoRaModem], names, all, long, names_only):
             if not all:
                 click.echo(f'Error: The modem does not implement "{orig_name}"', err=True)
                 sys.exit(1)
+        except ModemError as e:
+            if e.errno != -17:
+                raise e
         else:
             if isinstance(value, tuple or list):
                 value = ','.join(map(str, value))
