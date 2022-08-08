@@ -752,7 +752,7 @@ class ATCI(ABC):
                 props[name if case else name.lower()] = value
 
         for name, value in cls.__dict__.items():
-            if not name.startswith('_') and isinstance(value, property):
+            if not name.startswith('_') and name != 'events' and isinstance(value, property):
                 props[name if case else name.lower()] = value
 
         return props
