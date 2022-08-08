@@ -90,7 +90,7 @@ EventSubtype = Union[ModuleEventSubtype, JoinEventSubtype, NetworkEventSubtype]
 
 
 UARTConfig = namedtuple('UARTConfig', 'baudrate data_bits stop_bits parity flow_control')
-RFConfig   = namedtuple('RFConfig',   'channel frequency min_dr max_dr')
+RFConfig   = namedtuple('RFConfig',   'id frequency min_dr max_dr')
 Delay      = namedtuple('Delay',      'join_accept_1 join_accept_2 rx_window_1 rx_window_2')
 McastAddr  = namedtuple('McastAddr',  'id addr nwkskey appskey')
 
@@ -1418,22 +1418,31 @@ class MurataModem(ATCI):
         data = tuple(self.modem.AT('+RFPARAM?').split(';'))
         if int(data[0]) != len(data) - 1:
             raise Exception('Could not parse RFPARAM response')
-        return tuple(map(lambda v: RFConfig(*tuple(map(int, v.split(',')))), data[1:]))
+
+        def hydrate(v):
+            id, freq, min_dr, max_dr = v.split(',')
+            return RFConfig(int(id), int(freq), int(min_dr), int(max_dr))
+
+        return tuple(map(hydrate, data[1:]))
 
     @rfparam.setter
-    def rfparam(self, value: RFConfig):
+    def rfparam(self, value: RFConfig | int):
         '''Configure an RF channel.
 
         This setter can be used to configure the parameters of an individual RF
-        channel. The logical channel number is counted from 0.
+        channel.
 
-        To create a new active RF channel, pick  a logical channel number that
-        does not exist yet. The total number of logical channels is
+        To create a new active RF channel, pick a logical channel id that does
+        not exist yet. The maximum number of logical channels is
         region-specific.
 
-        To delete an existing channel, set its center frequency to 0 Hz.
+        To delete an existing channel, pass an integer value with the id of the
+        channel to be removed.
         '''
-        self.modem.AT(f'+RFPARAM={value.channel},{value.frequency},{value.min_dr},{value.max_dr}')
+        if isinstance(value, int):
+            self.modem.AT(f'+RFPARAM={value}')
+        else:
+            self.modem.AT(f'+RFPARAM={value.id},{value.frequency},{value.min_dr},{value.max_dr}')
 
     rf_param = rfparam
 
@@ -4666,6 +4675,186 @@ def update_mcast_address(get_modem: Callable[[], OpenLoRaModem], address, nwkske
     if nwkskey is None: nwkskey = data[0].nwkskey
     if appskey is None: appskey = data[0].appskey
     modem.multicast = McastAddr(data[0].id, address, nwkskey, appskey)
+
+
+@cli.group(invoke_without_command=True)
+@click.pass_context
+def channels(ctx):
+    '''Manage RF channels.
+    '''
+    if ctx.invoked_subcommand is None:
+        ctx.invoke(show_channels)
+
+
+@channels.command('show')
+@click.pass_obj
+def show_channels(get_modem: Callable[[], OpenLoRaModem]):
+    '''Show all active RF channels.
+
+    This command shows a table of all currently active RF channels.
+    '''
+    modem = get_modem()
+
+    if not machine_readable:
+        click.echo(f"Active RF channels in modem {modem}:")
+
+    headers = ['Channel', 'Center frequency', 'Minimum data rate', 'Maximum data rate']
+
+    channels = sorted(modem.rf_param, key=lambda v: v.id)
+    region = modem.region
+
+    data = []
+    for ch in channels:
+        line = [f'{ch.id}', f'{ch.frequency / 1000000} MHz', region_to_data_rate(region)(ch.min_dr).name, region_to_data_rate(region)(ch.max_dr).name]
+        data.append(line)
+
+    render(data, headers=headers)
+
+
+def parse_frequency(frequency: str):
+    try:
+        f = int(frequency)
+    except ValueError:
+        f = float(frequency)
+
+    if f < 1000:
+        f *= 1000000
+
+    return int(f)
+
+
+@channels.command('add')
+@click.argument('channel', type=int)
+@click.argument('frequency', type=str)
+@click.argument('min-dr', type=str)
+@click.argument('max-dr', type=str)
+@click.option('--replace', '-r', default=False, is_flag=True, help="Replace the channel if it exists.")
+@click.pass_obj
+def add_channel(get_modem: Callable[[], OpenLoRaModem], channel, frequency, min_dr, max_dr, replace):
+    '''Configure a new RF channel.
+
+    This command can be used to provision a new RF channel into the modem. The
+    caller needs to provide the channel number, center frequency, minimum data
+    rate, and maximum data rate.
+
+    If the frequency value is an integer, it is assumed to be in Hz. If the
+    frequency value is a floating point number,  it is assumed to be in MHz.
+
+    The minimum and maximum data rates can be either strings (e.g., sf12_125) or
+    integers.
+
+    If there is an active RF channel with the same channel number already, the
+    command reports an error. You can change this behavior with the command line
+    option --replace (-r). With that option, the command will instead update the
+    center frequency, minimum datarate, and maximum data rate of the existing
+    channel.
+
+    The minimum channel number is 0. The maximum channel number is
+    region-specific.
+
+    Not all active RF channels can be modified. The LoRaWAN stack prevents a
+    small number of low channel numbers from being modified.
+    '''
+    frequency = parse_frequency(frequency)
+
+    modem = get_modem()
+    channels = modem.rf_param
+    region = modem.region
+
+    min_dr = parse_data_rate(region, min_dr)
+    max_dr = parse_data_rate(region, max_dr)
+
+    existing = list(filter(lambda v: v.id == channel, channels))
+    if len(existing):
+        if replace:
+            modem.rf_param = RFConfig(existing[0].id, frequency, min_dr, max_dr)
+        else:
+            click.echo(f'Channel {channel} already exists', err=True)
+            sys.exit(1)
+    else:
+        modem.rf_param = RFConfig(channel, frequency, min_dr, max_dr)
+
+
+@channels.command('remove')
+@click.argument('channels', type=int, nargs=-1)
+@click.option('--ignore-if-missing', '-i', default=False, is_flag=True, help="Ignore if the channel is missing.")
+@click.pass_obj
+def remove_channels(get_modem: Callable[[], OpenLoRaModem], channels, ignore_if_missing):
+    '''Remove one or more RF channels.
+
+    This command can be used to remove one or more RF channels, identified by
+    the channel numbers provided on the command line. If the channel cannot be
+    found, the command reports an error. You can change this behavior with the
+    command line option --ignore-if-missing (-i).
+
+    Please note that not all RF channels can be removed. The LoRaWAN stack
+    prohibits a small number of channels with low channel numbers from being
+    removed.
+    '''
+    modem = get_modem()
+    active_channels = modem.rf_param
+
+    if len(channels) == 0:
+        click.echo("Please provide at least one RF channel number", err=True)
+        sys.exit(1)
+
+    for ch in channels:
+        data = list(filter(lambda v: v.id == ch, active_channels))
+        if len(data) == 0:
+            if not ignore_if_missing:
+                click.echo(f'RF channel {ch} not found', err=True)
+                sys.exit(1)
+        else:
+            modem.rf_param = ch
+
+
+@channels.command('set')
+@click.argument('channel', type=int)
+@click.option('--frequency', '-f', type=str, help='New channel center frequency.')
+@click.option('--min-dr', '-m', type=str, help='New minimum data rate.')
+@click.option('--max-dr', '-M', type=str, help='New maximum data rate.')
+@click.pass_obj
+def update_channel(get_modem: Callable[[], OpenLoRaModem], channel, frequency, min_dr, max_dr):
+    '''Update an existing RF channel.
+
+    This command can be used to modify an existing RF channel. It can be used to
+    update the center frequency, minimum data rate, and maximum data rate for
+    the RF channel. The caller can provide new values for selected parameters
+    via command-line options. The original parameter values will be retained for
+    parameters that are not updated via the command line options.
+
+    If the frequency value is an integer, it is assumed to be in Hz. If the
+    frequency value is a floating point number,  it is assumed to be in MHz.
+
+    The minimum and maximum data rates can be either strings (e.g., sf12_125) or
+    integers.
+
+    Please note that not all RF channels can be updated. The LoRaWAN stack
+    prohibits a small number of channels with low channel numbers from being
+    modified.
+    '''
+    if frequency is not None:
+        frequency = parse_frequency(frequency)
+
+    modem = get_modem()
+    region = modem.region
+
+    if min_dr is not None:
+        min_dr = parse_data_rate(region, min_dr)
+
+    if max_dr is not None:
+        max_dr = parse_data_rate(region, max_dr)
+
+    data = list(filter(lambda v: v.id == channel, modem.rf_param))
+    if len(data) == 0:
+        click.echo(f'RF channel {channel} not found', err=True)
+        sys.exit(1)
+
+    if frequency is None: frequency = data[0].frequency
+    if min_dr is None: min_dr = data[0].min_dr
+    if max_dr is None: max_dr = data[0].max_dr
+
+    modem.rf_param = RFConfig(channel, frequency, min_dr, max_dr)
 
 
 if __name__ == '__main__':
