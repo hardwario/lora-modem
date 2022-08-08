@@ -710,6 +710,23 @@ class TowerSDK(TypeABZ):
             self.sdk_response.put_nowait(data)
 
 
+def parse_data_rate(region: LoRaRegion, value: str | LoRaDataRate | int) -> int:
+    try:
+        if isinstance(value, str):
+            value = region_to_data_rate(region)[value.upper()] # type: ignore
+    except KeyError:
+        try:
+            value = int(value)
+        except ValueError:
+            raise Exception(f'Unsupported data rate "{value}"')
+
+    if isinstance(value, LoRaDataRate):
+        value = value.value
+
+    assert type(value) == int
+    return value
+
+
 class ATCI(ABC):
     modem: TypeABZ
 
@@ -1217,20 +1234,16 @@ class MurataModem(ATCI):
     def join(self, timeout=120):
         '''Join LoRaWAN network in over-the-air-activation (OTAA) mode.
 
-        If the modem is in OTAA mode (AT+MODE=1), this command sends a Join
-        LoRaWAN request to the network (Join Server). The Join request will be
-        sent with data rate 0. If the modem is in ABP mode (AT+MODE=0), this
-        command does nothing.
+        If the modem is in OTAA mode, this command sends a Join LoRaWAN request
+        to the network (Join Server). The Join request will be sent with data
+        rate 0. If the modem is in ABP mode, this command does nothing.
 
-        This is an asynchronous command. The modem responds with +OK or +ERR
-        immediately. An ok response indicates that the Join request was
-        successfully enqueued and could be sent. An error response indicates
-        that the modem could not send a Join request at this time, e.g., due to
-        duty cycling restrictions or some other operation in progress.
+        This method blocks until the Join request is either confirmed by the
+        network or times out, whichever comes first. The method raises a
+        JoinFailed exception if the request timed out.
 
-        The methods returns upon receiving a JoinAccept answer from the Join
-        Server. If no JoinAnswer is received, the method raises an exception
-        instead to indicate that the request timed out.
+        The application can override how long the method waits for an answer
+        with the optional parameter timeout (in seconds).
 
         Note: Join requests are subject to additional duty cycling restrictions
         even in regions that otherwise do not use duty cycling. See the
@@ -1577,16 +1590,6 @@ class MurataModem(ATCI):
 
     adaptive_data_rate = adr
 
-    def parse_data_rate(self, value: str | LoRaDataRate | int) -> int:
-        if isinstance(value, str):
-            value = region_to_data_rate(self.region)[value.upper()] # type: ignore
-
-        if isinstance(value, LoRaDataRate):
-            value = value.value
-
-        assert type(value) == int
-        return value
-
     @property
     def dr(self):
         '''Return the data rate currently used for uplink messages.
@@ -1622,7 +1625,7 @@ class MurataModem(ATCI):
 
         The default value upon factory reset is 0.
         '''
-        value = self.parse_data_rate(value)
+        value = parse_data_rate(self.region, value)
         self.modem.AT(f'+DR={value}')
 
     data_rate = dr
@@ -1777,7 +1780,7 @@ class MurataModem(ATCI):
 
         TODO: Add support for str datarate_index type
         '''
-        dr = self.parse_data_rate(value[1])
+        dr = parse_data_rate(self.region, value[1])
         self.modem.AT(f'+RX2={int(value[0])},{dr}')
 
     @property
@@ -2774,40 +2777,32 @@ class OpenLoRaModem(MurataModem):
 
     app_key = appkey # type: ignore
 
-    def join(self, timeout = 120, retransmissions: int = None):
+    def join(self, timeout = 120, data_rate: Optional[int | LoRaDataRate] = None, max_transmissions: int = None):
         '''Join LoRaWAN network in over-the-air-activation (OTAA) mode.
 
-        If the modem is in OTAA mode (AT+MODE=1), this command sends a Join
-        LoRaWAN request to the network (Join Server). The Join request will be
-        sent with data rate 0. If the modem is in ABP mode (AT+MODE=0), this
-        command does nothing.
+        If the modem is in OTAA mode, this command sends a Join LoRaWAN request
+        to the network (Join Server). If the modem is in ABP mode, this command
+        does nothing.
 
-        This is an asynchronous command. The modem responds with +OK or +ERR
-        immediately. An ok response indicates that the Join request was
-        successfully enqueued and could be sent. An error response indicates
-        that the modem could not send a Join request at this time, e.g., due to
-        duty cycling restrictions or some other operation in progress.
+        The method blocks until the Join request was either answered by the
+        network, or until the request timed out, whichever comes first. When the
+        request times out, the method raises a JoinFailed exception.
 
-        Upon receiving a Join accept from the Join Server, the modem sends
-        +EVENT=1,1. If the Join Server does not respond in time, the modem sends
-        +EVENT=1,0 to the application to indicate that the Join request timed
-        out.
+        The application can override the data rate to be used for the Join
+        request with the optional parameter data_rate. The value must be between
+        0 (inclusive) and 15 (inclusive). The default value is 0.
 
-        Since lora-modem-abz 1.1.0, Join requests are retransmitted up to eight
-        times. Thus, a single AT+JOIN can generate up to nine Join transmissions
-        in total. This also means that it will take longer to receive an
-        +EVENT=1,{0,1}, up to a minute if no Join answer is received from the
-        network. The default number of Join transmissions is set to nine to make
-        sure that the Join is transmitted at least once in each eight-channel
-        subband in regions that use all 64 channels such as US915, plus one
-        extra transmission in the 500 kHz channel subband.
+        Since firmware version 1.1.0, Join requests are transmitted up to nine
+        times by default. This method blocks until a response is received or
+        until the last transmission has finished. The default number of Join
+        transmissions is set to nine to make sure that the Join is transmitted
+        at least once in each eight-channel sub-band in regions that use all 64
+        channels, such as US915, plus one extra transmission in the 500 kHz
+        channel sub-band.
 
-        Please note that the number of retransmissions configured via AT+REP and
-        AT+RTYNUM do not apply to OTAA Joins. The application can control the
-        maximum number of Join retransmissions via an optional parameter to
-        AT+JOIN. To disable retransmissions use AT+JOIN 0. To only retransmit
-        once use AT+JOIN 1, etc. The maximum number of retransmissions that can
-        be configured via the optional parameter is 15.
+        The application can control the maximum number of Join transmissions
+        with the optional parameter max_transmissions. The value must be between
+        1 (inclusive) and 16 (inclusive). The default value is 9.
 
         The modem applies a small randomly generated delay before each
         retransmission in accordance with Section 7 of LoRaWAN Specification
@@ -2819,9 +2814,29 @@ class OpenLoRaModem(MurataModem):
         even in regions that otherwise do not use duty cycling. See the
         documentation for AT+JOINDC for more details.
         '''
+        params = ''
+        dr = None
+
+        if data_rate is not None:
+            if isinstance(data_rate, int):
+                dr = data_rate
+            else:
+                dr = data_rate.value
+        else:
+            # We must have a data rate value if max_transmissions has been
+            # specified in order to build the AT command.
+            if max_transmissions is not None:
+                dr = 0
+
+        if dr is not None:
+            params = f' {dr}'
+
+        if max_transmissions is not None:
+            params += f',{max_transmissions}'
+
         with self.modem.lock:
             with self.modem.events as events:
-                self.modem.AT(f'+JOIN{f" {retransmissions}" if retransmissions is not None else ""}')
+                self.modem.AT(f'+JOIN{params}')
                 status = events.wait_for('event', timeout=timeout)
                 if status == (1, 1):
                     return
@@ -2871,7 +2886,8 @@ class OpenLoRaModem(MurataModem):
             value = (value,)
 
         if len(value) == 2:
-            self.modem.AT(f'+DR={self.parse_data_rate(value[0])},{self.parse_data_rate(value[1])}')
+            region = self.region
+            self.modem.AT(f'+DR={parse_data_rate(region, value[0])},{parse_data_rate(region, value[1])}')
         elif len(value) == 1:
             # super().dr = value
             super(self.__class__, self.__class__).dr.fset(self, value[0]) # type: ignore
@@ -2906,7 +2922,8 @@ class OpenLoRaModem(MurataModem):
             # super().rx2 = value
             super(self.__class__, self.__class__).rx2.fset(self, value) # type: ignore
         elif len(value) == 4:
-            self.modem.AT(f'$RX2={int(value[0])},{self.parse_data_rate(value[1])},{int(value[2])},{self.parse_data_rate(value[3])}') # type: ignore
+            region = self.region
+            self.modem.AT(f'$RX2={int(value[0])},{parse_data_rate(region, value[1])},{int(value[2])},{parse_data_rate(region, value[3])}') # type: ignore
         else:
             raise Exception('Invalid rx2 setting value')
 
@@ -3921,16 +3938,17 @@ def reboot(get_modem: Callable[[], OpenLoRaModem], hard):
 
 @cli.command()
 @click.option('--region', '-r', type=str, default=None, help='Switch to the region (band) if necessary.')
+@click.option('--data-rate', '-R', type=str, default=None, help='Specify Join data rate (data rate 0 by default).')
 @click.option('--public/--private', '-p/-P', 'network', default=None, help='Select public or private network.')
 @click.option('--join-eui', '-j', type=str, default=None, help='Set Join server EUI (JoinEUI).')
 @click.option('--channel-mask', '-c', type=str, default=None, help='Update the channel mask before Join.')
 @click.option('--duty-cycle/--no-duty-cycle', '-D/-d', default=None, help='Enable or disable Join duty cycling.')
-@click.option('--retransmissions', '-R', type=int, default=None, help='Limit the number of Join retransmissions.')
 @click.option('--rx1', type=int, default=None, help='Configure the JoinAccept RX1 window.')
 @click.option('--rx2', type=int, default=None, help='Configure the JoinAccept RX2 window.')
+@click.option('--max-transmissions', '-m', type=int, default=None, help='Limit the maximum number of Join transmissions (1-16, default 9).')
 @click.option('--timeout', '-t', type=int, default=None, help='Limit total Join retransmission time [s].')
 @click.pass_obj
-def join(get_modem: Callable[[], OpenLoRaModem], region, network, join_eui, duty_cycle, channel_mask, rx1, rx2, retransmissions, timeout):
+def join(get_modem: Callable[[], OpenLoRaModem], region, data_rate, network, join_eui, duty_cycle, channel_mask, rx1, rx2, max_transmissions, timeout):
     '''Perform a LoRaWAN OTAA Join.
 
     Switch the modem to over-the-air (OTAA) activation mode if necessary and
@@ -3943,6 +3961,12 @@ def join(get_modem: Callable[[], OpenLoRaModem], region, network, join_eui, duty
     (--region) to accomplish that. The option takes the case-insensitive region
     name as value, e.g., us915 for the US band. The default region upon factory
     reset is eu868.
+
+    The modem transmits OTAA Join requests with data rate 0 (slowest allowed
+    data rate in the region) by default. You can specify a different data rate
+    with the command line option -R (--data-rate). The option takes a
+    case-insensitive string with the name of the desired data rate, e.g.,
+    sf11_125, or an integer in the range <0, 15>.
 
     The options -p (--public) and -P (--private) control the preamble
     synchronization word, i.e., whether the modem is joining a public or private
@@ -3961,6 +3985,11 @@ def join(get_modem: Callable[[], OpenLoRaModem], region, network, join_eui, duty
     corresponding sub-band improves the success rate and makes the join command
     finish faster.
 
+    By default, the modem transmits the Join request up to nine times to
+    transmit at least one across all sub-bands. You can limit the maximum number
+    of Join transmissions with the command line option -m (--max-transmissions).
+    The command takes an integer value in the rage <1, 16>.
+
     Several other OTAA Join related parameters such as the JoinEUI, RX1/2 window
     delays, and join duty cycling are configurable via separate command line
     options.
@@ -3976,7 +4005,7 @@ def join(get_modem: Callable[[], OpenLoRaModem], region, network, join_eui, duty
             except ValueError:
                 click.echo('Error: Invalid region', err=True)
                 sys.exit(1)
-        modem.band = region
+        modem.region = region
 
     if network is not None:
         modem.nwk = 1 if network else 0
@@ -4000,11 +4029,14 @@ def join(get_modem: Callable[[], OpenLoRaModem], region, network, join_eui, duty
     modem.mode = LoRaMode.OTAA
 
     kwargs = {}
+    if data_rate is not None:
+        kwargs['data_rate'] = parse_data_rate(modem.region, data_rate)
+
     if timeout is not None:
         kwargs['timeout'] = timeout
 
-    if retransmissions is not None:
-        kwargs['retransmissions'] = retransmissions
+    if max_transmissions is not None:
+        kwargs['max_transmissions'] = max_transmissions
 
     if not machine_readable:
         click.echo(f"Joining LoRaWAN network via modem {modem}...", nl=False)
