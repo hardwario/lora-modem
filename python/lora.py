@@ -92,7 +92,7 @@ EventSubtype = Union[ModuleEventSubtype, JoinEventSubtype, NetworkEventSubtype]
 UARTConfig = namedtuple('UARTConfig', 'baudrate data_bits stop_bits parity flow_control')
 RFConfig   = namedtuple('RFConfig',   'channel frequency min_dr max_dr')
 Delay      = namedtuple('Delay',      'join_accept_1 join_accept_2 rx_window_1 rx_window_2')
-McastAddr  = namedtuple('McastAddr',  'index addr nwkskey appskey')
+McastAddr  = namedtuple('McastAddr',  'id addr nwkskey appskey')
 
 
 class ModemError(Exception):
@@ -2096,16 +2096,26 @@ class MurataModem(ATCI):
         data = tuple(self.modem.AT('+MCAST?').split(';'))
         if int(data[0]) != len(data) - 1:
             raise Exception('Could not parse MCAST response')
-        return tuple(map(lambda v: McastAddr(*tuple(v.split(','))), data[1:]))
+
+        def hydrate(v):
+            id, addr, nwkskey, appskey = v.split(',')
+            return McastAddr(int(id), addr, nwkskey, appskey)
+
+        return tuple(map(hydrate, data[1:]))
 
     @mcast.setter
-    def mcast(self, value: McastAddr):
+    def mcast(self, value: McastAddr | int):
         '''Add, modify, or delete a multicast address.
 
         To add a new address, pick an unused logical number. To delete a
-        currently active multicast address, set the 32-bit address to 0.
+        currently active multicast address, pass an integer in the parameter
+        value with the logical id of the address to be deleted.
         '''
-        self.modem.AT(f'+MCAST={value.index},{value.addr},{value.nwkskey},{value.appskey}')
+
+        if isinstance(value, int):
+            self.modem.AT(f'+MCAST={value}')
+        else:
+            self.modem.AT(f'+MCAST={value.id},{value.addr},{value.nwkskey},{value.appskey}')
 
     multicast = mcast
 
@@ -3341,11 +3351,11 @@ def uartconfig_to_str(uart):
     return f'{uart.baudrate} {uart.data_bits}{parity}{uart.stop_bits}'
 
 
-def render(data):
+def render(data, headers=[]):
     if machine_readable:
         click.echo('\n'.join(map(lambda v: ';'.join(map(str, v)), data)))
     else:
-        click.echo(tabulate(data, tablefmt="psql"))
+        click.echo(tabulate(data, tablefmt="psql", headers=headers))
 
 
 def random_key():
@@ -4498,6 +4508,164 @@ def keygen(get_modem: Callable[[], OpenLoRaModem], protocol, silent, old):
     if not silent:
         click.echo(f'New security keys for modem {modem}:')
         render(data)
+
+
+@cli.group(invoke_without_command=True)
+@click.pass_context
+def multicast(ctx):
+    '''Manage multicast addresses and security keys.
+
+    This group of commands can be used to manage LoRaWAN multicast addresses and
+    security keys in the modem. The open LoRa firmware can use up to four
+    multicast addresses simultaneously.
+    '''
+    if ctx.invoked_subcommand is None:
+        ctx.invoke(show_mcast_addresses)
+
+
+@multicast.command('show')
+@click.pass_obj
+def show_mcast_addresses(get_modem: Callable[[], OpenLoRaModem]):
+    '''Show all active multicast addresses.
+
+    This command shows a table of all currently active multicast addresses. Pass
+    the parent command line option -k to also see the network session and
+    application session keys for each multicast address.
+    '''
+    modem = get_modem()
+
+    if not machine_readable:
+        click.echo(f"Multicast addresses in modem {modem}:")
+
+    headers = ['Address']
+    if show_keys:
+        headers.append('Network session key')
+        headers.append('Application session key')
+
+    data = []
+    for entry in modem.multicast:
+        line = [f'{entry.addr}']
+        if show_keys:
+            line.append(f'{entry.nwkskey}')
+            line.append(f'{entry.appskey}')
+        data.append(line)
+
+    render(data, headers=headers)
+
+
+@multicast.command('add')
+@click.argument('address', type=str)
+@click.argument('nwkskey', type=str)
+@click.argument('appskey', type=str)
+@click.option('--replace', '-r', default=False, is_flag=True, help="Replace if the address exists.")
+@click.pass_obj
+def add_mcast_address(get_modem: Callable[[], OpenLoRaModem], address, nwkskey, appskey, replace):
+    '''Configure a new multicast address.
+
+    This command can be used to provision a new multicast address into the
+    modem. The caller needs to provide the address, a network session key, and
+    an application session key.
+
+    If the given multicast address exists in the internal table already, the
+    command reports an error. You can change this behavior with the command line
+    option --replace (-r). With that option, the command will replace the
+    network and application session keys for the existing address instead and
+    will not report an error.
+
+    Please note that the modem can store up to four multicast addresses.
+    '''
+    modem = get_modem()
+    active_addresses = modem.multicast
+
+    existing = list(filter(lambda v: v.addr == address, active_addresses))
+    if len(existing):
+        if replace:
+            modem.multicast = McastAddr(existing[0].id, address, nwkskey, appskey)
+        else:
+            click.echo(f'Multicast address {address} already exists', err=True)
+            sys.exit(1)
+    else:
+        existing_ids = list(map(lambda v: v.id, active_addresses))
+        if len(existing_ids) == 4:
+            click.echo(f'Multicast address table is full', err=True)
+            sys.exit(1)
+
+        for id in range(0, 4):
+            if id in existing_ids:
+                continue
+            modem.multicast = McastAddr(id, address, nwkskey, appskey)
+            break
+        else:
+            click.echo(f'Could not find a free multicast address slot', err=True)
+            sys.exit(1)
+
+
+@multicast.command('remove')
+@click.argument('addresses', type=str, nargs=-1)
+@click.option('--all', '-a', default=False, is_flag=True, help="Remove all multicast addresses.")
+@click.option('--ignore-if-missing', '-i', default=False, is_flag=True, help="Ignore if the address is missing.")
+@click.pass_obj
+def remove_mcast_addresses(get_modem: Callable[[], OpenLoRaModem], all, addresses, ignore_if_missing):
+    '''Remove one or more multicast addresses.
+
+    This command can be used to remove multicast addresses specified as command
+    line arguments. Alternatively, you can use the command line option --all
+    (-a) to remove all currently active multicast addresses.
+    '''
+    modem = get_modem()
+    active_addresses = modem.multicast
+
+    if all:
+        if len(addresses):
+            click.echo("Argument addresses and option --all are mutually exclusive", err=True)
+            sys.exit(1)
+
+        addresses = map(lambda v: v.addr, active_addresses)
+    else:
+        if len(addresses) == 0:
+            click.echo("Please provide at least one multicast address", err=True)
+            sys.exit(1)
+
+    for addr in addresses:
+        data = list(filter(lambda v: v.addr == addr, active_addresses))
+        if len(data) == 0:
+            if not ignore_if_missing:
+                click.echo(f'Multicast address {addr} not found', err=True)
+                sys.exit(1)
+        else:
+            if len(data) != 1:
+                click.echo(f'Ambiguous multicast address {addr}', err=True)
+                sys.exit(1)
+
+            modem.multicast = data[0].id
+
+
+@multicast.command('set')
+@click.argument('address', type=str)
+@click.option('--nwkskey', '-n', type=str, help='New network session key.')
+@click.option('--appskey', '-a', type=str, help='New application session key.')
+@click.pass_obj
+def update_mcast_address(get_modem: Callable[[], OpenLoRaModem], address, nwkskey, appskey):
+    '''Update a multicast address.
+
+    Currently, this command can be used to update the network and application
+    session keys for an existing multicast address. You can specify the new
+    nwkskey or appskey via command line options. If you omit any of the command
+    line options, the original key will be preserved.
+    '''
+    modem = get_modem()
+    data = list(filter(lambda v: v.addr == address, modem.multicast))
+    if len(data) == 0:
+        click.echo(f'Multicast address {address} not found', err=True)
+        sys.exit(1)
+
+    if len(data) != 1:
+        click.echo(f'Ambiguous multicast address {address}', err=True)
+        sys.exit(1)
+
+    if nwkskey is None: nwkskey = data[0].nwkskey
+    if appskey is None: appskey = data[0].appskey
+    modem.multicast = McastAddr(data[0].id, address, nwkskey, appskey)
 
 
 if __name__ == '__main__':
