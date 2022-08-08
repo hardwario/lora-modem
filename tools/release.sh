@@ -71,7 +71,7 @@ checksums=$(sha256sum -b "$name.bin" "$name.hex" \
     "$name.debug.bin" "$name.debug.hex" "$name.debug.map")
 
 # Generate a signed version of the checksums
-signed_checksums=$(echo "$sums" | gpg --clear-sign)
+signed_checksums=$(echo "$checksums" | gpg --clear-sign)
 
 # Push the newly created tag into the Github repository
 git push origin "$new_tag"
