@@ -4612,9 +4612,9 @@ def add_mcast_address(get_modem: Callable[[], OpenLoRaModem], address, nwkskey, 
 @multicast.command('remove')
 @click.argument('addresses', type=str, nargs=-1)
 @click.option('--all', '-a', default=False, is_flag=True, help="Remove all multicast addresses.")
-@click.option('--ignore-if-missing', '-i', default=False, is_flag=True, help="Ignore if the address is missing.")
+@click.option('--ignore-missing', '-i', default=False, is_flag=True, help="Ignore if the address is missing.")
 @click.pass_obj
-def remove_mcast_addresses(get_modem: Callable[[], OpenLoRaModem], all, addresses, ignore_if_missing):
+def remove_mcast_addresses(get_modem: Callable[[], OpenLoRaModem], all, addresses, ignore_missing):
     '''Remove one or more multicast addresses.
 
     This command can be used to remove multicast addresses specified as command
@@ -4638,7 +4638,7 @@ def remove_mcast_addresses(get_modem: Callable[[], OpenLoRaModem], all, addresse
     for addr in addresses:
         data = list(filter(lambda v: v.addr == addr, active_addresses))
         if len(data) == 0:
-            if not ignore_if_missing:
+            if not ignore_missing:
                 click.echo(f'Multicast address {addr} not found', err=True)
                 sys.exit(1)
         else:
@@ -4777,15 +4777,15 @@ def add_channel(get_modem: Callable[[], OpenLoRaModem], channel, frequency, min_
 
 @channels.command('remove')
 @click.argument('channels', type=int, nargs=-1)
-@click.option('--ignore-if-missing', '-i', default=False, is_flag=True, help="Ignore if the channel is missing.")
+@click.option('--ignore-missing', '-i', default=False, is_flag=True, help="Ignore if the channel is missing.")
 @click.pass_obj
-def remove_channels(get_modem: Callable[[], OpenLoRaModem], channels, ignore_if_missing):
+def remove_channels(get_modem: Callable[[], OpenLoRaModem], channels, ignore_missing):
     '''Remove one or more RF channels.
 
     This command can be used to remove one or more RF channels, identified by
     the channel numbers provided on the command line. If the channel cannot be
     found, the command reports an error. You can change this behavior with the
-    command line option --ignore-if-missing (-i).
+    command line option --ignore-missing (-i).
 
     Please note that not all RF channels can be removed. The LoRaWAN stack
     prohibits a small number of channels with low channel numbers from being
@@ -4801,7 +4801,7 @@ def remove_channels(get_modem: Callable[[], OpenLoRaModem], channels, ignore_if_
     for ch in channels:
         data = list(filter(lambda v: v.id == ch, active_channels))
         if len(data) == 0:
-            if not ignore_if_missing:
+            if not ignore_missing:
                 click.echo(f'RF channel {ch} not found', err=True)
                 sys.exit(1)
         else:
