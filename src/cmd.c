@@ -616,32 +616,34 @@ static void get_rfparam(void)
 
 static void set_rfparam(atci_param_t *param)
 {
+    LoRaMacStatus_t rc;
     uint32_t id, freq, min_dr, max_dr;
+
     if (!atci_param_get_uint(param, &id)) abort(ERR_PARAM);
     if (id > UINT8_MAX) abort(ERR_PARAM);
-    if (!atci_param_is_comma(param)) abort(ERR_PARAM);
 
-    if (!atci_param_get_uint(param, &freq)) abort(ERR_PARAM);
-    if (!atci_param_is_comma(param)) abort(ERR_PARAM);
+    if (param->offset < param->length) {
+        if (!atci_param_is_comma(param)) abort(ERR_PARAM);
 
-    if (!atci_param_get_uint(param, &min_dr)) abort(ERR_PARAM);
-    if (min_dr > INT8_MAX) abort(ERR_PARAM);
-    if (!atci_param_is_comma(param)) abort(ERR_PARAM);
+        if (!atci_param_get_uint(param, &freq)) abort(ERR_PARAM);
+        if (!atci_param_is_comma(param)) abort(ERR_PARAM);
 
-    if (!atci_param_get_uint(param, &max_dr)) abort(ERR_PARAM);
-    if (max_dr > INT8_MAX) abort(ERR_PARAM);
+        if (!atci_param_get_uint(param, &min_dr)) abort(ERR_PARAM);
+        if (min_dr > INT8_MAX) abort(ERR_PARAM);
+        if (!atci_param_is_comma(param)) abort(ERR_PARAM);
 
-    LoRaMacStatus_t rc;
-    ChannelParams_t params;
-    params.Frequency = freq;
-    params.DrRange.Fields.Min = min_dr;
-    params.DrRange.Fields.Max = max_dr;
+        if (!atci_param_get_uint(param, &max_dr)) abort(ERR_PARAM);
+        if (max_dr > INT8_MAX) abort(ERR_PARAM);
 
-    if (freq != 0) {
+        ChannelParams_t params = { .Frequency = freq };
+        params.DrRange.Fields.Min = min_dr;
+        params.DrRange.Fields.Max = max_dr;
+
         rc = LoRaMacChannelAdd(id, params);
     } else {
         rc = LoRaMacChannelRemove(id);
     }
+
     abort_on_error(rc);
     OK_();
 }
