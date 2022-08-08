@@ -1137,12 +1137,12 @@ static void set_mcast(atci_param_t *param)
     if (!atci_param_get_uint(param, &id)) abort(ERR_PARAM);
     if (id >= LORAMAC_MAX_MC_CTX) abort(ERR_PARAM);
 
-    if (!atci_param_is_comma(param)) abort(ERR_PARAM);
+    if (param->offset < param->length) {
+        if (!atci_param_is_comma(param)) abort(ERR_PARAM);
 
-    if (atci_param_get_buffer_from_hex(param, &addr, sizeof(addr), sizeof(addr) * 2) != sizeof(addr))
-        abort(ERR_PARAM);
+        if (atci_param_get_buffer_from_hex(param, &addr, sizeof(addr), sizeof(addr) * 2) != sizeof(addr))
+            abort(ERR_PARAM);
 
-    if (addr != 0) {
         if (!atci_param_is_comma(param)) abort(ERR_PARAM);
 
         if (atci_param_get_buffer_from_hex(param, nwkskey, SE_KEY_SIZE, SE_KEY_SIZE * 2) != SE_KEY_SIZE)
@@ -1170,9 +1170,11 @@ static void set_mcast(atci_param_t *param)
 
         LoRaMacMcChannelDelete(id);
         rc = LoRaMacMcChannelSetup(&c);
+
     } else {
         rc = LoRaMacMcChannelDelete(id);
     }
+
     abort_on_error(rc);
     OK_();
 }
