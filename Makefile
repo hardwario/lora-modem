@@ -227,7 +227,7 @@ build_date_compat := $(shell date "+%b %d %Y %H:%M:%S")
 # is not part of the version string and thus should not be included in the
 # sources because then AT commands like AT$VER would (incorrectly) return it.
 
-git_describe := git describe --abbrev=8 --always --tags --dirty=' (modified)' | \
+git_describe := git describe --abbrev=8 --always --dirty=' (modified)' | \
 	sed -Ee 's/^v(([0-9]+\.){2}[0-9]+)/\1/'
 
 tmp := $(shell \
@@ -389,7 +389,7 @@ python: $(MAKEFILE_LIST) python/VERSION
 
 .PHONY: python/VERSION
 python/VERSION: $(MAKEFILE_LIST)
-	git describe --tags | sed -e 's/.*\([0-9]\+\.[0-9]\+\.[0-9]\+\).*/\1/g' > $@
+	git describe | sed -e 's/.*\([0-9]\+\.[0-9]\+\.[0-9]\+\).*/\1/g' > $@
 
 $(BIN): $(ELF) $(MAKEFILE_LIST)
 	$(Q)$(ECHO) "Creating $(BIN) from $(ELF)..."

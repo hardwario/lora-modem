@@ -43,7 +43,7 @@ if [ -n "$(git status --porcelain)" ] ; then
     bail "Error: Your git repository clone is not clean"
 fi
 
-previous_tag=$(git describe --tags --abbrev=0)
+previous_tag=$(git describe --abbrev=0)
 if [ -z "$previous_tag" ] ; then
     bail "Error: Could not determine the previous release tag"
 fi
