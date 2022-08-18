@@ -51,6 +51,22 @@ fi
 new_tag="v$version"
 name="$basename-$version"
 
+make VERSION LIB_VERSION
+
+# Create a source code tarball for the release that can be built without git.
+echo -n "Creating source tarball..."
+tar --exclude .git        \
+    --exclude *.bin       \
+    --exclude *.hex       \
+    --exclude *.map       \
+    --exclude *.tar.gz    \
+    --exclude obj         \
+    --exclude .gitmodules \
+    -zcf $name.tar.gz .
+echo "done."
+
+exit 0
+
 # Create the tag in the local git repository clone. Fail if the tag already
 # exists. Create a signed and annotated tag.
 git tag -s -a "$new_tag" -m "Version $version"
@@ -68,7 +84,8 @@ cp -f out/debug/firmware.map   "$name.debug.map"
 
 # Compute SHA-256 checksums of the binary files
 checksums=$(sha256sum -b "$name.bin" "$name.hex" \
-    "$name.debug.bin" "$name.debug.hex" "$name.debug.map")
+    "$name.debug.bin" "$name.debug.hex" "$name.debug.map" \
+    "$name.tar.gz")
 
 # Generate a signed version of the checksums
 signed_checksums=$(echo "$checksums" | gpg --clear-sign)
@@ -85,6 +102,7 @@ hub release create       \
     -a "$name.debug.bin" \
     -a "$name.debug.hex" \
     -a "$name.debug.map" \
+    -a "$name.tar.gz"    \
     -F - $new_tag << EOF
 Release $version
 
