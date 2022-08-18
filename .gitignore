@@ -4,5 +4,3 @@ tools/ozone/ozone.jdebug.user
 /*.bin
 /*.debug.map
 /*.hex
-/VERSION
-/LIB_VERSION
