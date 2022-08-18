@@ -154,7 +154,7 @@ void lrw_set_maxeirp(unsigned int maxeirp);
 int lrw_set_dwell(bool uplink, bool downlink);
 
 
-/** @brief Return the number of channels for the currently active region
+/** @brief Return the maximum number of channels for the currently active region
  * @return Number of channels
  */
 int lrw_get_max_channels(void);

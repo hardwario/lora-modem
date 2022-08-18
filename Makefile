@@ -498,6 +498,12 @@ $(OBJ_DIR)/$(TYPE)/%.o: %.s $(MAKEFILE_LIST)
 	$(Q)mkdir -p $(@D)
 	$(Q)$(CC) -c $(ASFLAGS) $< -o $@
 
+VERSION: $(MAKEFILE_LIST) $(OBJ_DIR)/version
+	$(Q)cp $(OBJ_DIR)/version VERSION
+
+LIB_VERSION: $(MAKEFILE_LIST) $(OBJ_DIR)/lib_version
+	$(Q)cp $(OBJ_DIR)/lib_version LIB_VERSION
+
 ################################################################################
 # Clean targets                                                                #
 ################################################################################
