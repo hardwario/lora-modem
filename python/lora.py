@@ -3673,6 +3673,10 @@ def state(get_modem: Callable[[], OpenLoRaModem]):
         if e.errno != -17:
             raise e
 
+    if region == LoRaRegion.AS923 or region == LoRaRegion.AU915:
+        uplink, downlink = modem.dwell
+        data.append(['Limit dwell time', f'Uplink: {uplink}, Downlink: {downlink}'])
+
     render(data)
 
 
