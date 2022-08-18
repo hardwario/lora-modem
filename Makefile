@@ -55,6 +55,10 @@ LORAMAC_ABP_VERSION ?= 0x01000400
 # firmware. It must be of the form x.x.xx.
 VERSION_COMPAT ?= 1.1.06
 
+# The build date string to be returned by AT+VER. This build date matches the
+# build date of Murata Modem in version configured through VERSION_COMPAT.
+BUILD_DATE_COMPAT ?= Aug 24 2020 16:11:57
+
 # The LoRaWAN network server may reconfigure the node's channel mask in the Join
 # Accept message. If you want to prevent that from happening, e.g., if you work
 # with an incorrectly configured LoRaWAN network server, uncomment the following
@@ -210,7 +214,6 @@ endif
 ifeq (1,$(building))
 
 build_date := $(shell date "+%Y-%b-%d %H:%M:%S %Z")
-build_date_compat := $(shell date "+%b %d %Y %H:%M:%S")
 
 # In order to properly re-build the firmware when the version string changes,
 # e.g., as a result of a git tag begin added or removed, the output of git
@@ -294,12 +297,11 @@ CFLAGS += -DSOFT_SE
 CFLAGS += -DSECURE_ELEMENT_PRE_PROVISIONED
 CFLAGS += -DLORAMAC_CLASSB_ENABLED
 
+CFLAGS += -DENABLED_REGIONS='"$(ENABLED_REGIONS)"'
 CFLAGS += -DDEFAULT_ACTIVE_REGION='"$(DEFAULT_ACTIVE_REGION)"'
 CFLAGS += -DREGION_AS923_DEFAULT_CHANNEL_PLAN=$(AS923_DEFAULT_CHANNEL_PLAN)
 CFLAGS += -DREGION_CN470_DEFAULT_CHANNEL_PLAN=$(CN470_DEFAULT_CHANNEL_PLAN)
 
-CFLAGS += -DVERSION_COMPAT='"$(VERSION_COMPAT)"'
-CFLAGS += -DENABLED_REGIONS='"$(ENABLED_REGIONS)"'
 
 ifdef ENABLE_FACTORY_RESET_PIN
 CFLAGS += -DENABLE_FACTORY_RESET_PIN
@@ -442,9 +444,10 @@ $(OBJ_DIR)/$(TYPE)/lib/LoRaWAN/%.o: lib/LoRaWAN/%.c $(MAKEFILE_LIST)
 # extra CFLAGS.
 
 $(OBJ_DIR)/$(TYPE)/src/cmd.o: CFLAGS+=-DVERSION='"$(version)"'
+$(OBJ_DIR)/$(TYPE)/src/cmd.o: CFLAGS+=-DVERSION_COMPAT='"$(VERSION_COMPAT)"'
 $(OBJ_DIR)/$(TYPE)/src/cmd.o: CFLAGS+=-DLIB_VERSION='"$(lib_version)"'
 $(OBJ_DIR)/$(TYPE)/src/cmd.o: CFLAGS+=-DBUILD_DATE='"$(build_date)"'
-$(OBJ_DIR)/$(TYPE)/src/cmd.o: CFLAGS+=-DBUILD_DATE_COMPAT='"$(build_date_compat)"'
+$(OBJ_DIR)/$(TYPE)/src/cmd.o: CFLAGS+=-DBUILD_DATE_COMPAT='"$(BUILD_DATE_COMPAT)"'
 $(OBJ_DIR)/$(TYPE)/src/cmd.o: $(MAKEFILE_LIST) $(OBJ_DIR)/version $(OBJ_DIR)/lib_version
 
 $(OBJ_DIR)/$(TYPE)/src/main.o: CFLAGS+=-DVERSION='"$(version)"'
