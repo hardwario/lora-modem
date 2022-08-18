@@ -193,7 +193,7 @@ endif
 # A list of make targets for which version and dependency files should not be
 # generated and included. That's generally any target that does not build
 # firmware.
-NOBUILD := clean .clean-obj .clean-out flash gdbserver jlink ozone openocd
+NOBUILD := clean .clean-obj .clean-out .clean-python flash gdbserver jlink ozone openocd
 
 # We only need to generate dependency files if the make target is empty or if it
 # is not one of the targets in NOBUILD
@@ -511,10 +511,13 @@ clean: $(MAKEFILE_LIST)
 
 .PHONY: .clean-python
 .clean-python: $(MAKEFILE_LIST)
-	$(Q)$(ECHO) "Deleting Python build files..."
+	$(Q)$(ECHO) "Deleting Python build artifacts..."
+	$(Q)rm -rf "python/VERSION"
 	$(Q)rm -rf "python/build"
-	$(Q)$(ECHO) "Deleting Python dist files..."
 	$(Q)rm -rf "python/dist"
+	$(Q)rm -rf "python/lora_modem_abz.egg-info"
+	$(Q)rm -rf "python/__pycache__"
+	$(Q)rm -rf "python/.mypy_cache"
 
 ################################################################################
 # Debugging targets                                                            #
