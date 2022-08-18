@@ -1125,21 +1125,23 @@ int lrw_set_class(DeviceClass_t device_class)
 }
 
 
-int lrw_get_chmask_length(void)
+int lrw_get_max_channels(void)
 {
     LoRaMacNvmData_t *state = lrw_get_state();
 
-    // If there is a better way to translate a region to a channel mask size, I
-    // have not found it. It's a bit unfortunate that we have to duplicate the
-    // code from RegionNvm.h here, but there appears to be no other way.
+    // If there is a better way to translate a region to the number of channels
+    // in the region, I have not found it. It's a bit unfortunate that we have
+    // to duplicate code from LoRaMac-node, but there appears to be no other way.
     switch (state->MacGroup2.Region) {
         case LORAMAC_REGION_CN470:
+            return 96;
+
         case LORAMAC_REGION_US915:
         case LORAMAC_REGION_AU915:
-            return 6;
+            return 72;
 
         default:
-            return 1;
+            return 16;
     }
 }
 

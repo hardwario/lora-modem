@@ -154,10 +154,10 @@ void lrw_set_maxeirp(unsigned int maxeirp);
 int lrw_set_dwell(bool uplink, bool downlink);
 
 
-/** @brief Return the length in words of the channel mask for the current region
- * @return Current region's channel mask length in words
+/** @brief Return the number of channels for the currently active region
+ * @return Number of channels
  */
-int lrw_get_chmask_length(void);
+int lrw_get_max_channels(void);
 
 
 LoRaMacStatus_t lrw_mlme_request(MlmeReq_t* req);

@@ -1537,8 +1537,20 @@ static void get_chmask_comp(void)
     MibRequestConfirm_t r = { .Type = MIB_CHANNELS_MASK };
     abort_on_error(LoRaMacMibGetRequestConfirm(&r));
     atci_print("+OK=");
-    atci_print_buffer_as_hex(r.Param.ChannelsMask, lrw_get_chmask_length() * sizeof(r.Param.ChannelsMask[0]));
+    atci_print_buffer_as_hex(r.Param.ChannelsMask, lrw_get_max_channels() / 8);
     EOL();
+}
+
+
+static bool parse_chmask(uint16_t *buf, size_t len, atci_param_t *param)
+{
+    int chmask_bytes = lrw_get_max_channels() / 8;
+
+    memset(buf, 0, len);
+    int read = atci_param_get_buffer_from_hex(param, buf, len, chmask_bytes * 2);
+
+    if (read != chmask_bytes) return false;
+    return true;
 }
 
 
@@ -1547,10 +1559,10 @@ static void set_chmask_comp(atci_param_t *param)
 {
     uint16_t chmask[REGION_NVM_CHANNELS_MASK_SIZE];
 
-    memset(chmask, 0, sizeof(chmask));
-    size_t len = atci_param_get_buffer_from_hex(param, chmask, sizeof(chmask), 0);
-    if (len != lrw_get_chmask_length() * sizeof(chmask[0]))
-        abort(ERR_PARAM);
+    if (!parse_chmask(chmask, sizeof(chmask), param)) abort(ERR_PARAM);
+
+    // Make sure all data from the value have been consumed
+    if (param->length != param->offset) abort(ERR_PARAM);
 
     // First set the default channel mask. The default channel mask is the
     // channel mask used before Join or ADR.
@@ -1742,13 +1754,13 @@ static void get_chmask(void)
 
     MibRequestConfirm_t r = { .Type = MIB_CHANNELS_MASK };
     LoRaMacMibGetRequestConfirm(&r);
-    atci_print_buffer_as_hex(r.Param.ChannelsMask, lrw_get_chmask_length() * sizeof(r.Param.ChannelsMask[0]));
+    atci_print_buffer_as_hex(r.Param.ChannelsMask, lrw_get_max_channels() / 8);
 
     atci_print(",");
 
     r.Type = MIB_CHANNELS_DEFAULT_MASK;
     LoRaMacMibGetRequestConfirm(&r);
-    atci_print_buffer_as_hex(r.Param.ChannelsDefaultMask, lrw_get_chmask_length() * sizeof(r.Param.ChannelsDefaultMask[0]));
+    atci_print_buffer_as_hex(r.Param.ChannelsDefaultMask, lrw_get_max_channels() / 8);
 
     EOL();
 }
@@ -1758,17 +1770,10 @@ static void set_chmask(atci_param_t *param)
 {
     uint16_t chmask1[REGION_NVM_CHANNELS_MASK_SIZE];
     uint16_t chmask2[REGION_NVM_CHANNELS_MASK_SIZE];
-    unsigned int len = lrw_get_chmask_length() * sizeof(chmask1[0]);
-    memset(chmask1, 0, sizeof(chmask1));
-    memset(chmask2, 0, sizeof(chmask2));
 
-    size_t len1 = atci_param_get_buffer_from_hex(param, chmask1, sizeof(chmask1), len * 2);
-    if (len1 != len) abort(ERR_PARAM);
-
+    if (!parse_chmask(chmask1, sizeof(chmask1), param)) abort(ERR_PARAM);
     if (!atci_param_is_comma(param)) abort(ERR_PARAM);
-
-    size_t len2 = atci_param_get_buffer_from_hex(param, chmask2, sizeof(chmask2), len * 2);
-    if (len2 != len) abort(ERR_PARAM);
+    if (!parse_chmask(chmask2, sizeof(chmask2), param)) abort(ERR_PARAM);
 
     // Make sure all data from the value have been consumed
     if (param->length != param->offset) abort(ERR_PARAM);
