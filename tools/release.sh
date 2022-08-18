@@ -51,25 +51,28 @@ fi
 new_tag="v$version"
 name="$basename-$version"
 
+# Create the tag in the local git repository clone. Fail if the tag already
+# exists. Create a signed and annotated tag.
+git tag -s -a "$new_tag" -m "Version $version"
+
+# Generate the files VERSION and LIB_VERSION so that they can be included in the
+# source tarball (which does not contain git version information).
 make VERSION LIB_VERSION
 
 # Create a source code tarball for the release that can be built without git.
 echo -n "Creating source tarball..."
-tar --exclude .git        \
-    --exclude *.bin       \
-    --exclude *.hex       \
-    --exclude *.map       \
-    --exclude *.tar.gz    \
-    --exclude obj         \
-    --exclude .gitmodules \
+
+command -v gtar &>/dev/null && tar=gtar || tar=tar
+$tar --exclude .git           \
+    --exclude *.bin           \
+    --exclude *.hex           \
+    --exclude *.map           \
+    --exclude *.tar.gz        \
+    --exclude obj             \
+    --exclude .gitmodules     \
+    --transform "s,^,$name/," \
     -zcf $name.tar.gz .
 echo "done."
-
-exit 0
-
-# Create the tag in the local git repository clone. Fail if the tag already
-# exists. Create a signed and annotated tag.
-git tag -s -a "$new_tag" -m "Version $version"
 
 # Build both release and debug versions of the firmware binary
 make release
