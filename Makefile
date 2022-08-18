@@ -230,27 +230,36 @@ build_date := $(shell date "+%Y-%b-%d %H:%M:%S %Z")
 # is not part of the version string and thus should not be included in the
 # sources because then AT commands like AT$VER would (incorrectly) return it.
 
-git_describe := git describe --abbrev=8 --always --dirty=' (modified)' | \
+git_describe := git describe --abbrev=8 --always --dirty=' (modified)' 2>/dev/null | \
 	sed -Ee 's/^v(([0-9]+\.){2}[0-9]+)/\1/'
 
 tmp := $(shell \
 	mkdir -p $(OBJ_DIR); \
 	f=$(OBJ_DIR)/version; \
-	cur=`$(git_describe) 2>/dev/null`; \
+	cur=`$(git_describe)`; \
+	[ -z "$$cur" ] && cur=`cat VERSION 2>/dev/null`; \
 	[ -r $$f ] && prev=`cat $$f`; \
 	[ -n "$$prev" -a "$$prev" = "$$cur" ] && exit 0; \
 	echo "$$cur" > $$f)
 version := $(strip $(shell cat $(OBJ_DIR)/version))
 
+ifeq (,$(version))
+$(error Could not detect firmware version)
+endif
 
 tmp := $(shell \
 	mkdir -p $(OBJ_DIR); \
 	f=$(OBJ_DIR)/lib_version; \
-	cur=`(cd lib/loramac-node; $(git_describe) 2>/dev/null)`; \
+	cur=`(cd lib/loramac-node; $(git_describe))`; \
+	[ -z "$$cur" ] && cur=`cat LIB_VERSION 2>/dev/null`; \
 	[ -r $$f ] && prev=`cat $$f`; \
 	[ -n "$$prev" -a "$$prev" = "$$cur" ] && exit 0; \
 	echo "$$cur" > $$f)
 lib_version := $(strip $(shell cat $(OBJ_DIR)/lib_version))
+
+ifeq (,$(version))
+$(error Could not detect LoRaMac-node version)
+endif
 
 endif
 
