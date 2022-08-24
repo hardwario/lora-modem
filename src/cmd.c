@@ -534,6 +534,10 @@ static void join(atci_param_t *param)
 {
     uint32_t datarate = DR_0;
 
+    // If we are not in OTAA mode, abort with -14 just like the original Murata
+    // Modem firmware.
+    if (lrw_get_mode() == 0) abort(ERR_NO_OTAA);
+
     // Configure the default number of OTAA Join transmissions to nine. In
     // regions that use all 64 channels (such as US915), this is the number of
     // retransmissions that is needed for the Join retransmissions to cycle
