@@ -686,9 +686,7 @@ static void set_defaults(void)
 #endif
 
     // The original firmware configures the node in ABP mode by default
-    r.Type = MIB_NETWORK_ACTIVATION;
-    r.Param.NetworkActivation = ACTIVATION_TYPE_ABP;
-    LoRaMacMibSetRequestConfirm(&r);
+    lrw_set_mode(0);
 
     // Disable LoRaWAN certification port by default
     r.Type = MIB_IS_CERT_FPORT_ON;
