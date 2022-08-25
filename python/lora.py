@@ -551,7 +551,7 @@ class TypeABZ:
 
             print(f'< {msg.decode("ascii", errors="replace")}')
 
-        self.port.write(cmd + b'\r\n')
+        self.port.write(cmd + b'\r')
         if flush:
             self.flush()
 
@@ -2078,10 +2078,7 @@ class MurataModem(ATCI):
         with self.modem.lock:
             with self.modem.events as events:
                 self.modem.AT(f'+{type}TX {len(data)}', wait=False, flush=False)
-                if hex:
-                    self.modem.port.write(binascii.hexlify(data))
-                else:
-                    self.modem.port.write(data)
+                self.modem.port.write(binascii.hexlify(data) if hex else data)
                 self.modem.flush()
                 self.modem.read_inline_response()
                 if confirmed:
@@ -3816,7 +3813,7 @@ def trx(get_modem: Callable[[], OpenLoRaModem], encoding, delimiter: str, messag
 
     modem = get_modem()
 
-    hex = modem.data_encoding == 1
+    hex = modem.data_encoding == DataFormat.HEXADECIMAL
     delim = delimiter.encode('utf-8')
     if len(delim) != 1:
         raise Exception('Delimiter must be a single-byte character')
