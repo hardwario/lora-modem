@@ -3927,7 +3927,7 @@ def trx(get_modem: Callable[[], OpenLoRaModem], encoding, delimiter: str, messag
         else:
             raise Exception('Invalid input format')
 
-    with modem.events as events:
+    with modem.modem.events as events:
         events.on('message', on_message)
         if message is not None:
             send(message.encode('utf-8'))
