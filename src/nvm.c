@@ -13,22 +13,27 @@
 
 #define NUMBER_OF_PARTS 8
 
+
 /* The following partition sizes have been derived from the in-memory size of
- * the corresponding data structure in LoRaMac-node v4.6.0. The sizes have been
- * rounded up to leave some space for expansion in future versions.
+ * the corresponding data structures in our fork of LoRaMac-node v4.6.0. The
+ * sizes have been rounded up to leave some space for expansion in future
+ * versions. Whenever LoRaMac-node is modified, these sizes need to be
+ * reevaluated to make sure that each part is large enough to hold its data
+ * structure. Please note that the size of individual data structures depends,
+ * among other things, on the regions compiled into the firmware.
  */
-#define SYSCONF_PART_SIZE  128  // sizeof(sysconf_t)              ==   16
-#define CRYPTO_PART_SIZE   128  // sizeof(LoRaMacCryptoNvmData_t) ==   56
-#define MAC1_PART_SIZE      64  // sizeof(LoRaMacNvmDataGroup1_t) ==   32
-#define MAC2_PART_SIZE     512  // sizeof(LoRaMacNvmDataGroup2_t) ==  384
-#define SE_PART_SIZE       512  // sizeof(SecureElementNvmData_t) ==  416
-#define REGION1_PART_SIZE   32  // sizeof(RegionNvmDataGroup1_t)  ==   20
-#define REGION2_PART_SIZE 1536  // sizeof(RegionNvmDataGroup2_t)  == 1184
-#define CLASSB_PART_SIZE    32  // sizeof(LoRaMacClassBNvmData_t) ==   24
+#define SYSCONF_PART_SIZE  128
+#define CRYPTO_PART_SIZE   128
+#define MAC1_PART_SIZE      64
+#define MAC2_PART_SIZE     512
+#define SE_PART_SIZE       512
+#define REGION1_PART_SIZE   32
+#define REGION2_PART_SIZE 1536
+#define CLASSB_PART_SIZE    32
 
 
 // Make sure each data structure fits into its fixed-size partition
-static_assert(sizeof(sysconf) <= SYSCONF_PART_SIZE, "system config NVM data too long");
+static_assert(sizeof(sysconf_t) <= SYSCONF_PART_SIZE, "system config NVM data too long");
 static_assert(sizeof(LoRaMacCryptoNvmData_t) <= CRYPTO_PART_SIZE, "Crypto NVM data too long");
 static_assert(sizeof(LoRaMacNvmDataGroup1_t) <= MAC1_PART_SIZE, "MacGroup1 NVM data too long");
 static_assert(sizeof(LoRaMacNvmDataGroup2_t) <= MAC2_PART_SIZE, "MacGroup2 NVM data too long");
