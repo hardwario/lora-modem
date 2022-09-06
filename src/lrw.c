@@ -326,6 +326,7 @@ static void recv(uint8_t port, uint8_t *buffer, uint8_t length)
     } else {
         atci_write((char *) buffer, length);
     }
+    atci_write("\r\n", 2);
 }
 
 
