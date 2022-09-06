@@ -237,6 +237,9 @@ static void facnew(atci_param_t *param)
     if (param != NULL) {
         if (!atci_param_get_uint(param, &flags))
             abort(ERR_PARAM);
+
+        if (param->offset != param->length)
+            abort(ERR_PARAM_NO);
     }
 
     // Function lrw_factory_reset performs a lengthy operation whose status is
@@ -274,6 +277,8 @@ static void set_band(atci_param_t *param)
     if (!atci_param_get_uint(param, &value)) abort(ERR_PARAM);
     if (value > 9) abort(ERR_PARAM);
 
+    if (param->offset != param->length) abort(ERR_PARAM_NO);
+
     int rv = lrw_set_region(value);
     abort_on_error(rv);
 
@@ -304,6 +309,8 @@ static void set_class(atci_param_t *param)
     // can be configured with this command.
     if (v != 0 && v != 2) abort(ERR_PARAM);
 
+    if (param->offset != param->length) abort(ERR_PARAM_NO);
+
     abort_on_error(lrw_set_class(v));
     OK_();
 }
@@ -320,6 +327,8 @@ static void set_mode(atci_param_t *param)
     uint32_t v;
     if (!atci_param_get_uint(param, &v)) abort(ERR_PARAM);
     if (v > 1) abort(ERR_PARAM);
+
+    if (param->offset != param->length) abort(ERR_PARAM_NO);
 
     abort_on_error(lrw_set_mode(v));
     OK_();
@@ -554,6 +563,8 @@ static void join(atci_param_t *param)
 
             if (!atci_param_get_uint(param, &tries)) abort(ERR_PARAM);
             if (tries < 1 || tries > 16) abort(ERR_PARAM);
+
+            if (param->offset != param->length) abort(ERR_PARAM_NO);
         }
     }
 
@@ -639,6 +650,8 @@ static void set_rfparam(atci_param_t *param)
         if (!atci_param_get_uint(param, &max_dr)) abort(ERR_PARAM);
         if (max_dr > INT8_MAX) abort(ERR_PARAM);
 
+        if (param->offset != param->length) abort(ERR_PARAM_NO);
+
         ChannelParams_t params = { .Frequency = freq };
         params.DrRange.Fields.Min = min_dr;
         params.DrRange.Fields.Max = max_dr;
@@ -675,6 +688,8 @@ static void set_rfpower_comp(atci_param_t *param)
 
     if (!atci_param_get_uint(param, &val)) abort(ERR_PARAM);
     if (val > 15) abort(ERR_PARAM);
+
+    if (param->offset != param->length) abort(ERR_PARAM_NO);
 
     MibRequestConfirm_t r = {
         .Type  = MIB_CHANNELS_DEFAULT_TX_POWER,
@@ -752,6 +767,8 @@ static void set_dr_comp(atci_param_t *param)
     if (!atci_param_get_uint(param, &val)) abort(ERR_PARAM);
     if (val > 15) abort(ERR_PARAM);
 
+    if (param->offset != param->length) abort(ERR_PARAM_NO);
+
     MibRequestConfirm_t r = {
         .Type  = MIB_CHANNELS_DEFAULT_DATARATE,
         .Param = { .ChannelsDefaultDatarate = val }
@@ -803,6 +820,8 @@ static void set_delay(atci_param_t *param)
     if (!atci_param_is_comma(param)) abort(ERR_PARAM);
     if (!atci_param_get_uint(param, &rx2)) abort(ERR_PARAM);
 
+    if (param->offset != param->length) abort(ERR_PARAM_NO);
+
     r.Type = MIB_JOIN_ACCEPT_DELAY_1;
     r.Param.JoinAcceptDelay1 = join1;
     abort_on_error(LoRaMacMibSetRequestConfirm(&r));
@@ -850,6 +869,8 @@ static void set_adrack(atci_param_t *param)
     if (!atci_param_get_uint(param, &delay)) abort(ERR_PARAM);
     if (delay > UINT16_MAX) abort(ERR_PARAM);
 
+    if (param->offset != param->length) abort(ERR_PARAM_NO);
+
     MibRequestConfirm_t r = { .Type = MIB_ADR_ACK_LIMIT };
     r.Param.AdrAckLimit = limit;
     abort_on_error(LoRaMacMibSetRequestConfirm(&r));
@@ -887,6 +908,7 @@ static void set_rx2_comp(atci_param_t *param)
     if (!atci_param_is_comma(param)) abort(ERR_PARAM);
     if (!atci_param_get_uint(param, &dr)) abort(ERR_PARAM);
     if (dr > 15) abort(ERR_PARAM);
+    if (param->offset != param->length) abort(ERR_PARAM_NO);
 
     MibRequestConfirm_t r = {
         .Type = MIB_RX2_DEFAULT_CHANNEL,
@@ -935,10 +957,9 @@ static void set_sleep(atci_param_t *param)
 {
     uint32_t v;
 
-    if (!atci_param_get_uint(param, &v))
-        abort(ERR_PARAM);
-
+    if (!atci_param_get_uint(param, &v)) abort(ERR_PARAM);
     if (v > 1) abort(ERR_PARAM);
+    if (param->offset != param->length) abort(ERR_PARAM_NO);
 
     sysconf.sleep = v;
     sysconf_modified = true;
@@ -956,6 +977,7 @@ static void set_port(atci_param_t *param)
 {
     int p = parse_port(param);
     if (p < 0) abort(ERR_PARAM);
+    if (param->offset != param->length) abort(ERR_PARAM_NO);
 
     sysconf.default_port = p;
     sysconf_modified = true;
@@ -974,6 +996,7 @@ static void set_rep(atci_param_t *param)
     uint32_t v;
     if (!atci_param_get_uint(param, &v)) abort(ERR_PARAM);
     if (v < 1 || v > 15) abort(ERR_PARAM);
+    if (param->offset != param->length) abort(ERR_PARAM_NO);
 
     sysconf.unconfirmed_retransmissions = v;
     sysconf_modified = true;
@@ -991,11 +1014,9 @@ static void set_dformat(atci_param_t *param)
 {
     uint32_t v;
 
-    if (!atci_param_get_uint(param, &v))
-        abort(ERR_PARAM);
-
-    if (v != 0 && v != 1)
-        abort(ERR_PARAM);
+    if (!atci_param_get_uint(param, &v)) abort(ERR_PARAM);
+    if (v != 0 && v != 1) abort(ERR_PARAM);
+    if (param->offset != param->length) abort(ERR_PARAM_NO);
 
     sysconf.data_format = v;
     sysconf_modified = true;
@@ -1014,11 +1035,9 @@ static void set_to(atci_param_t *param)
 {
     uint32_t v;
 
-    if (!atci_param_get_uint(param, &v))
-        abort(ERR_PARAM);
-
-    if (v < 1 || v > 65535)
-        abort(ERR_PARAM);
+    if (!atci_param_get_uint(param, &v)) abort(ERR_PARAM);
+    if (v < 1 || v > 65535) abort(ERR_PARAM);
+    if (param->offset != param->length) abort(ERR_PARAM_NO);
 
     sysconf.uart_timeout = v;
     sysconf_modified = true;
@@ -1069,17 +1088,16 @@ static void utx(atci_param_t *param)
     uint32_t size;
     port = sysconf.default_port;
 
-    if (param == NULL) abort(ERR_PARAM);
-    if (!atci_param_get_uint(param, &size))
-        abort(ERR_PARAM);
+    if (param == NULL) abort(ERR_PARAM_NO);
+    if (!atci_param_get_uint(param, &size)) abort(ERR_PARAM);
 
     // The maximum payload size in LoRaWAN seems to be 242 bytes (US region) in
     // the most favorable conditions. If the payload is transmitted hex-encoded
     // by the client, we need to read twice as much data.
-
     unsigned int mul = sysconf.data_format == 1 ? 2 : 1;
-    if (size > 242 * mul)
-        abort(ERR_PAYLOAD_LONG);
+    if (size > 242 * mul) abort(ERR_PAYLOAD_LONG);
+
+    if (param->offset != param->length) abort(ERR_PARAM_NO);
 
     TimerInit(&payload_timer, payload_timeout);
     TimerSetValue(&payload_timer, sysconf.uart_timeout);
@@ -1094,7 +1112,6 @@ static void utx(atci_param_t *param)
 
 static void ctx(atci_param_t *param)
 {
-    (void)param;
     utx(param);
     request_confirmation = true;
 }
@@ -1157,6 +1174,8 @@ static void set_mcast(atci_param_t *param)
         if (atci_param_get_buffer_from_hex(param, appskey, SE_KEY_SIZE, SE_KEY_SIZE * 2) != SE_KEY_SIZE)
             abort(ERR_PARAM);
 
+        if (param->offset != param->length) abort(ERR_PARAM_NO);
+
         McChannelParams_t c = {
             .IsEnabled = true,
             .IsRemotelySetup = false,
@@ -1186,14 +1205,11 @@ static void set_mcast(atci_param_t *param)
 
 static void putx(atci_param_t *param)
 {
-    int p;
-
-    if (param == NULL) abort(ERR_PARAM);
-    p = parse_port(param);
+    if (param == NULL) abort(ERR_PARAM_NO);
+    int p = parse_port(param);
     if (p < 0) abort(ERR_PARAM);
 
-    if (!atci_param_is_comma(param))
-        abort(ERR_PARAM);
+    if (!atci_param_is_comma(param)) abort(ERR_PARAM);
 
     utx(param);
     port = p;
@@ -1223,7 +1239,7 @@ static void cw(atci_param_t *param)
     if (timeout > UINT16_MAX) abort(ERR_PARAM);
 
     // Make sure there are no additional parameters that we don't understand.
-    if (param->offset != param->length) abort(ERR_PARAM);
+    if (param->offset != param->length) abort(ERR_PARAM_NO);
 
     log_debug("$CW: freq=%ld Hz power=%ld dBm timeout=%ld s", freq, power, timeout);
 
@@ -1293,7 +1309,7 @@ static void cm(atci_param_t *param)
     if (timeout > UINT16_MAX) abort(ERR_PARAM);
 
     // Make sure there are no additional parameters that we don't understand.
-    if (param->offset != param->length) abort(ERR_PARAM);
+    if (param->offset != param->length) abort(ERR_PARAM_NO);
 
     log_debug("$CM: freq=%ld Hz fdev=%ld Hz datarate=%ld Bd power=%ld dBm timeout=%ld s",
         freq, fdev, datarate, power, timeout);
@@ -1436,14 +1452,15 @@ static void set_dwell(atci_param_t *param)
         default : abort(ERR_PARAM);
     }
 
-    if (!atci_param_is_comma(param))
-        abort(ERR_PARAM);
+    if (!atci_param_is_comma(param)) abort(ERR_PARAM);
 
     switch (param->txt[param->offset++]) {
         case '0': downlink = false; break;
         case '1': downlink = true; break;
         default : abort(ERR_PARAM);
     }
+
+    if (param->offset != param->length) abort(ERR_PARAM_NO);
 
     abort_on_error(lrw_set_dwell(uplink, downlink));
     OK_();
@@ -1461,8 +1478,8 @@ static void set_maxeirp(atci_param_t *param)
 {
     uint32_t val;
 
-    if (!atci_param_get_uint(param, &val))
-        abort(ERR_PARAM);
+    if (!atci_param_get_uint(param, &val)) abort(ERR_PARAM);
+    if (param->offset != param->length) abort(ERR_PARAM_NO);
 
     lrw_set_maxeirp(val);
     OK_();
@@ -1487,6 +1504,7 @@ static void set_rssith(atci_param_t *param)
 
     if (!atci_param_get_int(param, &rssi)) abort(ERR_PARAM);
     if (rssi < INT16_MIN || rssi > INT16_MAX) abort(ERR_PARAM);
+    if (param->offset != param->length) abort(ERR_PARAM_NO);
 
     MibRequestConfirm_t r = { .Type = MIB_RSSI_FREE_THRESHOLD };
     r.Param.RssiFreeThreshold = rssi;
@@ -1516,6 +1534,7 @@ static void set_cst(atci_param_t *param)
     uint32_t cst;
 
     if (!atci_param_get_uint(param, &cst)) abort(ERR_PARAM);
+    if (param->offset != param->length) abort(ERR_PARAM_NO);
 
     MibRequestConfirm_t r = { .Type = MIB_CARRIER_SENSE_TIME };
     r.Param.CarrierSenseTime = cst;
@@ -1566,7 +1585,7 @@ static void set_chmask_comp(atci_param_t *param)
     if (!parse_chmask(chmask, sizeof(chmask), param)) abort(ERR_PARAM);
 
     // Make sure all data from the value have been consumed
-    if (param->length != param->offset) abort(ERR_PARAM);
+    if (param->length != param->offset) abort(ERR_PARAM_NO);
 
     // First set the default channel mask. The default channel mask is the
     // channel mask used before Join or ADR.
@@ -1596,6 +1615,8 @@ static void set_rtynum(atci_param_t *param)
     uint32_t v;
     if (!atci_param_get_uint(param, &v)) abort(ERR_PARAM);
     if (v < 1 || v > 15) abort(ERR_PARAM);
+
+    if (param->offset != param->length) abort(ERR_PARAM_NO);
 
     sysconf.confirmed_retransmissions = v;
     sysconf_modified = true;
@@ -1780,7 +1801,7 @@ static void set_chmask(atci_param_t *param)
     if (!parse_chmask(chmask2, sizeof(chmask2), param)) abort(ERR_PARAM);
 
     // Make sure all data from the value have been consumed
-    if (param->length != param->offset) abort(ERR_PARAM);
+    if (param->length != param->offset) abort(ERR_PARAM_NO);
 
     MibRequestConfirm_t r = {
         .Type  = MIB_CHANNELS_DEFAULT_MASK,
@@ -1826,6 +1847,8 @@ static void set_rx2(atci_param_t *param)
 
     if (dr1 > 15 || dr2 > 15) abort(ERR_PARAM);
 
+    if (param->offset != param->length) abort(ERR_PARAM_NO);
+
     MibRequestConfirm_t r = {
         .Type = MIB_RX2_DEFAULT_CHANNEL,
         .Param = {
@@ -1869,6 +1892,8 @@ static void set_dr(atci_param_t *param)
 
     if (!atci_param_get_uint(param, &val2)) abort(ERR_PARAM);
     if (val2 > 15) abort(ERR_PARAM);
+
+    if (param->offset != param->length) abort(ERR_PARAM_NO);
 
     MibRequestConfirm_t r = {
         .Type  = MIB_CHANNELS_DEFAULT_DATARATE,
@@ -1922,6 +1947,8 @@ static void set_rfpower(atci_param_t *param)
     if (!atci_param_get_uint(param, &val2)) abort(ERR_PARAM);
     if (val2 > 15) abort(ERR_PARAM);
 
+    if (param->offset != param->length) abort(ERR_PARAM_NO);
+
     MibRequestConfirm_t r = {
         .Type  = MIB_CHANNELS_DEFAULT_TX_POWER,
         .Param = { .ChannelsDefaultTxPower = val2 }
@@ -1951,6 +1978,8 @@ static void set_loglevel(atci_param_t *param)
         abort(ERR_PARAM);
 
     if (level > 5) abort(ERR_PARAM);
+
+    if (param->offset != param->length) abort(ERR_PARAM_NO);
 
     log_set_level(level);
     OK_();
@@ -2108,11 +2137,11 @@ void cmd_init(unsigned int baudrate)
 
 void cmd_event(unsigned int type, unsigned int subtype)
 {
-    atci_printf("+EVENT=%d,%d\r\n\r\n", type, subtype);
+    atci_printf("+EVENT=%d,%d" ATCI_EOL, type, subtype);
 }
 
 
 void cmd_ans(unsigned int margin, unsigned int gwcnt)
 {
-    atci_printf("+ANS=2,%d,%d\r\n\r\n", margin, gwcnt);
+    atci_printf("+ANS=2,%d,%d" ATCI_EOL, margin, gwcnt);
 }
