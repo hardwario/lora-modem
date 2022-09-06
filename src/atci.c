@@ -9,7 +9,6 @@
 #include "system.h"
 #include "irq.h"
 
-#define UNKNOWN_CMD "+ERR=-1\r\n\r\n"
 
 enum parser_state
 {
@@ -18,9 +17,6 @@ enum parser_state
     ATCI_ATTENTION_STATE
 };
 
-static void _atci_process_character(char character);
-static void _atci_process_command(void);
-static void finish_next_data(atci_data_status_t status);
 
 static struct
 {
@@ -30,7 +26,7 @@ static struct
     size_t rx_length;
     bool rx_error;
     bool aborted;
-    enum parser_state state;
+    enum parser_state parser_state;
 
     char tmp[256];
 
@@ -41,59 +37,19 @@ static struct
         void (*callback)(atci_data_status_t status, atci_param_t *param);
     } read_next_data;
 
-} _atci;
+} state;
+
 
 void atci_init(unsigned int baudrate, const atci_command_t *commands, int length)
 {
-    memset(&_atci, 0, sizeof(_atci));
+    memset(&state, 0, sizeof(state));
 
     lpuart_init(baudrate);
 
-    _atci.commands = commands;
-    _atci.commands_length = length;
+    state.commands = commands;
+    state.commands_length = length;
 }
 
-void atci_process(void)
-{
-    uint32_t masked;
-    cbuf_view_t data;
-
-    masked = disable_irq();
-    system_sleep_lock &= ~SYSTEM_MODULE_ATCI;
-    reenable_irq(masked);
-
-    while (true)
-    {
-        if (_atci.aborted)
-        {
-            finish_next_data(ATCI_DATA_ABORTED);
-            _atci.aborted = false;
-        }
-
-        masked = disable_irq();
-        cbuf_head(&lpuart_rx_fifo, &data);
-        reenable_irq(masked);
-
-        if ((data.len[0] + data.len[1]) == 0)
-        {
-            break;
-        }
-
-        for (size_t i = 0; i < data.len[0]; i++)
-        {
-            _atci_process_character((char)data.ptr[0][i]);
-        }
-
-        for (size_t i = 0; i < data.len[1]; i++)
-        {
-            _atci_process_character((char)data.ptr[1][i]);
-        }
-
-        masked = disable_irq();
-        cbuf_consume(&lpuart_rx_fifo, data.len[0] + data.len[1]);
-        reenable_irq(masked);
-    }
-}
 
 size_t atci_print(const char *message)
 {
@@ -102,42 +58,42 @@ size_t atci_print(const char *message)
     return len;
 }
 
+
 size_t atci_printf(const char *format, ...)
 {
     va_list ap;
     size_t length;
     va_start(ap, format);
-    length = vsnprintf(_atci.tmp, sizeof(_atci.tmp), format, ap);
+    length = vsnprintf(state.tmp, sizeof(state.tmp), format, ap);
     va_end(ap);
 
-    if (length > sizeof(_atci.tmp))
-    {
-        length = sizeof(_atci.tmp);
-    }
+    if (length > sizeof(state.tmp))
+        length = sizeof(state.tmp);
 
-    lpuart_write_blocking(_atci.tmp, length);
+    lpuart_write_blocking(state.tmp, length);
     return length;
 }
+
 
 size_t atci_print_buffer_as_hex(const void *buffer, size_t length)
 {
     char byte;
     size_t on_write = 0;
 
-    for (size_t i = 0; i < length; i++)
-    {
+    for (size_t i = 0; i < length; i++) {
         byte = ((char *)buffer)[i];
 
         char upper = (byte >> 4) & 0xf;
         char lower = byte & 0x0f;
 
-        _atci.tmp[on_write++] = upper < 10 ? upper + '0' : upper - 10 + 'A';
-        _atci.tmp[on_write++] = lower < 10 ? lower + '0' : lower - 10 + 'A';
+        state.tmp[on_write++] = upper < 10 ? upper + '0' : upper - 10 + 'A';
+        state.tmp[on_write++] = lower < 10 ? lower + '0' : lower - 10 + 'A';
     }
 
-    lpuart_write_blocking(_atci.tmp, on_write);
+    lpuart_write_blocking(state.tmp, on_write);
     return on_write;
 }
+
 
 size_t atci_write(const char *buffer, size_t length)
 {
@@ -145,25 +101,15 @@ size_t atci_write(const char *buffer, size_t length)
     return length;
 }
 
+
 static int hex2bin(char c)
 {
-    if ((c >= '0') && (c <= '9'))
-    {
-        return c - '0';
-    }
-    else if ((c >= 'A') && (c <= 'F'))
-    {
-        return c - 'A' + 10;
-    }
-    else if ((c >= 'a') && (c <= 'f'))
-    {
-        return c - 'a' + 10;
-    }
-    else
-    {
-        return -1;
-    }
+    if ((c >= '0') && (c <= '9')) return c - '0';
+    else if ((c >= 'A') && (c <= 'F')) return c - 'A' + 10;
+    else if ((c >= 'a') && (c <= 'f')) return c - 'a' + 10;
+    else return -1;
 }
+
 
 size_t atci_param_get_buffer_from_hex(atci_param_t *param, void *buffer, size_t length, size_t param_length)
 {
@@ -177,9 +123,8 @@ size_t atci_param_get_buffer_from_hex(atci_param_t *param, void *buffer, size_t 
         return 0;
     }
 
-    if ((buffer == NULL) || (length < param_length / 2)) {
+    if ((buffer == NULL) || (length < param_length / 2))
         return 0;
-    }
 
     for (i = 0; (i < max_i) && (param_length - i); i++) {
         c = param->txt[param->offset++];
@@ -197,32 +142,22 @@ size_t atci_param_get_buffer_from_hex(atci_param_t *param, void *buffer, size_t 
     return l;
 }
 
+
 bool atci_param_get_uint(atci_param_t *param, uint32_t *value)
 {
-    if (param->offset >= param->length)
-    {
-        return false;
-    }
+    if (param->offset >= param->length) return false;
 
     char c;
-
     *value = 0;
 
-    while (param->offset < param->length)
-    {
+    while (param->offset < param->length) {
         c = param->txt[param->offset];
 
-        if (isdigit(c))
-        {
+        if (isdigit(c)) {
             *value *= 10;
             *value += c - '0';
-        }
-        else
-        {
-            if (c == ',')
-            {
-                return true;
-            }
+        } else {
+            if (c == ',') return true;
             return false;
         }
 
@@ -232,12 +167,11 @@ bool atci_param_get_uint(atci_param_t *param, uint32_t *value)
     return true;
 }
 
+
 bool atci_param_get_int(atci_param_t *param, int32_t *value)
 {
     if (param->offset >= param->length)
-    {
         return false;
-    }
 
     char c = param->txt[param->offset];
 
@@ -249,14 +183,16 @@ bool atci_param_get_int(atci_param_t *param, int32_t *value)
     return rv;
 }
 
+
 bool atci_param_is_comma(atci_param_t *param)
 {
     return param->txt[param->offset++] == ',';
 }
 
+
 bool atci_set_read_next_data(size_t length, atci_encoding_t encoding, void (*callback)(atci_data_status_t status, atci_param_t *param))
 {
-    if (sizeof(_atci.rx_buffer) <= length)
+    if (sizeof(state.rx_buffer) <= length)
         return false;
 
     if (length == 0) {
@@ -267,183 +203,164 @@ bool atci_set_read_next_data(size_t length, atci_encoding_t encoding, void (*cal
         return true;
     }
 
-    _atci.read_next_data.length = length;
-    _atci.read_next_data.encoding = encoding;
-    _atci.read_next_data.callback = callback;
+    state.read_next_data.length = length;
+    state.read_next_data.encoding = encoding;
+    state.read_next_data.callback = callback;
 
     return true;
 }
 
+
 void atci_abort_read_next_data(void)
 {
-    _atci.aborted = true;
+    state.aborted = true;
     uint32_t mask = disable_irq();
     system_sleep_lock |= SYSTEM_MODULE_ATCI;
     reenable_irq(mask);
-
 }
+
 
 void atci_clac_action(atci_param_t *param)
 {
     (void)param;
-    for (size_t i = 0; i < _atci.commands_length; i++)
-    {
-        atci_printf("AT%s\r\n", _atci.commands[i].command);
-    }
-    lpuart_write_blocking("+OK\r\n\r\n", 7);
+    for (size_t i = 0; i < state.commands_length; i++)
+        atci_printf("AT%s\r\n", state.commands[i].command);
+
+    lpuart_write_blocking(ATCI_OK, ATCI_OK_LEN);
 }
+
 
 void atci_help_action(atci_param_t *param)
 {
     (void)param;
-    for (size_t i = 0; i < _atci.commands_length; i++)
-    {
-        atci_printf("AT%s %s\r\n", _atci.commands[i].command, _atci.commands[i].hint);
-    }
-    lpuart_write_blocking("+OK\r\n\r\n", 7);
+    for (size_t i = 0; i < state.commands_length; i++)
+        atci_printf("AT%s %s\r\n", state.commands[i].command, state.commands[i].hint);
+
+    lpuart_write_blocking(ATCI_OK, ATCI_OK_LEN);
 }
 
-static void _atci_process_command(void)
-{
-    log_debug("ATCI: %s", _atci.rx_buffer);
-
-    if (_atci.rx_length < 2 || _atci.rx_buffer[0] != 'A' || _atci.rx_buffer[1] != 'T')
-    {
-        return;
-    }
-
-    if (_atci.rx_length == 2)
-    {
-        lpuart_write_blocking("+OK\r\n\r\n", 7);
-        return;
-    }
-
-    _atci.rx_buffer[_atci.rx_length] = 0;
-
-    char *name = _atci.rx_buffer + 2;
-
-    size_t length = _atci.rx_length - 2;
-
-    size_t command_len;
-
-    const atci_command_t *command;
-
-    for (size_t i = 0; i < _atci.commands_length; i++)
-    {
-        command = _atci.commands + i;
-
-        command_len = strlen(command->command);
-
-        if (length < command_len)
-        {
-            continue;
-        }
-
-        if (strncmp(name, command->command, command_len) != 0)
-        {
-            continue;
-        }
-
-        if (command_len == length)
-        {
-            if (command->action != NULL)
-            {
-                command->action(NULL);
-                return;
-            }
-        }
-        else if (name[command_len] == '=')
-        {
-            if ((name[command_len + 1]) == '?' && (command_len + 2 == length))
-            {
-                if (command->help != NULL)
-                {
-                    command->help();
-                    return;
-                }
-            }
-
-            if (command->set != NULL)
-            {
-                atci_param_t param = {
-                    .txt = name + command_len + 1,
-                    .length = length - command_len - 1,
-                    .offset = 0};
-
-                command->set(&param);
-                return;
-            }
-        }
-        else if (name[command_len] == '?' && command_len + 1 == length)
-        {
-            if (command->read != NULL)
-            {
-                command->read();
-                return;
-            }
-        }
-        else if (name[command_len] == ' ' && command_len + 1 < length)
-        {
-            if (command->action != NULL)
-            {
-                atci_param_t param = {
-                    .txt = name + command_len + 1,
-                    .length = length - command_len - 1,
-                    .offset = 0};
-
-                command->action(&param);
-                return;
-            }
-        }
-    }
-
-    lpuart_write_blocking(UNKNOWN_CMD, sizeof(UNKNOWN_CMD) - 1);
-}
 
 static void finish_next_data(atci_data_status_t status)
 {
-    _atci.read_next_data.length = 0;
-    _atci.read_next_data.encoding = ATCI_ENCODING_BIN;
-    _atci.rx_buffer[_atci.rx_length] = 0;
+    state.read_next_data.length = 0;
+    state.read_next_data.encoding = ATCI_ENCODING_BIN;
+    state.rx_buffer[state.rx_length] = 0;
 
-    if (_atci.read_next_data.callback != NULL)
-    {
+    if (state.read_next_data.callback != NULL) {
         atci_param_t param = {
-            .txt = _atci.rx_buffer,
-            .length = _atci.rx_length,
+            .txt = state.rx_buffer,
+            .length = state.rx_length,
             .offset = 0
         };
-        _atci.read_next_data.callback(status, &param);
+        state.read_next_data.callback(status, &param);
     }
 
-    _atci.rx_length = 0;
+    state.rx_length = 0;
 }
 
-static void _atci_process_data(char character)
+
+static void process_command(void)
+{
+    log_debug("ATCI: %s", state.rx_buffer);
+
+    if (state.rx_length < 2) return;
+    if (state.rx_buffer[0] != 'A' && state.rx_buffer[0] != 'a') return;
+    if (state.rx_buffer[1] != 'T' && state.rx_buffer[1] != 't') return;
+
+    if (state.rx_length == 2) {
+        lpuart_write_blocking(ATCI_OK, ATCI_OK_LEN);
+        return;
+    }
+
+    state.rx_buffer[state.rx_length] = 0;
+
+    for(size_t i = 2; i < state.rx_length; i++)
+        switch(state.rx_buffer[i]) {
+            case '=':
+            case '?':
+            case ' ':
+                break;
+
+            default:
+                state.rx_buffer[i] = toupper(state.rx_buffer[i]);
+                break;
+        }
+
+    char *name = state.rx_buffer + 2;
+    size_t name_len = state.rx_length - 2;
+
+    const atci_command_t *cmd;
+    size_t cmd_len;
+    for (size_t i = 0; i < state.commands_length; i++) {
+        cmd = state.commands + i;
+        cmd_len = strlen(cmd->command);
+
+        if (name_len < cmd_len) continue;
+        if (strncmp(name, cmd->command, cmd_len) != 0) continue;
+
+        if (cmd_len == name_len) {
+            if (cmd->action != NULL) {
+                cmd->action(NULL);
+                return;
+            }
+        } else if (name[cmd_len] == '=') {
+            if (name[cmd_len + 1] == '?' && (cmd_len + 2 == name_len) && cmd->help) {
+                cmd->help();
+                return;
+            }
+
+            if (cmd->set != NULL) {
+                atci_param_t param = {
+                    .txt    = name + cmd_len + 1,
+                    .length = name_len - cmd_len - 1,
+                    .offset = 0
+                };
+                cmd->set(&param);
+                return;
+            }
+        } else if (name[cmd_len] == '?' && cmd_len + 1 == name_len) {
+            if (cmd->read != NULL) {
+                cmd->read();
+                return;
+            }
+        } else if (name[cmd_len] == ' ' && cmd_len + 1 < name_len) {
+            if (cmd->action != NULL) {
+                atci_param_t param = {
+                    .txt    = name + cmd_len + 1,
+                    .length = name_len - cmd_len - 1,
+                    .offset = 0
+                };
+                cmd->action(&param);
+                return;
+            }
+        }
+    }
+
+    lpuart_write_blocking(ATCI_UNKNOWN_CMD, ATCI_UKNOWN_CMD_LEN);
+}
+
+
+static void process_data(char character)
 {
     int c;
     static bool even = true;
 
-    switch(_atci.read_next_data.encoding)
-    {
+    switch(state.read_next_data.encoding) {
         case ATCI_ENCODING_BIN:
-            _atci.rx_buffer[_atci.rx_length++] = character;
+            state.rx_buffer[state.rx_length++] = character;
             break;
 
         case ATCI_ENCODING_HEX:
             c = hex2bin(character);
             if (c < 0) {
-                _atci.rx_error = true;
+                state.rx_error = true;
                 break;
             }
-            if (even)
-            {
-                _atci.rx_buffer[_atci.rx_length] = c << 4;
+            if (even) {
+                state.rx_buffer[state.rx_length] = c << 4;
                 even = false;
-            }
-            else
-            {
-                _atci.rx_buffer[_atci.rx_length++] |= c;
+            } else {
+                state.rx_buffer[state.rx_length++] |= c;
                 even = true;
             }
             break;
@@ -453,82 +370,69 @@ static void _atci_process_data(char character)
             break;
     }
 
-    if (_atci.read_next_data.length == _atci.rx_length || _atci.rx_error)
-    {
+    if (state.read_next_data.length == state.rx_length || state.rx_error) {
         even = true;
-        finish_next_data(_atci.rx_error ? ATCI_DATA_ENCODING_ERROR : ATCI_DATA_OK);
-        _atci.rx_error = false;
+        finish_next_data(state.rx_error ? ATCI_DATA_ENCODING_ERROR : ATCI_DATA_OK);
+        state.rx_error = false;
     }
 }
+
 
 static void reset(void)
 {
-    _atci.rx_length = 0;
-    _atci.state = ATCI_START_STATE;
+    state.rx_length = 0;
+    state.parser_state = ATCI_START_STATE;
 }
+
 
 static int append_to_buffer(char c)
 {
-    if (_atci.rx_length >= sizeof(_atci.rx_buffer) - 1)
-    {
-        return -1;
-    }
-
-    _atci.rx_buffer[_atci.rx_length++] = c;
+    if (state.rx_length >= sizeof(state.rx_buffer) - 1) return -1;
+    state.rx_buffer[state.rx_length++] = c;
     return 0;
 }
 
-static void _atci_process_character(char character)
+
+static void process_character(char character)
 {
-    if (_atci.read_next_data.length != 0)
-    {
-        _atci_process_data(character);
+    if (state.read_next_data.length != 0) {
+        process_data(character);
         return;
     }
 
-    if (character == '\n')
-    {
-        // Ignore LF characters, AT commands are terminated with CR
-        return;
-    }
-    else if (character == '\x1b')
-    {
+    // Ignore LF characters, AT commands are terminated with CR
+    if (character == '\n') return;
+
+    if (character == '\x1b') {
         // If we get an ESC character, reset the buffer
         reset();
         return;
     }
 
-    switch (_atci.state) {
+    switch (state.parser_state) {
         case ATCI_START_STATE:
-            if (character == 'A')
-            {
+            if (character == 'A' || character == 'a') {
                 append_to_buffer(character);
-                _atci.state = ATCI_PREFIX_STATE;
+                state.parser_state = ATCI_PREFIX_STATE;
             }
             break;
 
         case ATCI_PREFIX_STATE:
-            if (character == 'T')
-            {
+            if (character == 'T' || character == 't') {
                 append_to_buffer(character);
-                _atci.state = ATCI_ATTENTION_STATE;
-            }
-            else
-            {
+                state.parser_state = ATCI_ATTENTION_STATE;
+            } else {
                 reset();
             }
             break;
 
         case ATCI_ATTENTION_STATE:
-            if (character == '\r')
-            {
-                _atci.rx_buffer[_atci.rx_length] = 0;
-                _atci_process_command();
+            if (character == '\r') {
+                state.rx_buffer[state.rx_length] = 0;
+                process_command();
                 reset();
-            }
-            else if (append_to_buffer(character) < 0)
-            {
-                lpuart_write_blocking(UNKNOWN_CMD, sizeof(UNKNOWN_CMD) - 1);
+            } else if (append_to_buffer(character) < 0) {
+                lpuart_write_blocking(ATCI_UNKNOWN_CMD, sizeof(ATCI_UNKNOWN_CMD) - 1);
                 reset();
             }
             break;
@@ -536,5 +440,39 @@ static void _atci_process_character(char character)
         default:
             halt("Bug: Invalid state in ATCI parser");
             break;
+    }
+}
+
+
+void atci_process(void)
+{
+    uint32_t masked;
+    cbuf_view_t data;
+
+    masked = disable_irq();
+    system_sleep_lock &= ~SYSTEM_MODULE_ATCI;
+    reenable_irq(masked);
+
+    while (true) {
+        if (state.aborted) {
+            finish_next_data(ATCI_DATA_ABORTED);
+            state.aborted = false;
+        }
+
+        masked = disable_irq();
+        cbuf_head(&lpuart_rx_fifo, &data);
+        reenable_irq(masked);
+
+        if ((data.len[0] + data.len[1]) == 0) break;
+
+        for (size_t i = 0; i < data.len[0]; i++)
+            process_character((char)data.ptr[0][i]);
+
+        for (size_t i = 0; i < data.len[1]; i++)
+            process_character((char)data.ptr[1][i]);
+
+        masked = disable_irq();
+        cbuf_consume(&lpuart_rx_fifo, data.len[0] + data.len[1]);
+        reenable_irq(masked);
     }
 }

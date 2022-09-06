@@ -53,19 +53,19 @@ static TimerEvent_t payload_timer;
 bool schedule_reset = false;
 
 
-#define abort(num) do {                    \
-    atci_printf("+ERR=%d\r\n\r\n", (num)); \
-    return;                                \
+#define abort(num) do {                     \
+    atci_printf("+ERR=%d" ATCI_EOL, (num)); \
+    return;                                 \
 } while (0)
 
-#define EOL() atci_print("\r\n\r\n");
+#define EOL() atci_print(ATCI_EOL);
 
 #define OK(...) do {                 \
     atci_printf("+OK=" __VA_ARGS__); \
     EOL();                           \
 } while (0)
 
-#define OK_() atci_print("+OK\r\n\r\n")
+#define OK_() atci_print(ATCI_OK)
 
 
 static inline uint32_t ntohl(uint32_t v)
