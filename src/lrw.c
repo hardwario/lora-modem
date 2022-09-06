@@ -960,7 +960,6 @@ int lrw_set_region(unsigned int region)
     if (!RegionIsActive(region))
         return LORAMAC_STATUS_REGION_NOT_SUPPORTED;
 
-    // Store the new region id in the NVM state in group MacGroup2
     LoRaMacNvmData_t *state = lrw_get_state();
 
     // Region did not change, nothing to do
@@ -971,17 +970,25 @@ int lrw_set_region(unsigned int region)
     int rv = LoRaMacDeInitialization();
     if (rv != LORAMAC_STATUS_OK) return rv;
 
-    // The crypto group needs special handling to preserve the DevNonce value
-    // across the partial factory reset performed here.
+    // The crypto group needs special handling to preserve the DevNonce value.
     uint16_t nonce = state->Crypto.DevNonce;
     LoRaMacCryptoInit(&state->Crypto);
     state->Crypto.DevNonce = nonce;
     update_block_crc(&state->Crypto, sizeof(state->Crypto));
 
-    // Reset all other configuration parameters except the secure element. Note
-    // that we intentionally do not recompute the CRC32 checksums here (except
-    // for MacGroup2) since we don't want the state to be reloaded upon reboot.
-    // We want the LoRaMac to initialize itself from defaults.
+    // The secure element group also needs special handling to preserve DevEUI.
+    uint8_t dev_eui[SE_EUI_SIZE];
+    memcpy(dev_eui, SecureElementGetDevEui(), SE_EUI_SIZE);
+    if (SecureElementInit(&state->SecureElement) != SECURE_ELEMENT_SUCCESS)
+        log_error("Error while reinitializing secure element NVM partition");
+
+    memcpy(state->SecureElement.DevEui, dev_eui, SE_EUI_SIZE);
+    update_block_crc(&state->SecureElement, sizeof(state->SecureElement));
+
+    // Reset all other configuration parameters. Note that we intentionally do
+    // not recompute the CRC32 checksums here (except for MacGroup2) since we
+    // don't want the state to be reloaded upon reboot. We want the LoRaMac to
+    // initialize itself from defaults.
     memset(&state->MacGroup1, 0, sizeof(state->MacGroup1));
     memset(&state->MacGroup2, 0, sizeof(state->MacGroup2));
     memset(&state->RegionGroup1, 0, sizeof(state->RegionGroup1));
@@ -1002,11 +1009,12 @@ int lrw_set_region(unsigned int region)
 
     // Save all reset parameters in non-volatile memory.
     state_changed(
-        LORAMAC_NVM_NOTIFY_FLAG_CRYPTO        |
-        LORAMAC_NVM_NOTIFY_FLAG_MAC_GROUP1    |
-        LORAMAC_NVM_NOTIFY_FLAG_MAC_GROUP2    |
-        LORAMAC_NVM_NOTIFY_FLAG_REGION_GROUP1 |
-        LORAMAC_NVM_NOTIFY_FLAG_REGION_GROUP2 |
+        LORAMAC_NVM_NOTIFY_FLAG_CRYPTO         |
+        LORAMAC_NVM_NOTIFY_FLAG_SECURE_ELEMENT |
+        LORAMAC_NVM_NOTIFY_FLAG_MAC_GROUP1     |
+        LORAMAC_NVM_NOTIFY_FLAG_MAC_GROUP2     |
+        LORAMAC_NVM_NOTIFY_FLAG_REGION_GROUP1  |
+        LORAMAC_NVM_NOTIFY_FLAG_REGION_GROUP2  |
         LORAMAC_NVM_NOTIFY_FLAG_CLASS_B);
 
     return LORAMAC_STATUS_OK;
