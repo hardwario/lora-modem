@@ -7,6 +7,27 @@
 #include "halt.h"
 
 
+#if !defined(DEBUG_PORT)
+#  error DEBUG_PORT is not defined
+#endif
+
+#if DEBUG_PORT == 1
+#  define PORT       USART1
+#  define IRQn       USART1_IRQn
+#  define CLK_ENABLE __USART1_CLK_ENABLE
+#  define PIN        GPIO_PIN_9
+#  define ALTERNATE  GPIO_AF4_USART1
+#elif DEBUG_PORT == 2
+#  define PORT       USART2
+#  define IRQn       USART2_IRQn
+#  define CLK_ENABLE __USART2_CLK_ENABLE
+#  define PIN        GPIO_PIN_2
+#  define ALTERNATE  GPIO_AF4_USART2
+#else
+#  error Unsupported DEBUG_PORT value
+#endif
+
+
 #ifndef USART_TX_BUFFER_SIZE
 #define USART_TX_BUFFER_SIZE 1024
 #endif
@@ -21,7 +42,7 @@ void usart_init(void)
     cbuf_init(&tx_fifo, tx_buffer, sizeof(tx_buffer));
     uint32_t masked = disable_irq();
 
-    __USART1_CLK_ENABLE();
+    CLK_ENABLE();
 
     LL_USART_InitTypeDef params = {
         .BaudRate            = 115200,
@@ -33,27 +54,27 @@ void usart_init(void)
         .OverSampling        = LL_USART_OVERSAMPLING_16
     };
 
-    if (LL_USART_Init(USART1, &params) != 0) goto error;
+    if (LL_USART_Init(PORT, &params) != 0) goto error;
 
-    LL_USART_Enable(USART1);
+    LL_USART_Enable(PORT);
 
-    LL_USART_DisableIT_TXE(USART1);
-    LL_USART_EnableIT_TC(USART1);
+    LL_USART_DisableIT_TXE(PORT);
+    LL_USART_EnableIT_TC(PORT);
 
     // Configure interrupts
-    HAL_NVIC_SetPriority(USART1_IRQn, 0, 0);
-    HAL_NVIC_EnableIRQ(USART1_IRQn);
+    HAL_NVIC_SetPriority(IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(IRQn);
 
     // Configure GPIO
     __GPIOA_CLK_ENABLE();
     __GPIOA_CLK_ENABLE();
 
     GPIO_InitTypeDef gpio = {
-        .Pin       = GPIO_PIN_9,
+        .Pin       = PIN,
         .Mode      = GPIO_MODE_AF_PP,
         .Pull      = GPIO_NOPULL,
         .Speed     = GPIO_SPEED_HIGH,
-        .Alternate = GPIO_AF4_USART1
+        .Alternate = ALTERNATE
     };
 
     HAL_GPIO_Init(GPIOA, &gpio);
@@ -82,9 +103,9 @@ size_t usart_write(const char *buffer, size_t length)
 
     // Enable the transmission buffer empty interrupt which will pickup the data
     // written to the FIFO by the above code and start transmitting it.
-    if (!LL_USART_IsEnabledIT_TXE(USART1)) {
+    if (!LL_USART_IsEnabledIT_TXE(PORT)) {
         system_stop_lock |= SYSTEM_MODULE_USART;
-        LL_USART_EnableIT_TXE(USART1);
+        LL_USART_EnableIT_TXE(PORT);
     }
 
     reenable_irq(masked);
@@ -92,20 +113,26 @@ size_t usart_write(const char *buffer, size_t length)
 }
 
 
+#if DEBUG_PORT == 1
 void USART1_IRQHandler(void)
+#elif DEBUG_PORT == 2
+void USART2_IRQHandler(void)
+#else
+#error Unsupport DEBUG_PORT
+#endif
 {
     uint8_t c;
 
-    if (LL_USART_IsEnabledIT_TXE(USART1) && LL_USART_IsActiveFlag_TXE(USART1)) {
+    if (LL_USART_IsEnabledIT_TXE(PORT) && LL_USART_IsActiveFlag_TXE(PORT)) {
         if (cbuf_get(&tx_fifo, &c, 1) != 0) {
-            LL_USART_TransmitData8(USART1, c);
+            LL_USART_TransmitData8(PORT, c);
         } else {
-            LL_USART_DisableIT_TXE(USART1);
+            LL_USART_DisableIT_TXE(PORT);
         }
     }
 
-    if (LL_USART_IsActiveFlag_TC(USART1)) {
-        LL_USART_ClearFlag_TC(USART1);
+    if (LL_USART_IsActiveFlag_TC(PORT)) {
+        LL_USART_ClearFlag_TC(PORT);
         system_stop_lock &= ~SYSTEM_MODULE_USART;
     }
 }

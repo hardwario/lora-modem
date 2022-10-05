@@ -67,6 +67,10 @@ BUILD_DATE_COMPAT ?= Aug 24 2020 16:11:57
 # commented out.
 # RESTORE_CHMASK_AFTER_JOIN = 1
 
+# Select the USART port number which will receive debug messages when the
+# firmware is built in debugging mode. You can select 1 or 2 here.
+DEBUG_PORT ?= 1
+
 ################################################################################
 # You shouldn't need to edit the text below under normal circumstances.        #
 ################################################################################
@@ -298,6 +302,7 @@ CFLAGS_LIBS += -Wno-int-conversion
 CFLAGS_DEBUG += -g3
 CFLAGS_DEBUG += -Og
 CFLAGS_DEBUG += -DDEBUG
+CFLAGS_DEBUG += -DDEBUG_PORT=$(DEBUG_PORT)
 
 CFLAGS_RELEASE += -Os
 CFLAGS_RELEASE += -DRELEASE
