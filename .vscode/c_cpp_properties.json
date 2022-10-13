@@ -19,7 +19,8 @@
                 "ENABLED_REGIONS=\"AS923 AU915 CN470 CN779 EU433 EU868 IN865 KR920 RU864 US915\"",
                 "DEFAULT_ACTIVE_REGION=\"EU868\"",
                 "DEFAULT_UART_BAUDRATE=19200",
-                "DEBUG_PORT=1"
+                "DEBUG_PORT=1",
+                "TCXO_PIN=1"
             ],
             "includePath": [
                 "${workspaceFolder}/**",
@@ -45,8 +46,9 @@
                  "LORAMAC_ABP_VERSION=0x01000400",
                  "ENABLED_REGIONS=\"AS923 AU915 CN470 CN779 EU433 EU868 IN865 KR920 RU864 US915\"",
                  "DEFAULT_ACTIVE_REGION=\"EU868\"",
-                 "DEFAULT_UART_BAUDRATE=19200"
-             ],
+                 "DEFAULT_UART_BAUDRATE=19200",
+                 "TCXO_PIN=1"
+            ],
              "includePath": [
                  "${workspaceFolder}/**",
                  "${default}"

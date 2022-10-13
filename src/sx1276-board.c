@@ -9,8 +9,22 @@
 #include "radio.h"
 #include "irq.h"
 
-#define TCXO_VCC_PORT            GPIOA
-#define TCXO_VCC_PIN             GPIO_PIN_12
+#if !defined(TCXO_PIN)
+#  error TCXO_PIN is undefined
+#endif
+
+#if TCXO_PIN == 0
+#elif TCXO_PIN == 1
+# define TCXO_CONTROL_ENABLED 1
+# define TCXO_VCC_PORT GPIOA
+# define TCXO_VCC_PIN  GPIO_PIN_12
+#elif TCXO_PIN == 2
+# define TCXO_CONTROL_ENABLED 1
+# define TCXO_VCC_PORT GPIOB
+# define TCXO_VCC_PIN  GPIO_PIN_6
+#else
+#  error Unsupported TCXO_PIN value
+#endif
 
 #define ANT_SWITCH_PORT_RX       GPIOA //CRF1
 #define ANT_SWITCH_PIN_RX        GPIO_PIN_1
@@ -45,6 +59,7 @@ void SX1276IoInit(void)
     gpio_init(SX1276.DIO3.port, SX1276.DIO3.pinIndex, &cfg);
     gpio_init(SX1276.DIO4.port, SX1276.DIO4.pinIndex, &cfg);
 
+#ifdef TCXO_CONTROL_ENABLED
     // RADIO_TCXO_POWER
     static bool initialized = false;
     if (!initialized) {
@@ -54,6 +69,7 @@ void SX1276IoInit(void)
         gpio_init(TCXO_VCC_PORT, TCXO_VCC_PIN, &cfg);
         initialized = true;
     }
+#endif
 }
 
 
@@ -110,6 +126,7 @@ void SX1276Reset(void)
 
 void SX1276SetBoardTcxo(uint8_t state)
 {
+#ifdef TCXO_CONTROL_ENABLED
     if (state) {
         // if TCXO OFF power it up.
         if (gpio_read(TCXO_VCC_PORT, TCXO_VCC_PIN) == 0) {
@@ -123,6 +140,9 @@ void SX1276SetBoardTcxo(uint8_t state)
         log_debug("SX1276SetBoardTcxo: %d", state);
         gpio_write(TCXO_VCC_PORT, TCXO_VCC_PIN, 0);
     }
+#else
+    (void)state;
+#endif
 }
 
 

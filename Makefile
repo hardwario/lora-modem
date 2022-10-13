@@ -71,6 +71,20 @@ BUILD_DATE_COMPAT ?= Aug 24 2020 16:11:57
 # firmware is built in debugging mode. You can select 1 or 2 here.
 DEBUG_PORT ?= 1
 
+# Select the GPIO pin connected to VDD_TCXO (pin 48). The modem will use this
+# pin to control power to the TCXO IC. The TCXO IC generates clock for the
+# SX1276 radio chip. The clock is turned off during sleep to conserve battery
+# power. The following values are supported:
+#
+#   0 - Disable TCXO control. TCXO IC is assumed to be always on. This is the
+#       case on Arduino MKRWAN1300 boards.
+#
+#   1 - PA12 (pin 1). This is the pin recommended in the Type ABZ datasheet and
+#       also the default value. Hardwario LoRa devices use this pin.
+#
+#   2 - PB6 (pin 39). Arduino MKRWAN1310 boards use this pin.
+TCXO_PIN ?= 1
+
 ################################################################################
 # You shouldn't need to edit the text below under normal circumstances.        #
 ################################################################################
@@ -291,6 +305,8 @@ CFLAGS += -DHAL_IWDG_MODULE_ENABLED
 CFLAGS += -DUSE_FULL_LL_DRIVER
 
 CFLAGS += -DDEFAULT_UART_BAUDRATE=$(DEFAULT_UART_BAUDRATE)
+
+CFLAGS += -DTCXO_PIN=$(TCXO_PIN)
 
 # Extra flags to be only applied when we compile the souce files from the lib
 # subdirectory. Since that sub-directory contains third-party code, disable some
