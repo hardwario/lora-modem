@@ -74,9 +74,12 @@ $tar --exclude .git           \
     -zcf $name.tar.gz .
 echo "done."
 
-# Build both release and debug versions of the firmware binary
-make release
-make debug
+# Build both release and debug versions of the firmware binary. This is the
+# default build variant that uses PA12 (as recommended in the datasheet) to
+# control TCXO_VDD. Debug builds have a debugging logger on USART1.
+
+make TCXO_PIN=1 release
+make TCXO_PIN=1 DEBUG_PORT=1 debug
 
 # And copy the resulting biinary files into the current directory
 cp -f out/release/firmware.bin "$name.bin"
@@ -85,9 +88,32 @@ cp -f out/debug/firmware.bin   "$name.debug.bin"
 cp -f out/debug/firmware.hex   "$name.debug.hex"
 cp -f out/debug/firmware.map   "$name.debug.map"
 
+# Now build the variants for Arduino MKRWAN boards. These build variants use PB6
+# to control TCXO power. Debug builds start the debugging logger on USART2.
+
+make clean
+make TCXO_PIN=2 release
+make TCXO_PIN=2 DEBUG_PORT=2 debug
+
+# And copy the resulting biinary files into the current directory
+cp -f out/release/firmware.bin "$name.mkrwan.bin"
+cp -f out/release/firmware.hex "$name.mkrwan.hex"
+cp -f out/debug/firmware.bin   "$name.debug.mkrwan.bin"
+cp -f out/debug/firmware.hex   "$name.debug.mkrwan.hex"
+cp -f out/debug/firmware.map   "$name.debug.mkrwan.map"
+
 # Compute SHA-256 checksums of the binary files
-checksums=$(sha256sum -b "$name.bin" "$name.hex" \
-    "$name.debug.bin" "$name.debug.hex" "$name.debug.map" \
+checksums=$(sha256sum -b \
+    "$name.bin" \
+    "$name.hex" \
+    "$name.debug.bin" \
+    "$name.debug.hex" \
+    "$name.debug.map" \
+    "$name.mkrwan.bin" \
+    "$name.mkrwan.hex" \
+    "$name.debug.mkrwan.bin" \
+    "$name.debug.mkrwan.hex" \
+    "$name.debug.mkrwan.map" \
     "$name.tar.gz")
 
 # Generate a signed version of the checksums
@@ -98,14 +124,19 @@ git push origin "$new_tag"
 
 # And create new draft release for the tag with all the generated files
 # attached.
-hub release create       \
-    -d                   \
-    -a "$name.bin"       \
-    -a "$name.hex"       \
-    -a "$name.debug.bin" \
-    -a "$name.debug.hex" \
-    -a "$name.debug.map" \
-    -a "$name.tar.gz"    \
+hub release create              \
+    -d                          \
+    -a "$name.bin"              \
+    -a "$name.hex"              \
+    -a "$name.debug.bin"        \
+    -a "$name.debug.hex"        \
+    -a "$name.debug.map"        \
+    -a "$name.mkrwan.bin"       \
+    -a "$name.mkrwan.hex"       \
+    -a "$name.debug.mkrwan.bin" \
+    -a "$name.debug.mkrwan.hex" \
+    -a "$name.debug.mkrwan.map" \
+    -a "$name.tar.gz"           \
     -F - $new_tag << EOF
 Release $version
 
