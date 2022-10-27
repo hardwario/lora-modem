@@ -2,7 +2,7 @@
 
 The aim of this project is to develop open source LoRaWAN modem for the [Type ABZ](https://github.com/hardwario/lora-modem-abz/wiki/Type-ABZ-Modules) wireless module by Murata. The firmware provides an AT command interface backward compatible with Murata Modem, Murata's proprietary LoRaWAN firmware. The firmware can be used on all Type ABZ variants with an open (user-reprogrammable) microcontroller. Binary firmware images are provided for HARDWARIO [LoRa Module](https://shop.hardwario.com/lora-module/), Arduino [MKR WAN 1300](https://store-usa.arduino.cc/products/arduino-mkr-wan-1300-lora-connectivity), and [MKR WAN 1310](https://store.arduino.cc/products/arduino-mkr-wan-1310) boards.
 
-## Main Features
+## Main Features 
 
 * Support for [LoRaWAN 1.0.4](https://resources.lora-alliance.org/technical-specifications/ts001-1-0-4-lorawan-l2-1-0-4-specification), [LoRaWAN 1.1](https://resources.lora-alliance.org/technical-specifications/lorawan-specification-v1-1), and regional parameters [RP2-1.0.3](https://resources.lora-alliance.org/technical-specifications/rp2-1-0-3-lorawan-regional-parameters)
 * Based on the most recent version (unreleased 4.7.0) of [LoRaMac-node](https://github.com/Lora-net/LoRaMac-node)
