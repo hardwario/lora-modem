@@ -1,6 +1,7 @@
 #include "nvm.h"
 #include <assert.h>
 #include <string.h>
+#include <strings.h>
 #include <stm/include/stm32l072xx.h>
 #include <loramac-node/src/mac/LoRaMacTypes.h>
 #include <loramac-node/src/mac/LoRaMac.h>
@@ -11,7 +12,7 @@
 #include "part.h"
 #include "utils.h"
 
-#define NUMBER_OF_PARTS 8
+#define NUMBER_OF_PARTS 9
 
 
 /* The following partition sizes have been derived from the in-memory size of
@@ -30,6 +31,7 @@
 #define REGION1_PART_SIZE   32
 #define REGION2_PART_SIZE 1536
 #define CLASSB_PART_SIZE    32
+#define USER_NVM_PART_SIZE  12
 
 
 // Make sure each data structure fits into its fixed-size partition
@@ -41,6 +43,7 @@ static_assert(sizeof(SecureElementNvmData_t) <= SE_PART_SIZE, "SecureElement NVM
 static_assert(sizeof(RegionNvmDataGroup1_t) <= REGION1_PART_SIZE, "RegionGroup1 NVM data too long");
 static_assert(sizeof(RegionNvmDataGroup2_t) <= REGION2_PART_SIZE, "RegionGroup2 NVM data too long");
 static_assert(sizeof(LoRaMacClassBNvmData_t) <= CLASSB_PART_SIZE, "ClassB NVM data too long");
+static_assert(sizeof(userNvm_t) <= USER_NVM_PART_SIZE, "User NVM data too long");
 
 
 // And also make sure that NVM data fits into the EEPROM twice. This is
@@ -53,7 +56,8 @@ static_assert(
     SE_PART_SIZE      +
     REGION1_PART_SIZE +
     REGION2_PART_SIZE +
-    CLASSB_PART_SIZE
+    CLASSB_PART_SIZE  +
+    USER_NVM_PART_SIZE
     <= (DATA_EEPROM_BANK2_END - DATA_EEPROM_BASE + 1 - PART_TABLE_SIZE(NUMBER_OF_PARTS)) / 2,
     "NVM data does not fit into a single EEPROM bank");
 
@@ -70,6 +74,8 @@ static part_block_t nvm = {
 };
 
 struct nvm_parts nvm_parts;
+
+userNvm_t user_nvm = { 0 };
 
 sysconf_t sysconf = {
     .uart_baudrate = DEFAULT_UART_BAUDRATE,
@@ -147,6 +153,11 @@ start:
         nvm_parts.classb.dsc->size != CLASSB_PART_SIZE)
         goto retry;
 
+    if ((part_find(&nvm_parts.user, &nvm, "user") &&
+        part_create(&nvm_parts.user, &nvm, "user", USER_NVM_PART_SIZE)) ||
+        nvm_parts.user.dsc->size != USER_NVM_PART_SIZE)
+        goto retry;
+
     size_t size;
     const uint8_t *p = part_mmap(&size, &nvm_parts.sysconf);
     if (check_block_crc(p, sizeof(sysconf))) {
@@ -155,6 +166,17 @@ start:
     } else {
         log_debug("Invalid system configuration checksum, using defaults");
     }
+
+    p = part_mmap(&size, &nvm_parts.user);
+    if (check_block_crc(p, sizeof(user_nvm))) {
+        log_debug("Restoring user data from NVM");
+        memcpy(&user_nvm, p, sizeof(user_nvm));
+    } else {
+        log_debug("Invalid user data checksum, using defaults");
+        user_nvm.magic = USER_NVM_MAGIC;
+        bzero(user_nvm.values,USER_NVM_MAX_SIZE);
+    }
+
     return;
 
 retry:
@@ -192,3 +214,14 @@ void sysconf_process(void)
     sysconf_modified = false;
 }
 
+
+void userNvm_process(void)
+{
+
+    if (update_block_crc(&user_nvm, sizeof(user_nvm))) {
+        log_debug("Saving user data to NVM");
+        if (!part_write(&nvm_parts.user, 0, &user_nvm, sizeof(user_nvm)))
+            log_error("Error while writing user data to NVM");
+    }
+
+}
