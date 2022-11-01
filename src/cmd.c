@@ -489,11 +489,21 @@ static void set_appskey(atci_param_t *param)
 
 static void get_appkey(void)
 {
-    atci_print("+OK=");
-    atci_print_buffer_as_hex(find_key(APP_KEY), SE_KEY_SIZE);
-    EOL();
+    if ( sysconf.appkey_readable ) {
+        atci_print("+OK=");
+        atci_print_buffer_as_hex(find_key(APP_KEY), SE_KEY_SIZE);
+        EOL();        
+    } else {
+        abort(ERR_UNSUPPORTED);
+    }
 }
 
+static void protect_appkey(atci_param_t *param) 
+{
+    sysconf.appkey_readable = 0;
+    sysconf_modified = true;
+    OK_();
+}
 
 static void set_appkey_10(atci_param_t *param)
 {
@@ -2147,6 +2157,7 @@ static const atci_command_t cmds[] = {
     {"$CW",          cw,      NULL,             NULL,             NULL, "Start continuous carrier wave transmission"},
     {"$CM",          cm,      NULL,             NULL,             NULL, "Start continuous modulated FSK transmission"},
     {"$NVM",         NULL,    set_nvm,          NULL,             NULL, "Store / Read data from Non Volatile Memory"},
+    {"$APKACCESS",   protect_appkey, NULL,      NULL,             NULL, "Protect AppKey against read access"},
     ATCI_COMMAND_CLAC,
     ATCI_COMMAND_HELP};
 

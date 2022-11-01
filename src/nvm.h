@@ -53,6 +53,11 @@ typedef struct sysconf
      */
     uint8_t confirmed_retransmissions;
 
+    /* This is allowing to read the appKey from the serial line of not
+     * once set to false (0) it will not be possible to retrieve the appKey
+     */
+    uint8_t appkey_readable:1;
+
     uint32_t crc32;
 } sysconf_t;
 

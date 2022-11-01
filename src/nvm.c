@@ -85,7 +85,8 @@ sysconf_t sysconf = {
     .sleep = 1,
     .device_class = CLASS_A,
     .unconfirmed_retransmissions = 1,
-    .confirmed_retransmissions = 8
+    .confirmed_retransmissions = 8,
+    .appkey_readable = 1
 };
 
 bool sysconf_modified;
