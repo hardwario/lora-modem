@@ -51,4 +51,8 @@ void cmd_ans(unsigned int margin, unsigned int gwcnt);
 #define cmd_print atci_print
 #define cmd_printf atci_printf
 
+#if MKR1310 == 1
+void process_uart_wakeup(void);
+#endif
+
 #endif // _CMD_H

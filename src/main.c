@@ -60,6 +60,9 @@ int main(void)
     cmd_event(CMD_EVENT_MODULE, CMD_MODULE_BOOT);
 
     while (1) {
+        #if MKR1310 == 1
+        process_uart_wakeup();
+        #endif 
         cmd_process();
         lrw_process();
         sysconf_process();
@@ -91,7 +94,6 @@ int main(void)
         }
 
         enable_irq();
-
         // Invoke lrw_process as the first thing after waking up to give the MAC
         // a chance to timestamp incoming downlink as quickly as possible.
         lrw_process();

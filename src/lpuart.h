@@ -97,4 +97,18 @@ void lpuart_before_stop(void);
 void lpuart_after_stop(void);
 
 
+/*! @brief Disable LPUART1 Gpio for MKRWAN1310
+ *
+ * This function is specific to MKRWAN1310, it disable the lpuart pins to allow sharing the
+ * wires on the board with the SPI to use the onboarded flash.
+ */
+void lpuart_disable(void);
+
+/*! @brief Reinit LPUART1 Gpio for MKRWAN1310
+ *
+ * This function is specific to MKRWAN1310, it reinit the lpuart pins to allow sharing the
+ * wires on the board with the SPI to use the onboarded flash.
+ */
+void lpuart_enable(void);
+
 #endif /* __LPUART_H__ */

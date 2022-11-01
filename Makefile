@@ -83,7 +83,19 @@ DEBUG_PORT ?= 1
 #       also the default value. Hardwario LoRa devices use this pin.
 #
 #   2 - PB6 (pin 39). Arduino MKRWAN1310 boards use this pin.
-TCXO_PIN ?= 1
+TCXO_PIN ?= 2
+
+# Specific target MKR1310, add a feature to deactivate the serial port based on
+# PB12 GPIO. This is because Arduino team used same pins for serial line and SPI
+# lines. As a consequence, Serial line activity prevent to use the SPI port and the
+# onboarded SerialFlash. 
+# The Arduino documentation recommands to maintain the modem in a reset mode but this
+# will make the LoRaWAN session lost, so this approach is not working. With the ability
+# to deactivate the serail line on request, this may solve the problem even if the right
+# solution should be to redesign this board.
+#   0 - Disable this specific feature
+#   1 - Enable this specific feature with control line PB12 set to 0 (pull-up on the line)
+MKR1310 ?= 1
 
 ################################################################################
 # You shouldn't need to edit the text below under normal circumstances.        #
@@ -306,7 +318,7 @@ CFLAGS += -DUSE_FULL_LL_DRIVER
 
 CFLAGS += -DDEFAULT_UART_BAUDRATE=$(DEFAULT_UART_BAUDRATE)
 
-CFLAGS += -DTCXO_PIN=$(TCXO_PIN)
+CFLAGS += -DTCXO_PIN=$(TCXO_PIN) -DMKR1310=$(MKR1310)
 
 # Extra flags to be only applied when we compile the souce files from the lib
 # subdirectory. Since that sub-directory contains third-party code, disable some

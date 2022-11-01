@@ -129,6 +129,7 @@ error:
 }
 
 
+
 static void init_gpio(void)
 {
     GPIO_InitTypeDef gpio = {
@@ -167,6 +168,17 @@ static void deinit_gpio(void)
     HAL_GPIO_Init(GPIOA, &gpio);
 }
 
+
+void lpuart_disable(void) {
+    lpuart_flush();
+    HAL_UART_DMAPause(&port);
+    deinit_gpio();
+}
+
+void lpuart_enable() {
+    init_gpio();
+    HAL_UART_DMAResume(&port);
+}
 
 void HAL_UART_MspInit(UART_HandleTypeDef *port)
 {
