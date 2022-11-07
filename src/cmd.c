@@ -500,6 +500,7 @@ static void get_appkey(void)
 
 static void protect_appkey(atci_param_t *param) 
 {
+    if (param != NULL) abort(ERR_PARAM);
     sysconf.appkey_readable = 0;
     sysconf_modified = true;
     OK_();
@@ -2095,6 +2096,7 @@ static void nvm_userdata(atci_param_t *param) {
 static uint8_t __prev_sleep;
 static uint8_t __uart_disable = 0;
 static void disable_uart(atci_param_t *param) {
+    if (param != NULL) abort(ERR_PARAM);
     // simpler to add everything in a single place, 
     // make sure these lines are INPUT to not conflict with external signals from SPI
     GPIO_InitTypeDef cfg = {

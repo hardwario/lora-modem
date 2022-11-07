@@ -83,7 +83,7 @@ DEBUG_PORT ?= 1
 #       also the default value. Hardwario LoRa devices use this pin.
 #
 #   2 - PB6 (pin 39). Arduino MKRWAN1310 boards use this pin.
-TCXO_PIN ?= 2
+TCXO_PIN ?= 1
 
 # Specific target MKR1310, add a feature to deactivate the serial port based on
 # PB12 GPIO. This is because Arduino team used same pins for serial line and SPI
@@ -95,7 +95,7 @@ TCXO_PIN ?= 2
 # solution should be to redesign this board.
 #   0 - Disable this specific feature
 #   1 - Enable this specific feature with control line PB12 set to 0 (pull-up on the line)
-MKR1310 ?= 1
+MKR1310 ?= 0
 
 ################################################################################
 # You shouldn't need to edit the text below under normal circumstances.        #
