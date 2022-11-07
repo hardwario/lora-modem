@@ -2066,11 +2066,12 @@ static void get_session(void)
 
 
 
-// Read and Store a User data into the NVM area
+// Read and Write a User data into the NVM area
 // AT$NVM=0 read data at address 0
 // AT$NVM=0,223 write 223 at address 0
-static void set_nvm(atci_param_t *param) {
+static void nvm_userdata(atci_param_t *param) {
     uint32_t adr, value;
+    if (param == NULL) abort(ERR_PARAM);
     if (!atci_param_get_uint(param, &adr)) abort(ERR_PARAM);
     if (adr >= USER_NVM_MAX_SIZE) abort(ERR_PARAM);
     if (param->offset < param->length) {
@@ -2078,8 +2079,8 @@ static void set_nvm(atci_param_t *param) {
         if (!atci_param_get_uint(param, &value)) abort(ERR_PARAM);
         if (value >= 256) abort(ERR_PARAM);
         user_nvm.values[adr] = value;
-        userNvm_process();
-        OK("%d,%d",(int)adr,(int)value);
+        user_nvm_process();
+        OK_();
     } else {
         OK("%d",user_nvm.values[adr]);
     }
@@ -2203,7 +2204,7 @@ static const atci_command_t cmds[] = {
     {"$SESSION",     NULL,    NULL,             get_session,      NULL, "Get network session information"},
     {"$CW",          cw,      NULL,             NULL,             NULL, "Start continuous carrier wave transmission"},
     {"$CM",          cm,      NULL,             NULL,             NULL, "Start continuous modulated FSK transmission"},
-    {"$NVM",         NULL,    set_nvm,          NULL,             NULL, "Store / Read data from Non Volatile Memory"},
+    {"$NVM",         nvm_userdata,   NULL,      NULL,             NULL, "Write / Read userdata to/from 64 bytes of NVM"},
     {"$APKACCESS",   protect_appkey, NULL,      NULL,             NULL, "Protect AppKey against read access"},
 #if MKR1310 == 1
     {"$DISUART",     disable_uart,   NULL,      NULL,             NULL, "Disable UART"}, 

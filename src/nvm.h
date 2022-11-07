@@ -74,26 +74,26 @@ struct nvm_parts {
     part_t user;
 };
 
-#define USER_NVM_MAX_SIZE   4     // maximum allows values inside the User Nvm area
+#define USER_NVM_MAX_SIZE   64     // maximum allows values inside the User Nvm area
 #define USER_NVM_MAGIC      0xD15C9101
-typedef struct userNvm_s {
+typedef struct user_nvm_s {
     uint32_t    magic;
     uint8_t     values[USER_NVM_MAX_SIZE];
     uint32_t    crc32;
-} userNvm_t;
+} user_nvm_t;
 
 
 extern struct nvm_parts nvm_parts;
 extern sysconf_t sysconf;
 extern bool sysconf_modified;
 extern uint16_t nvm_flags;
-extern userNvm_t user_nvm;
+extern user_nvm_t user_nvm;
 
 void nvm_init(void);
 
 int nvm_erase(void);
 
 void sysconf_process(void);
-void userNvm_process(void);
+void user_nvm_process(void);
 
 #endif // _NVM_H_

@@ -29,9 +29,9 @@
 #define MAC2_PART_SIZE     512
 #define SE_PART_SIZE       512
 #define REGION1_PART_SIZE   32
-#define REGION2_PART_SIZE 1536
+#define REGION2_PART_SIZE 1310
 #define CLASSB_PART_SIZE    32
-#define USER_NVM_PART_SIZE  12
+#define USER_NVM_PART_SIZE  72
 
 
 // Make sure each data structure fits into its fixed-size partition
@@ -43,7 +43,7 @@ static_assert(sizeof(SecureElementNvmData_t) <= SE_PART_SIZE, "SecureElement NVM
 static_assert(sizeof(RegionNvmDataGroup1_t) <= REGION1_PART_SIZE, "RegionGroup1 NVM data too long");
 static_assert(sizeof(RegionNvmDataGroup2_t) <= REGION2_PART_SIZE, "RegionGroup2 NVM data too long");
 static_assert(sizeof(LoRaMacClassBNvmData_t) <= CLASSB_PART_SIZE, "ClassB NVM data too long");
-static_assert(sizeof(userNvm_t) <= USER_NVM_PART_SIZE, "User NVM data too long");
+static_assert(sizeof(user_nvm_t) <= USER_NVM_PART_SIZE, "User NVM data too long");
 
 
 // And also make sure that NVM data fits into the EEPROM twice. This is
@@ -75,7 +75,7 @@ static part_block_t nvm = {
 
 struct nvm_parts nvm_parts;
 
-userNvm_t user_nvm = { 0 };
+user_nvm_t user_nvm = { 0 };
 
 sysconf_t sysconf = {
     .uart_baudrate = DEFAULT_UART_BAUDRATE,
@@ -216,7 +216,7 @@ void sysconf_process(void)
 }
 
 
-void userNvm_process(void)
+void user_nvm_process(void)
 {
 
     if (update_block_crc(&user_nvm, sizeof(user_nvm))) {
