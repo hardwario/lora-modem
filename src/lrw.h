@@ -162,9 +162,10 @@ int lrw_get_max_channels(void);
 
 LoRaMacStatus_t lrw_mlme_request(MlmeReq_t* req);
 
-
-LoRaMacStatus_t lrw_mcps_request(McpsReq_t* req);
-
+// Aa simple wrapper over LoRaMacMcpsRequest that properly configures uplink
+// retransmissions and keeps track of the duty cycle wait time returned by the
+// function for the benefit of AT+BACKOFF
+LoRaMacStatus_t lrw_mcps_request(McpsReq_t* req, int transmissions);
 
 void lrw_factory_reset(bool reset_devnonce, bool reset_deveui);
 
