@@ -2,7 +2,7 @@ out/
 obj/
 tools/ozone/ozone.jdebug.user
 /*.bin
-/*.debug.map
+/*.map
 /*.hex
 /*.tar.gz
 /VERSION
