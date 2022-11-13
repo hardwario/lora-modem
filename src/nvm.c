@@ -215,13 +215,11 @@ void sysconf_process(void)
 }
 
 
-void user_nvm_process(void)
+void nvm_update_user_data(void)
 {
-
     if (update_block_crc(&user_nvm, sizeof(user_nvm))) {
         log_debug("Saving user data to NVM");
         if (!part_write(&nvm_parts.user, 0, &user_nvm, sizeof(user_nvm)))
             log_error("Error while writing user data to NVM");
     }
-
 }

@@ -2055,99 +2055,105 @@ static void get_session(void)
 }
 
 
+// Manage data stored in NVM user registers
+//
+// To read the value in NVM register 0 use the syntaxt AT$NVM 0. To write the
+// value 223 to NVM register 0, use the syntax AT$NVM 0,223.
+static void nvm_userdata(atci_param_t *param)
+{
+    uint32_t addr, value;
 
-// Read and Write a User data into the NVM area
-// AT$NVM=0 read data at address 0
-// AT$NVM=0,223 write 223 at address 0
-static void nvm_userdata(atci_param_t *param) {
-    uint32_t adr, value;
     if (param == NULL) abort(ERR_PARAM);
-    if (!atci_param_get_uint(param, &adr)) abort(ERR_PARAM);
-    if (adr >= USER_NVM_MAX_SIZE) abort(ERR_PARAM);
+
+    if (!atci_param_get_uint(param, &addr)) abort(ERR_PARAM);
+    if (addr >= USER_NVM_MAX_SIZE) abort(ERR_PARAM);
+
     if (param->offset < param->length) {
         if (!atci_param_is_comma(param)) abort(ERR_PARAM);
+
         if (!atci_param_get_uint(param, &value)) abort(ERR_PARAM);
-        if (value >= 256) abort(ERR_PARAM);
-        user_nvm.values[adr] = value;
-        user_nvm_process();
+        if (value >= UINT8_MAX) abort(ERR_PARAM);
+
+        user_nvm.values[addr] = value;
+        nvm_update_user_data();
         OK_();
     } else {
-        OK("%d",user_nvm.values[adr]);
+        OK("%d", user_nvm.values[addr]);
     }
 }
 
 
 static const atci_command_t cmds[] = {
-    {"+UART",        NULL,    set_uart,         get_uart,         NULL, "Configure UART interface"},
-    {"+VER",         NULL,    NULL,             get_version_comp, NULL, "Firmware version and build time"},
-    {"+DEV",         NULL,    NULL,             get_model,        NULL, "Device model"},
-    {"+REBOOT",      reboot,  NULL,             NULL,             NULL, "Reboot the modem"},
-    {"+FACNEW",      facnew,  NULL,             NULL,             NULL, "Restore modem to factory defaults"},
-    {"+BAND",        NULL,    set_band,         get_band,         NULL, "Configure radio band (region)"},
-    {"+CLASS",       NULL,    set_class,        get_class,        NULL, "Configure LoRaWAN class"},
-    {"+MODE",        NULL,    set_mode,         get_mode,         NULL, "Configure activation mode (1:OTTA 0:ABP)"},
-    {"+DEVADDR",     NULL,    set_devaddr,      get_devaddr,      NULL, "Configure DevAddr"},
-    {"+DEVEUI",      NULL,    set_deveui,       get_deveui,       NULL, "Configure DevEUI"},
-    {"+APPEUI",      NULL,    set_joineui,      get_joineui,      NULL, "Configure AppEUI (JoinEUI)"},
-    {"+NWKSKEY",     NULL,    set_nwkskey,      get_nwkskey,      NULL, "Configure NwkSKey (LoRaWAN 1.0)"},
-    {"+APPSKEY",     NULL,    set_appskey,      get_appskey,      NULL, "Configure AppSKey"},
-    {"+APPKEY",      NULL,    set_appkey_10,    get_appkey,       NULL, "Configure AppKey (LoRaWAN 1.0)"},
-    {"+JOIN",        join,    NULL,             NULL,             NULL, "Send OTAA Join packet"},
-    {"+JOINDC",      NULL,    set_joindc,       get_joindc,       NULL, "Configure OTAA Join duty cycling"},
-    {"+LNCHECK",     lncheck, lncheck,          NULL,             NULL, "Perform link check"},
-    {"+RFPARAM",     NULL,    set_rfparam,      get_rfparam,      NULL, "Configure RF channel parameters"},
-    {"+RFPOWER",     NULL,    set_rfpower_comp, get_rfpower_comp, NULL, "Configure RF power"},
-    {"+NWK",         NULL,    set_nwk,          get_nwk,          NULL, "Configure public/private LoRa network setting"},
-    {"+ADR",         NULL,    set_adr,          get_adr,          NULL, "Configure adaptive data rate (ADR)"},
-    {"+DR",          NULL,    set_dr_comp,      get_dr_comp,      NULL, "Configure data rate (DR)"},
-    {"+DELAY",       NULL,    set_delay,        get_delay,        NULL, "Configure receive window offsets"},
-    {"+ADRACK",      NULL,    set_adrack,       get_adrack,       NULL, "Configure ADR ACK parameters"},
-    {"+RX2",         NULL,    set_rx2_comp,     get_rx2_comp,     NULL, "Configure RX2 window frequency and data rate"},
-    {"+DUTYCYCLE",   NULL,    set_dutycycle,    get_dutycycle,    NULL, "Configure duty cycling in EU868"},
-    {"+SLEEP",       NULL,    set_sleep,        get_sleep,        NULL, "Configure low power (sleep) mode"},
-    {"+PORT",        NULL,    set_port,         get_port,         NULL, "Configure default port number for uplink messages <1,223>"},
-    {"+REP",         NULL,    set_rep,          get_rep,          NULL, "Unconfirmed message repeats [1..15]"},
-    {"+DFORMAT",     NULL,    set_dformat,      get_dformat,      NULL, "Configure payload format used by the modem"},
-    {"+TO",          NULL,    set_to,           get_to,           NULL, "Configure UART port timeout"},
-    {"+UTX",         utx,     NULL,             NULL,             NULL, "Send unconfirmed uplink message"},
-    {"+CTX",         ctx,     NULL,             NULL,             NULL, "Send confirmed uplink message"},
-    {"+MCAST",       NULL,    set_mcast,        get_mcast,        NULL, "Configure multicast addresses and keys"},
-    {"+PUTX",        putx,    NULL,             NULL,             NULL, "Send unconfirmed uplink message to port"},
-    {"+PCTX",        pctx,    NULL,             NULL,             NULL, "Send confirmed uplink message to port"},
-    {"+FRMCNT",      NULL,    NULL,             get_frmcnt,       NULL, "Return current values for uplink and downlink counters"},
-    {"+MSIZE",       NULL,    NULL,             get_msize,        NULL, "Return maximum payload size for current data rate"},
-    {"+RFQ",         NULL,    NULL,             get_rfq,          NULL, "Return RSSI and SNR of the last received message"},
-    {"+DWELL",       NULL,    set_dwell,        get_dwell,        NULL, "Configure dwell setting for AS923"},
-    {"+MAXEIRP",     NULL,    set_maxeirp,      get_maxeirp,      NULL, "Configure maximum EIRP"},
-    {"+RSSITH",      NULL,    set_rssith,       get_rssith,       NULL, "Configure RSSI threshold for LBT"},
-    {"+CST",         NULL,    set_cst,          get_cst,          NULL, "Configure carrier sensor time (CST) for LBT"},
-    {"+BACKOFF",     NULL,    NULL,             get_backoff,      NULL, "Return duty cycle backoff time for EU868"},
-    {"+CHMASK",      NULL,    set_chmask_comp,  get_chmask_comp,  NULL, "Configure channel mask"},
-    {"+RTYNUM",      NULL,    set_rtynum,       get_rtynum,       NULL, "Configure number of confirmed uplink message retries"},
-    {"+NETID",       NULL,    set_netid,        get_netid,        NULL, "Configure LoRaWAN network identifier"},
-    {"$VER",         NULL,    NULL,             get_version,      NULL, "Firmware version and build time"},
+    {"+UART",        NULL,         set_uart,         get_uart,         NULL, "Configure UART interface"},
+    {"+VER",         NULL,         NULL,             get_version_comp, NULL, "Firmware version and build time"},
+    {"+DEV",         NULL,         NULL,             get_model,        NULL, "Device model"},
+    {"+REBOOT",      reboot,       NULL,             NULL,             NULL, "Reboot the modem"},
+    {"+FACNEW",      facnew,       NULL,             NULL,             NULL, "Restore modem to factory defaults"},
+    {"+BAND",        NULL,         set_band,         get_band,         NULL, "Configure radio band (region)"},
+    {"+CLASS",       NULL,         set_class,        get_class,        NULL, "Configure LoRaWAN class"},
+    {"+MODE",        NULL,         set_mode,         get_mode,         NULL, "Configure activation mode (1:OTTA 0:ABP)"},
+    {"+DEVADDR",     NULL,         set_devaddr,      get_devaddr,      NULL, "Configure DevAddr"},
+    {"+DEVEUI",      NULL,         set_deveui,       get_deveui,       NULL, "Configure DevEUI"},
+    {"+APPEUI",      NULL,         set_joineui,      get_joineui,      NULL, "Configure AppEUI (JoinEUI)"},
+    {"+NWKSKEY",     NULL,         set_nwkskey,      get_nwkskey,      NULL, "Configure NwkSKey (LoRaWAN 1.0)"},
+    {"+APPSKEY",     NULL,         set_appskey,      get_appskey,      NULL, "Configure AppSKey"},
+    {"+APPKEY",      NULL,         set_appkey_10,    get_appkey,       NULL, "Configure AppKey (LoRaWAN 1.0)"},
+    {"+JOIN",        join,         NULL,             NULL,             NULL, "Send OTAA Join packet"},
+    {"+JOINDC",      NULL,         set_joindc,       get_joindc,       NULL, "Configure OTAA Join duty cycling"},
+    {"+LNCHECK",     lncheck,      lncheck,          NULL,             NULL, "Perform link check"},
+    {"+RFPARAM",     NULL,         set_rfparam,      get_rfparam,      NULL, "Configure RF channel parameters"},
+    {"+RFPOWER",     NULL,         set_rfpower_comp, get_rfpower_comp, NULL, "Configure RF power"},
+    {"+NWK",         NULL,         set_nwk,          get_nwk,          NULL, "Configure public/private LoRa network setting"},
+    {"+ADR",         NULL,         set_adr,          get_adr,          NULL, "Configure adaptive data rate (ADR)"},
+    {"+DR",          NULL,         set_dr_comp,      get_dr_comp,      NULL, "Configure data rate (DR)"},
+    {"+DELAY",       NULL,         set_delay,        get_delay,        NULL, "Configure receive window offsets"},
+    {"+ADRACK",      NULL,         set_adrack,       get_adrack,       NULL, "Configure ADR ACK parameters"},
+    {"+RX2",         NULL,         set_rx2_comp,     get_rx2_comp,     NULL, "Configure RX2 window frequency and data rate"},
+    {"+DUTYCYCLE",   NULL,         set_dutycycle,    get_dutycycle,    NULL, "Configure duty cycling in EU868"},
+    {"+SLEEP",       NULL,         set_sleep,        get_sleep,        NULL, "Configure low power (sleep) mode"},
+    {"+PORT",        NULL,         set_port,         get_port,         NULL, "Configure default port number for uplink messages <1,223>"},
+    {"+REP",         NULL,         set_rep,          get_rep,          NULL, "Unconfirmed message repeats [1..15]"},
+    {"+DFORMAT",     NULL,         set_dformat,      get_dformat,      NULL, "Configure payload format used by the modem"},
+    {"+TO",          NULL,         set_to,           get_to,           NULL, "Configure UART port timeout"},
+    {"+UTX",         utx,          NULL,             NULL,             NULL, "Send unconfirmed uplink message"},
+    {"+CTX",         ctx,          NULL,             NULL,             NULL, "Send confirmed uplink message"},
+    {"+MCAST",       NULL,         set_mcast,        get_mcast,        NULL, "Configure multicast addresses and keys"},
+    {"+PUTX",        putx,         NULL,             NULL,             NULL, "Send unconfirmed uplink message to port"},
+    {"+PCTX",        pctx,         NULL,             NULL,             NULL, "Send confirmed uplink message to port"},
+    {"+FRMCNT",      NULL,         NULL,             get_frmcnt,       NULL, "Return current values for uplink and downlink counters"},
+    {"+MSIZE",       NULL,         NULL,             get_msize,        NULL, "Return maximum payload size for current data rate"},
+    {"+RFQ",         NULL,         NULL,             get_rfq,          NULL, "Return RSSI and SNR of the last received message"},
+    {"+DWELL",       NULL,         set_dwell,        get_dwell,        NULL, "Configure dwell setting for AS923"},
+    {"+MAXEIRP",     NULL,         set_maxeirp,      get_maxeirp,      NULL, "Configure maximum EIRP"},
+    {"+RSSITH",      NULL,         set_rssith,       get_rssith,       NULL, "Configure RSSI threshold for LBT"},
+    {"+CST",         NULL,         set_cst,          get_cst,          NULL, "Configure carrier sensor time (CST) for LBT"},
+    {"+BACKOFF",     NULL,         NULL,             get_backoff,      NULL, "Return duty cycle backoff time for EU868"},
+    {"+CHMASK",      NULL,         set_chmask_comp,  get_chmask_comp,  NULL, "Configure channel mask"},
+    {"+RTYNUM",      NULL,         set_rtynum,       get_rtynum,       NULL, "Configure number of confirmed uplink message retries"},
+    {"+NETID",       NULL,         set_netid,        get_netid,        NULL, "Configure LoRaWAN network identifier"},
+    {"$VER",         NULL,         NULL,             get_version,      NULL, "Firmware version and build time"},
 #if defined(DEBUG)
-    {"$DBG",         dbg,     NULL,             NULL,             NULL, ""},
+    {"$DBG",         dbg,          NULL,             NULL,             NULL, ""},
 #endif
-    {"$HALT",        do_halt, NULL,             NULL,             NULL, "Halt the modem"},
-    {"$JOINEUI",     NULL,    set_joineui,      get_joineui,      NULL, "Configure JoinEUI"},
-    {"$NWKKEY",      NULL,    set_nwkkey,       get_nwkkey,       NULL, "Configure NwkKey (LoRaWAN 1.1)"},
-    {"$APPKEY",      NULL,    set_appkey_11,    get_appkey,       NULL, "Configure AppKey (LoRaWAN 1.1)"},
-    {"$FNWKSINTKEY", NULL,    set_fnwksintkey,  get_fnwksintkey,  NULL, "Configure FNwkSIntKey (LoRaWAN 1.1)"},
-    {"$SNWKSINTKEY", NULL,    set_snwksintkey,  get_snwksintkey,  NULL, "Configure SNwkSIntKey (LoRaWAN 1.1)"},
-    {"$NWKSENCKEY",  NULL,    set_nwksenckey,   get_nwksenckey,   NULL, "Configure NwkSEncKey (LoRaWAN 1.1)"},
-    {"$CHMASK",      NULL,    set_chmask,       get_chmask,       NULL, "Configure channel mask"},
-    {"$RX2",         NULL,    set_rx2,          get_rx2,          NULL, "Configure RX2 window frequency and data rate"},
-    {"$DR",          NULL,    set_dr,           get_dr,           NULL, "Configure data rate (DR)"},
-    {"$RFPOWER",     NULL,    set_rfpower,      get_rfpower,      NULL, "Configure RF power"},
+    {"$HALT",        do_halt,      NULL,             NULL,             NULL, "Halt the modem"},
+    {"$JOINEUI",     NULL,         set_joineui,      get_joineui,      NULL, "Configure JoinEUI"},
+    {"$NWKKEY",      NULL,         set_nwkkey,       get_nwkkey,       NULL, "Configure NwkKey (LoRaWAN 1.1)"},
+    {"$APPKEY",      NULL,         set_appkey_11,    get_appkey,       NULL, "Configure AppKey (LoRaWAN 1.1)"},
+    {"$FNWKSINTKEY", NULL,         set_fnwksintkey,  get_fnwksintkey,  NULL, "Configure FNwkSIntKey (LoRaWAN 1.1)"},
+    {"$SNWKSINTKEY", NULL,         set_snwksintkey,  get_snwksintkey,  NULL, "Configure SNwkSIntKey (LoRaWAN 1.1)"},
+    {"$NWKSENCKEY",  NULL,         set_nwksenckey,   get_nwksenckey,   NULL, "Configure NwkSEncKey (LoRaWAN 1.1)"},
+    {"$CHMASK",      NULL,         set_chmask,       get_chmask,       NULL, "Configure channel mask"},
+    {"$RX2",         NULL,         set_rx2,          get_rx2,          NULL, "Configure RX2 window frequency and data rate"},
+    {"$DR",          NULL,         set_dr,           get_dr,           NULL, "Configure data rate (DR)"},
+    {"$RFPOWER",     NULL,         set_rfpower,      get_rfpower,      NULL, "Configure RF power"},
 #if defined(DEBUG)
-    {"$LOGLEVEL",    NULL,    set_loglevel,     get_loglevel,     NULL, "Configure logging on USART port"},
+    {"$LOGLEVEL",    NULL,         set_loglevel,     get_loglevel,     NULL, "Configure logging on USART port"},
 #endif
-    {"$CERT",        NULL,    set_cert,         get_cert,         NULL, "Enable or disable LoRaWAN certification port"},
-    {"$SESSION",     NULL,    NULL,             get_session,      NULL, "Get network session information"},
-    {"$CW",          cw,      NULL,             NULL,             NULL, "Start continuous carrier wave transmission"},
-    {"$CM",          cm,      NULL,             NULL,             NULL, "Start continuous modulated FSK transmission"},
-    {"$NVM",         nvm_userdata,   NULL,      NULL,             NULL, "Write / Read userdata to/from 64 bytes of NVM"},
+    {"$CERT",        NULL,         set_cert,         get_cert,         NULL, "Enable or disable LoRaWAN certification port"},
+    {"$SESSION",     NULL,         NULL,             get_session,      NULL, "Get network session information"},
+    {"$CW",          cw,           NULL,             NULL,             NULL, "Start continuous carrier wave transmission"},
+    {"$CM",          cm,           NULL,             NULL,             NULL, "Start continuous modulated FSK transmission"},
+    {"$NVM",         nvm_userdata, NULL,             NULL,             NULL, "Manage data in NVM user registers"},
     ATCI_COMMAND_CLAC,
     ATCI_COMMAND_HELP};
 
