@@ -29,7 +29,7 @@ int main(void)
 #else
     log_init(LOG_LEVEL_OFF, LOG_TIMESTAMP_ABS);
 #endif
-    log_info("LoRa Module %s [LoRaMac %s] built on %s", VERSION, LIB_VERSION, BUILD_DATE);
+    log_info("Open LoRaWAN modem %s [LoRaMac %s] built on %s", VERSION, LIB_VERSION, BUILD_DATE);
 
     nvm_init();
     cmd_init(sysconf.uart_baudrate);
