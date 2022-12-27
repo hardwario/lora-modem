@@ -3605,28 +3605,30 @@ def state(get_modem: Callable[[], OpenLoRaModem]):
 
     \b
     Current state of modem /dev/serial0:
-    +---------------------------+-----------------------------------------------------------+
-    | Current region            | US915                                                     |
-    | LoRaWAN class             | A                                                         |
-    | Channel mask              | 00FF00000000000000000000                                  |
-    | Data rate                 | SF10_125                                                  |
-    | Maximum message size      | 11 B                                                      |
-    | RF power index            | 0                                                         |
-    | ADR enabled               | True                                                      |
-    | ADR acknowledgements      | Every 64-96 unconfirmed uplinks                           |
-    | Duty cycling enabled      | False                                                     |
-    | Duty cycle backoff        | 0 ms                                                      |
-    | Join duty cycling enabled | True                                                      |
-    | Maximum EIRP              | 32 dBm                                                    |
-    | Uplink frame counter      | 1                                                         |
-    | Downlink frame counter    | 0                                                         |
-    | Last downlink RSSI        | -107 dBm                                                  |
-    | Last downlink SNR         | -5 dB                                                     |
-    | RX1 window                | Delay: 5000 ms                                            |
-    | RX2 window                | Delay: 6000 ms, Frequency: 923.3 MHz, Data rate: SF12_500 |
-    | Join response windows     | RX1: 5000 ms, RX2: 6000 ms                                |
-    | Listen before talk        | RSSI threshold: -65 dBm, carrier sense time: 6 ms         |
-    +---------------------------+-----------------------------------------------------------+
+    +------------------------------------+-----------------------------------------------------------+
+    | Current region                     | US915                                                     |
+    | LoRaWAN class                      | A                                                         |
+    | Channel mask                       | 00FF00000000000000000000                                  |
+    | Data rate                          | SF10_125                                                  |
+    | Maximum message size               | 11 B                                                      |
+    | RF power index                     | 0                                                         |
+    | ADR enabled                        | True                                                      |
+    | ADR acknowledgements               | Every 64-96 unconfirmed uplinks                           |
+    | Duty cycling enabled               | False                                                     |
+    | Duty cycle backoff                 | 0 ms                                                      |
+    | Join duty cycling enabled          | True                                                      |
+    | Maximum EIRP                       | 32 dBm                                                    |
+    | Uplink frame counter               | 1                                                         |
+    | Downlink frame counter             | 0                                                         |
+    | Last downlink RSSI                 | -107 dBm                                                  |
+    | Last downlink SNR                  | -5 dB                                                     |
+    | RX1 window                         | Delay: 5000 ms                                            |
+    | RX2 window                         | Delay: 6000 ms, Frequency: 923.3 MHz, Data rate: SF12_500 |
+    | Join response windows              | RX1: 5000 ms, RX2: 6000 ms                                |
+    | Confirmed uplink transmissions     | 8                                                         |
+    | Unconfirmed uplink transmissions   | 1                                                         |
+    | Listen before talk                 | RSSI threshold: -65 dBm, carrier sense time: 6 ms         |
+    +------------------------------------+-----------------------------------------------------------+
     '''
     modem = get_modem()
 
@@ -3641,25 +3643,27 @@ def state(get_modem: Callable[[], OpenLoRaModem]):
     adr_ack_limit, adr_ack_delay = modem.adrack
 
     data = [
-        ['Current region',            region.name],
-        ['LoRaWAN class',             modem.CLASS.name],
-        ['Channel mask',              modem.chmask[0]],
-        ['Data rate',                 modem.dr[0]],
-        ['Maximum message size',      f'{modem.message_size} B'],
-        ['RF power index',            modem.rfpower[0]],
-        ['ADR enabled',               modem.adr],
-        ['ADR acknowledgements',      f'Every {adr_ack_limit}-{adr_ack_limit + adr_ack_delay} unconfirmed uplinks'],
-        ['Duty cycling enabled',      modem.duty_cycle],
-        ['Duty cycle backoff',        f'{modem.backoff} ms'],
-        ['Join duty cycling enabled', modem.join_duty_cycle],
-        ['Maximum EIRP',              f'{modem.max_eirp} dBm'],
-        ['Uplink frame counter',      uplink],
-        ['Downlink frame counter',    downlink],
-        ['Last downlink RSSI',        f'{rssi} dBm'],
-        ['Last downlink SNR',         f'{snr} dB'],
-        ['RX1 window',                f'Delay: {delay.rx_window_1} ms'],
-        ['RX2 window',                f'Delay: {delay.rx_window_2} ms, Frequency: {rx2[0] / 1000000} MHz, Data rate: {rx2[1]}'],
-        ['Join response windows',     f'RX1: {delay.join_accept_1} ms, RX2: {delay.join_accept_2} ms']]
+        ['Current region',                   region.name],
+        ['LoRaWAN class',                    modem.CLASS.name],
+        ['Channel mask',                     modem.chmask[0]],
+        ['Data rate',                        modem.dr[0]],
+        ['Maximum message size',             f'{modem.message_size} B'],
+        ['RF power index',                   modem.rfpower[0]],
+        ['ADR enabled',                      modem.adr],
+        ['ADR acknowledgements',             f'Every {adr_ack_limit}-{adr_ack_limit + adr_ack_delay} unconfirmed uplinks'],
+        ['Duty cycling enabled',             modem.duty_cycle],
+        ['Duty cycle backoff',               f'{modem.backoff} ms'],
+        ['Join duty cycling enabled',        modem.join_duty_cycle],
+        ['Maximum EIRP',                     f'{modem.max_eirp} dBm'],
+        ['Uplink frame counter',             uplink],
+        ['Downlink frame counter',           downlink],
+        ['Last downlink RSSI',               f'{rssi} dBm'],
+        ['Last downlink SNR',                f'{snr} dB'],
+        ['RX1 window',                       f'Delay: {delay.rx_window_1} ms'],
+        ['RX2 window',                       f'Delay: {delay.rx_window_2} ms, Frequency: {rx2[0] / 1000000} MHz, Data rate: {rx2[1]}'],
+        ['Join response windows',            f'RX1: {delay.join_accept_1} ms, RX2: {delay.join_accept_2} ms']
+        ['Confirmed uplink transmissions',   modem.rtynum],
+        ['Unconfirmed uplink transmissions', modem.rep]]
 
     try:
         rssith = modem.rssi_threshold
