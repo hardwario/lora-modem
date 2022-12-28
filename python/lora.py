@@ -3392,6 +3392,25 @@ class OpenLoRaModem(MurataModem):
                 self.modem.AT(f'$CM {freq},{fdev},{datarate},{power},{timeout}')
                 events.wait_for('event=9,1', timeout=timeout+1)
 
+    def lockkeys(self):
+        '''Prevent the application from reading LoRaWAN security keys.
+
+        This command can be used to prevent the application from reading LoRaWAN
+        security keys over the AT command interface. After this command has been
+        invoked, any attempt to read LoRaWAN security keys via the ATCI will
+        return an error (-50, access denied). This setting remains in effect
+        until the next reset to factory defaults.
+
+        Note: This command provides only minimal accidental protection. If the
+        application has access to USART1, USART2, or SPI ports on the modem, it
+        could simply downgrade the modem's firmware to read the keys, or it
+        could switch into the STM32 bootloader mode to directly read the EEPROM.
+        LoRaWAN security keys are stored in the EEPROM in an unencrypted form.
+        '''
+        self.modem.AT('$LOCKKEYS')
+
+    lock_keys = lockkeys
+
 
 def uartconfig_to_str(uart):
     if uart.parity == 0:
