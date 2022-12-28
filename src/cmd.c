@@ -42,7 +42,8 @@ typedef enum cmd_errno {
     ERR_UNSUPPORTED   = -17,  // Not supported in the current band
     ERR_DUTYCYCLE     = -18,  // Cannot transmit due to duty cycling
     ERR_NO_CHANNEL    = -19,  // Channel unavailable due to LBT or error
-    ERR_TOO_MANY      = -20   // Too many link check requests
+    ERR_TOO_MANY      = -20,  // Too many link check requests
+    ERR_ACCESS_DENIED = -50   // Read access to security keys is denied
 } cmd_errno_t;
 
 
@@ -413,6 +414,8 @@ static void set_joineui(atci_param_t *param)
 
 static void get_nwkskey(void)
 {
+    if (sysconf.lock_keys) abort(ERR_ACCESS_DENIED);
+
     atci_print("+OK=");
 
     // We operate in a backwards-compatible 1.0 mode here and in that mode, the
@@ -464,6 +467,8 @@ static void set_nwkskey(atci_param_t *param)
 
 static void get_appskey(void)
 {
+    if (sysconf.lock_keys) abort(ERR_ACCESS_DENIED);
+
     atci_print("+OK=");
     atci_print_buffer_as_hex(find_key(APP_S_KEY), SE_KEY_SIZE);
     EOL();
@@ -489,6 +494,8 @@ static void set_appskey(atci_param_t *param)
 
 static void get_appkey(void)
 {
+    if (sysconf.lock_keys) abort(ERR_ACCESS_DENIED);
+
     atci_print("+OK=");
     atci_print_buffer_as_hex(find_key(APP_KEY), SE_KEY_SIZE);
     EOL();
@@ -1675,6 +1682,8 @@ static void do_halt(atci_param_t *param)
 
 static void get_nwkkey(void)
 {
+    if (sysconf.lock_keys) abort(ERR_ACCESS_DENIED);
+
     atci_print("+OK=");
     atci_print_buffer_as_hex(find_key(NWK_KEY), SE_KEY_SIZE);
     EOL();
@@ -1700,6 +1709,8 @@ static void set_nwkkey(atci_param_t *param)
 
 static void get_fnwksintkey(void)
 {
+    if (sysconf.lock_keys) abort(ERR_ACCESS_DENIED);
+
     atci_print("+OK=");
     atci_print_buffer_as_hex(find_key(F_NWK_S_INT_KEY), SE_KEY_SIZE);
     EOL();
@@ -1725,6 +1736,8 @@ static void set_fnwksintkey(atci_param_t *param)
 
 static void get_snwksintkey(void)
 {
+    if (sysconf.lock_keys) abort(ERR_ACCESS_DENIED);
+
     atci_print("+OK=");
     atci_print_buffer_as_hex(find_key(S_NWK_S_INT_KEY), SE_KEY_SIZE);
     EOL();
@@ -1750,6 +1763,8 @@ static void set_snwksintkey(atci_param_t *param)
 
 static void get_nwksenckey(void)
 {
+    if (sysconf.lock_keys) abort(ERR_ACCESS_DENIED);
+
     atci_print("+OK=");
     atci_print_buffer_as_hex(find_key(NWK_S_ENC_KEY), SE_KEY_SIZE);
     EOL();
@@ -2083,6 +2098,15 @@ static void nvm_userdata(atci_param_t *param)
 }
 
 
+static void lock_keys(atci_param_t *param)
+{
+    (void)param;
+    sysconf.lock_keys = 1;
+    sysconf_modified = true;
+    OK_();
+}
+
+
 static const atci_command_t cmds[] = {
     {"+UART",        NULL,         set_uart,         get_uart,         NULL, "Configure UART interface"},
     {"+VER",         NULL,         NULL,             get_version_comp, NULL, "Firmware version and build time"},
@@ -2154,6 +2178,7 @@ static const atci_command_t cmds[] = {
     {"$CW",          cw,           NULL,             NULL,             NULL, "Start continuous carrier wave transmission"},
     {"$CM",          cm,           NULL,             NULL,             NULL, "Start continuous modulated FSK transmission"},
     {"$NVM",         nvm_userdata, NULL,             NULL,             NULL, "Manage data in NVM user registers"},
+    {"$LOCKKEYS",    lock_keys,    NULL,             NULL,             NULL, "Prevent read access to security keys from ATCI"},
     ATCI_COMMAND_CLAC,
     ATCI_COMMAND_HELP};
 

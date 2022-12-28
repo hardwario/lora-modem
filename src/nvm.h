@@ -29,19 +29,26 @@ typedef struct sysconf
      * indicates that the client submits payloads in binary form. The value 1
      * indicates that the client submits payloads in a hex form.
      */
-    uint8_t data_format;
+    uint8_t data_format : 1;
 
     /* This parameter controls whether the firmware enters low-power modes when
      * idle. Set to 0 to disable all low-power modes, set to 1 to enable
      * low-power modes.
      */
-    uint8_t sleep;
+    uint8_t sleep : 1;
 
     /* We need to keep LoRa device class here, in addition to the MIB, because
      * the MIB variable is reset to class A during Join. Having a separate copy
      * here allows us to restore the class after Join.
      */
-    uint8_t device_class;
+    uint8_t device_class : 2;
+
+    /* When this flag is set to 1, the AT command interface will prevent the
+     * application from reading the various LoRaWAN security keys. The
+     * corresponding AT commands will return an error. This flag can be only
+     * reset back to 0 with a factory reset.
+     */
+    uint8_t lock_keys : 1;
 
     /* The maximum number of retransmissions of unconfirmed uplink messages.
      * Receiving a downlink message from the network stops retransmissions.

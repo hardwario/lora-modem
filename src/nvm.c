@@ -83,6 +83,7 @@ sysconf_t sysconf = {
     .default_port = 2,
     .data_format = 0,
     .sleep = 1,
+    .lock_keys = 0,
     .device_class = CLASS_A,
     .unconfirmed_retransmissions = 1,
     .confirmed_retransmissions = 8
