@@ -95,6 +95,32 @@ Delay      = namedtuple('Delay',      'join_accept_1 join_accept_2 rx_window_1 r
 McastAddr  = namedtuple('McastAddr',  'id addr nwkskey appskey')
 
 
+@unique
+class Errno(Enum):
+    OK                =   0
+    ERR_UNKNOWN_CMD   =  -1
+    ERR_PARAM_NO      =  -2
+    ERR_PARAM         =  -3
+    ERR_FACNEW_FAILED =  -4
+    ERR_NO_JOIN       =  -5
+    ERR_JOINED        =  -6
+    ERR_BUSY          =  -7
+    ERR_VERSION       =  -8
+    ERR_MISSING_INFO  =  -9
+    ERR_FLASH_ERROR   = -10
+    ERR_UPDATE_FAILED = -11
+    ERR_PAYLOAD_LONG  = -12
+    ERR_NO_ABP        = -13
+    ERR_NO_OTAA       = -14
+    ERR_BAND          = -15
+    ERR_POWER         = -16
+    ERR_UNSUPPORTED   = -17
+    ERR_DUTYCYCLE     = -18
+    ERR_NO_CHANNEL    = -19
+    ERR_TOO_MANY      = -20
+    ERR_ACCESS_DENIED = -50
+
+
 class ModemError(Exception):
     def __init__(self, message, errno):
         super().__init__(message)
@@ -106,9 +132,60 @@ class UnknownCommand(ModemError):
         super().__init__(message, -1)
 
 
-class MissingValue(ModemError):
+class AccessDenied(ModemError):
     def __init__(self, message):
-        super().__init__(message, -1)
+        super().__init__(message, -50)
+
+
+modem_error_classes = {
+    Errno.ERR_UNKNOWN_CMD.value   : UnknownCommand,
+    Errno.ERR_ACCESS_DENIED.value : AccessDenied
+}
+
+
+error_messages = {
+    Errno.ERR_UNKNOWN_CMD.value   : 'Unknown command',
+    Errno.ERR_PARAM_NO.value      : 'Invalid number of parameters',
+    Errno.ERR_PARAM.value         : 'Invalid parameter value(s)',
+    Errno.ERR_FACNEW_FAILED.value : 'Factory reset failed',
+    Errno.ERR_NO_JOIN.value       : 'Device has not joined LoRaWAN yet',
+    Errno.ERR_JOINED.value        : 'Device has already joined LoRaWAN',
+    Errno.ERR_BUSY.value          : 'Resource unavailable: LoRa MAC is transmitting',
+    Errno.ERR_VERSION.value       : 'New firmware version must be different',
+    Errno.ERR_MISSING_INFO.value  : 'Missing firmware information',
+    Errno.ERR_FLASH_ERROR.value   : 'Flash read/write error',
+    Errno.ERR_UPDATE_FAILED.value : 'Firmware update failed',
+    Errno.ERR_PAYLOAD_LONG.value  : 'Payload is too long',
+    Errno.ERR_NO_ABP.value        : 'Only supported in ABP activation mode',
+    Errno.ERR_NO_OTAA.value       : 'Only supported in OTAA activation mode',
+    Errno.ERR_BAND.value          : 'Region is not supported',
+    Errno.ERR_POWER.value         : 'Power value too high',
+    Errno.ERR_UNSUPPORTED.value   : 'Not supported in the current region',
+    Errno.ERR_DUTYCYCLE.value     : 'Cannot transmit due to duty cycling',
+    Errno.ERR_NO_CHANNEL.value    : 'Channel unavailable due to LBT or error',
+    Errno.ERR_TOO_MANY.value      : 'Too many link check requests',
+    Errno.ERR_ACCESS_DENIED.value : 'Access to LoRaWAN security keys denied'
+}
+
+
+def raise_for_error(errno):
+    try:
+        errstr = error_messages[errno]
+    except KeyError:
+        errstr = 'Unknown error'
+
+    cls: Type[ModemError]
+    try:
+        cls = modem_error_classes[errno]
+    except KeyError:
+        cls = ModemError
+
+    raise cls(f'Command failed: {errstr} ({errno})', errno)
+
+
+class MissingValue(Exception):
+    def __init__(self, message):
+        super().__init__(message)
 
 
 class JoinFailed(Exception):
@@ -301,31 +378,6 @@ class LoRaClass(Enum):
 
 
 @unique
-class Errno(Enum):
-    OK                =   0
-    ERR_UNKNOWN_CMD   =  -1
-    ERR_PARAM_NO      =  -2
-    ERR_PARAM         =  -3
-    ERR_FACNEW_FAILED =  -4
-    ERR_NO_JOIN       =  -5
-    ERR_JOINED        =  -6
-    ERR_BUSY          =  -7
-    ERR_VERSION       =  -8
-    ERR_MISSING_INFO  =  -9
-    ERR_FLASH_ERROR   = -10
-    ERR_UPDATE_FAILED = -11
-    ERR_PAYLOAD_LONG  = -12
-    ERR_NO_ABP        = -13
-    ERR_NO_OTAA       = -14
-    ERR_BAND          = -15
-    ERR_POWER         = -16
-    ERR_UNSUPPORTED   = -17
-    ERR_DUTYCYCLE     = -18
-    ERR_NO_CHANNEL    = -19
-    ERR_TOO_MANY      = -20
-
-
-@unique
 class LogLevel(Enum):
     DISABLED = 0
     ERROR    = 1
@@ -346,30 +398,6 @@ class DataFormat(Enum):
         return self.name.lower()
 
 
-error_messages = {
-    Errno.ERR_UNKNOWN_CMD.value   : 'Unknown command',
-    Errno.ERR_PARAM_NO.value      : 'Invalid number of parameters',
-    Errno.ERR_PARAM.value         : 'Invalid parameter value(s)',
-    Errno.ERR_FACNEW_FAILED.value : 'Factory reset failed',
-    Errno.ERR_NO_JOIN.value       : 'Device has not joined LoRaWAN yet',
-    Errno.ERR_JOINED.value        : 'Device has already joined LoRaWAN',
-    Errno.ERR_BUSY.value          : 'Resource unavailable: LoRa MAC is transmitting',
-    Errno.ERR_VERSION.value       : 'New firmware version must be different',
-    Errno.ERR_MISSING_INFO.value  : 'Missing firmware information',
-    Errno.ERR_FLASH_ERROR.value   : 'Flash read/write error',
-    Errno.ERR_UPDATE_FAILED.value : 'Firmware update failed',
-    Errno.ERR_PAYLOAD_LONG.value  : 'Payload is too long',
-    Errno.ERR_NO_ABP.value        : 'Only supported in ABP activation mode',
-    Errno.ERR_NO_OTAA.value       : 'Only supported in OTAA activation mode',
-    Errno.ERR_BAND.value          : 'Region is not supported',
-    Errno.ERR_POWER.value         : 'Power value too high',
-    Errno.ERR_UNSUPPORTED.value   : 'Not supported in the current region',
-    Errno.ERR_DUTYCYCLE.value     : 'Cannot transmit due to duty cycling',
-    Errno.ERR_NO_CHANNEL.value    : 'Channel unavailable due to LBT or error',
-    Errno.ERR_TOO_MANY.value      : 'Too many link check requests'
-}
-
-
 class EventSubscription(EventEmitter):
     def wait_for(self, event: str, timeout: Optional[float] = None):
         q: "Queue[tuple]" = Queue()
@@ -383,18 +411,6 @@ class EventSubscription(EventEmitter):
         except Empty:
             self.off(event, cb)
             raise TimeoutError('Timed out')
-
-
-def raise_for_error(errno):
-    try:
-        errstr = error_messages[errno]
-    except KeyError:
-        errstr = 'Unknown error'
-
-    if errno == -1:
-        raise UnknownCommand(f'Unsupported command')
-    else:
-        raise ModemError(f'Command failed: {errstr} ({errno})', errno)
 
 
 class TypeABZ:
