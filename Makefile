@@ -191,6 +191,10 @@ AS = $(TOOLCHAIN)gcc -x assembler-with-cpp
 OBJCOPY = $(TOOLCHAIN)objcopy
 SIZE = $(TOOLCHAIN)size
 
+# Make the Python interpreter binary configurable from the command line so that
+# it could be pointed to either python or python3.
+PYTHON ?= python
+
 ################################################################################
 # Was verbose build mode requested?                                            #
 ################################################################################
@@ -417,7 +421,7 @@ install: $(BIN) $(HEX) $(MAKEFILE_LIST)
 
 .PHONY: python
 python: $(MAKEFILE_LIST) python/VERSION
-	cd python && python -m build
+	cd python && $(PYTHON) -m build
 
 .PHONY: python/VERSION
 python/VERSION: $(MAKEFILE_LIST)
