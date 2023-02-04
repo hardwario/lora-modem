@@ -7,4 +7,5 @@ tools/ozone/ozone.jdebug.user
 /*.tar.gz
 /VERSION
 /LIB_VERSION
+/release
 .DS_Store
