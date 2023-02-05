@@ -84,10 +84,10 @@ mkdir -p "$firmware_dir" "$python_dir" "$clone_dir"
 
 git clone . "$clone_dir"
 
-# Switch to the temporary directory and check out the newly created tag.
+# Switch to the clone in temporary directory and update its submodules.
 cd "$clone_dir"
 echo "Updating git submodules ..."
-git submodule update --depth 1 --init
+git submodule update --init
 
 # Create a signed and annotated tag in the local git repository clone. Fail if
 # the tag already exists.
