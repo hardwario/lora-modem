@@ -1,143 +1,159 @@
 #!/bin/bash
 set -Eeuo pipefail
 
-basename=lora-modem-abz
+bail() { echo $1; exit 1; }
 
-bail() {
-    echo $1
-    exit 1
-}
+basename=${BASENAME:-lora-modem-abz}
+orig_dir="$(pwd)"
 
-if [ $# -ne 1 ] ; then
-    bail "Usage: $0 <version>"
-fi
-
+[ $# -ne 1 ] && bail "Usage: $0 <version>"
 version="$1"
 
-if [ -z "$(python --version | grep "^Python 3.*")" ] ; then
-    bail "Error: Make sure the binary python points to Python 3"
-fi
+[ -z "${PYTHON:-}" ] && {
+    # The caller provided no path to the Python interpreter. Try detecting it.
 
-if [ -z "$(pip show build)" ] ; then
-    bail "Error: Please install the Python build package first"
-fi
+    # First see if we can use the interpeter reachable via the binary python on
+    # the path.
+    PYTHON="$(which python)" && {
+        [[ "$($PYTHON --version 2>/dev/null)" =~ ^Python\ 3.*$ ]] || PYTHON=""
+    }
 
-if [ -z "$(pip show twine)" ] ; then
-    bail "Error: Please install the Python twine package first"
-fi
+    # If not, see if we can use the interpreter reachable via the binary python3
+    # on the path.
+    [ -z "$PYTHON" ] && {
+        PYTHON="$(which python3)" && {
+            [[ "$($PYTHON --version 2>/dev/null)" =~ ^Python\ 3.*$ ]] || PYTHON=""
+        }
+    }
+} || {
+    # The caller supplied a Python interpreter via the environment variable
+    # PYTHON. Make sure it is Python 3.x.
+    [[ "$($PYTHON --version 2>/dev/null)" =~ ^Python\ 3.*$ ]] ||
+        bail "Python configured via the environment variable PYTHON must be 3.x"
+}
 
-if [ -z "${GITHUB_TOKEN:-}" ] ; then
-    bail "Error: GITHUB_TOKEN environment variable is not set"
-fi
+[ -x "$PYTHON" ] || bail "Working Python 3 interpreter not found"
 
-# The token can be usually found in ~/.pypirc
-if [ -z "${PYPI_TOKEN:-}" ] ; then
-    bail "Error: PYPI_TOKEN environment variable is not set"
-fi
+echo "Using Python interpreter $PYTHON"
 
-make clean
+PIP="$PYTHON -m pip"
+[ -z "$($PIP show build)" ] && bail "Error: Please install the Python package 'build' first"
+[ -z "$($PIP show twine)" ] && bail "Error: Please install the Python package 'twine' first"
+
+# Make sure we have a GitHub token.
+[ -z "${GITHUB_TOKEN:-}" ] && bail "Error: GITHUB_TOKEN environment variable is not set"
+
+# The PyPI token is usually found in ~/.pypirc.
+[ -z "${PYPI_TOKEN:-}" ] && bail "Error: PYPI_TOKEN environment variable is not set"
+
+# Make sure we can execute the GitHub command line tool.
+HUB=${HUB:-hub}
+command -v $HUB &>/dev/null || bail "Error: Could not execute GitHub cmdline tool 'hub'"
+
+# Make sure we have the checksum generator sha256sum.
+command -v sha256sum &>/dev/null || bail "Error: Could not execute sha256sum"
+
+# Make sure we are on the main branch.
+[ "$(git branch --show-current)" != "main" ] && bail "Error: Not on the main branch"
 
 # We only generate releases from a git repository clone that does not have any
-# uncommitted modification or untracked files
-if [ -n "$(git status --porcelain)" ] ; then
-    bail "Error: Your git repository clone is not clean"
-fi
+# uncommitted modifications or untracked files.
+[ -n "$(git status --porcelain)" ] && bail "Error: Your git repository clone is not clean"
 
 previous_tag=$(git describe --abbrev=0)
-if [ -z "$previous_tag" ] ; then
-    bail "Error: Could not determine the previous release tag"
-fi
+[ -z "$previous_tag" ] && bail "Error: Could not detect the previous release tag"
 
 new_tag="v$version"
+[ -z "$(git tag -l $new_tag)" ] || bail "Error: Release tag $new_tag already exists."
+
 name="$basename-$version"
 
-# Create the tag in the local git repository clone. Fail if the tag already
-# exists. Create a signed and annotated tag.
+#####################################################
+##### Build everything in a temporary directory #####
+#####################################################
+
+# Create a temporary directory and clone the current git clone into the
+# temporary directory.
+tmp_dir="$(mktemp -d)"
+trap "rm -rf '$tmp_dir'" EXIT
+
+firmware_dir="$tmp_dir/firmware"
+python_dir="$tmp_dir/python"
+clone_dir="$tmp_dir/clone"
+mkdir -p "$firmware_dir" "$python_dir" "$clone_dir"
+
+git clone . "$clone_dir"
+
+# Switch to the temporary directory and check out the newly created tag.
+cd "$clone_dir"
+echo "Updating git submodules ..."
+git submodule update --depth 1 --init
+
+# Create a signed and annotated tag in the local git repository clone. Fail if
+# the tag already exists.
+echo -n "Creating git tag $new_tag ... "
 git tag -s -a "$new_tag" -m "Version $version"
+echo "done."
 
 # Generate the files VERSION and LIB_VERSION so that they can be included in the
 # source tarball (which does not contain git version information).
 make VERSION LIB_VERSION
 
 # Create a source code tarball for the release that can be built without git.
-echo -n "Creating source tarball..."
-
+echo -n "Creating source tarball $name.tar.gz ... "
 command -v gtar &>/dev/null && tar=gtar || tar=tar
-$tar --exclude .git           \
-    --exclude *.bin           \
-    --exclude *.hex           \
-    --exclude *.map           \
-    --exclude *.tar.gz        \
-    --exclude obj             \
-    --exclude .gitmodules     \
-    --transform "s,^,$name/," \
-    -zcf $name.tar.gz .
+$tar --exclude .editorconfig   \
+     --exclude .git            \
+     --exclude .gitignore      \
+     --exclude .gitmodules     \
+     --exclude .vscode         \
+     --exclude obj             \
+     --transform "s,^,$name/," \
+    -zcf $firmware_dir/$name.tar.gz .
 echo "done."
 
 # Build both release and debug versions of the firmware binary. This is the
 # default build variant that uses PA12 (as recommended in the datasheet) to
 # control TCXO_VDD. Debug builds have a debugging logger on USART1.
-
 make TCXO_PIN=1 release
 make TCXO_PIN=1 DEBUG_PORT=1 debug
 
-# And copy the resulting biinary files into the current directory
-cp -f out/release/firmware.bin "$name.bin"
-cp -f out/release/firmware.hex "$name.hex"
-cp -f out/debug/firmware.bin   "$name.debug.bin"
-cp -f out/debug/firmware.hex   "$name.debug.hex"
-cp -f out/debug/firmware.map   "$name.debug.map"
+# And copy the resulting binary files into the firmware release directory.
+cp -f out/release/firmware.bin "$firmware_dir/$name.bin"
+cp -f out/release/firmware.hex "$firmware_dir/$name.hex"
+cp -f out/debug/firmware.bin   "$firmware_dir/$name.debug.bin"
+cp -f out/debug/firmware.hex   "$firmware_dir/$name.debug.hex"
+cp -f out/debug/firmware.map   "$firmware_dir/$name.debug.map"
 
 # Now build the variants for Arduino MKRWAN boards. These build variants use PB6
 # to control TCXO power. Debug builds start the debugging logger on USART2.
-
 make clean
 make TCXO_PIN=2 release
 make TCXO_PIN=2 DEBUG_PORT=2 debug
 
-# And copy the resulting biinary files into the current directory
-cp -f out/release/firmware.bin "$name.mkrwan.bin"
-cp -f out/release/firmware.hex "$name.mkrwan.hex"
-cp -f out/debug/firmware.bin   "$name.debug.mkrwan.bin"
-cp -f out/debug/firmware.hex   "$name.debug.mkrwan.hex"
-cp -f out/debug/firmware.map   "$name.debug.mkrwan.map"
+# And copy the resulting binary files to the firmware release directory.
+cp -f out/release/firmware.bin "$firmware_dir/$name.mkrwan.bin"
+cp -f out/release/firmware.hex "$firmware_dir/$name.mkrwan.hex"
+cp -f out/debug/firmware.bin   "$firmware_dir/$name.debug.mkrwan.bin"
+cp -f out/debug/firmware.hex   "$firmware_dir/$name.debug.mkrwan.hex"
+cp -f out/debug/firmware.map   "$firmware_dir/$name.debug.mkrwan.map"
 
-# Compute SHA-256 checksums of the binary files
-checksums=$(sha256sum -b \
-    "$name.bin" \
-    "$name.hex" \
-    "$name.debug.bin" \
-    "$name.debug.hex" \
-    "$name.debug.map" \
-    "$name.mkrwan.bin" \
-    "$name.mkrwan.hex" \
-    "$name.debug.mkrwan.bin" \
-    "$name.debug.mkrwan.hex" \
-    "$name.debug.mkrwan.map" \
-    "$name.tar.gz")
+# Build the Python library.
+PYTHON="$PYTHON" make python
+cp -a python/dist/* "$python_dir"
 
-# Generate a signed version of the checksums
+# Compute SHA-256 checksums of all firmware release files.
+cd "$firmware_dir"
+firmware_files=(*)
+checksums=$(sha256sum -b ${firmware_files[*]})
+
+# Generate a signed version of the checksums.
+echo -n "Signing the release manifest ... "
 signed_checksums=$(echo "$checksums" | gpg --clear-sign)
+echo "done."
 
-# Push the newly created tag into the Github repository
-git push origin "$new_tag"
-
-# And create new draft release for the tag with all the generated files
-# attached.
-hub release create              \
-    -d                          \
-    -a "$name.bin"              \
-    -a "$name.hex"              \
-    -a "$name.debug.bin"        \
-    -a "$name.debug.hex"        \
-    -a "$name.debug.map"        \
-    -a "$name.mkrwan.bin"       \
-    -a "$name.mkrwan.hex"       \
-    -a "$name.debug.mkrwan.bin" \
-    -a "$name.debug.mkrwan.hex" \
-    -a "$name.debug.mkrwan.map" \
-    -a "$name.tar.gz"           \
-    -F - $new_tag << EOF
+# Generate a manifest file with SHA-256 checksums of all release files.
+cat > $firmware_dir/manifest.md << EOF
 Release $version
 
 **SHA256 checksums**:
@@ -148,7 +164,44 @@ $signed_checksums
 **Full changelog**: https://github.com/hardwario/$basename/compare/$previous_tag...$new_tag
 EOF
 
-# Build the Python library
-make python
+############################################################
+##### Copy tag and binary files back go original clone #####
+############################################################
 
-python -m twine upload -u __token__ -p "$PYPI_TOKEN" python/dist/*
+# Push the newly created signed release tag back to the local git clone from
+# which we created the clone in the temporary directory.
+cd "$clone_dir"
+git push origin "$new_tag"
+
+# Copy all files generated in this release back to the original clone.
+rm -rf "$orig_dir/release/$version"
+mkdir -p "$orig_dir/release/$version"
+cp -a "$firmware_dir"/* "$orig_dir/release/$version"
+cp -a "$python_dir" "$orig_dir/release/$version"
+
+###################################
+##### Push to GitHub and PyPI #####
+###################################
+
+# Push the signed tag that represents the new release to GitHub.
+echo -n "Pushing tag $new_tag to GitHub ... "
+cd "$orig_dir"
+git push origin "$new_tag"
+echo "done."
+
+cd "release/$version"
+
+# Create a new GitHub draft release for the new signed release tag with all the
+# generated files attached.
+echo -n "Creating a new GitHub draft release ... "
+attachments=""
+for f in ${firmware_files[@]}; do
+    attachments="-a $f $attachments"
+done
+$HUB release create -d $attachments -F manifest.md "$new_tag"
+echo "done."
+
+# Upload a new version of the Python library to PyPI.
+echo -n "Uploading new package version to PyPI ... "
+"$PYTHON" -m twine upload -u __token__ -p "$PYPI_TOKEN" python/*
+echo "done."
