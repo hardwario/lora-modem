@@ -257,8 +257,8 @@ static void facnew(atci_param_t *param)
         abort(ERR_FACNEW_FAILED);
     OK_();
 
-#define RESET_DEVNONCE(flags) (((flags) & (1 << 0)) == 1)
-#define RESET_DEVEUI(flags) (((flags) & (1 << 1)) == 1)
+#define RESET_DEVNONCE(flags) (((flags) & (1 << 0)) != 0)
+#define RESET_DEVEUI(flags) (((flags) & (1 << 1)) != 0)
 
     lrw_factory_reset(RESET_DEVNONCE(flags), RESET_DEVEUI(flags));
 }
