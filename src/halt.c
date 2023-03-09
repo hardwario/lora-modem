@@ -9,7 +9,7 @@
 
 __attribute__((noreturn)) void halt(const char *msg)
 {
-#if defined(DEBUG)
+#if DEBUG_LOG != 0
     const char prefix[] = "Halted";
 #endif
     cmd_event(CMD_EVENT_MODULE, CMD_MODULE_HALT);

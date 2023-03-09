@@ -8,7 +8,7 @@
 #include "log.h"
 #include "irq.h"
 #include "system.h"
-
+#include "cmd.h"
 
 #ifndef LPUART_BUFFER_SIZE
 #define LPUART_BUFFER_SIZE 512
@@ -29,6 +29,13 @@ volatile cbuf_t lpuart_tx_fifo;
 static unsigned char dma_buffer[LPUART_DMA_BUFFER_SIZE];
 static unsigned char rx_buffer[LPUART_BUFFER_SIZE];
 volatile cbuf_t lpuart_rx_fifo;
+
+
+#if DETACHABLE_LPUART == 1
+
+static bool volatile attached;
+
+#endif // DETACHABLE_LPUART
 
 
 // This function is invoked from the IRQ handler context
@@ -64,6 +71,9 @@ void lpuart_init(unsigned int baudrate)
     cbuf_init(&lpuart_tx_fifo, tx_buffer, sizeof(tx_buffer));
     cbuf_init(&lpuart_rx_fifo, rx_buffer, sizeof(rx_buffer));
     tx_idle = 1;
+#if DETACHABLE_LPUART == 1
+    attached = true;
+#endif
 
     uint32_t masked = disable_irq();
 
@@ -133,6 +143,7 @@ static void init_gpio(void)
 {
     GPIO_InitTypeDef gpio = {
         .Mode = GPIO_MODE_AF_PP,
+        .Alternate = GPIO_AF6_LPUART1,
         .Speed = GPIO_SPEED_HIGH
     };
 
@@ -140,12 +151,10 @@ static void init_gpio(void)
     __HAL_RCC_GPIOA_CLK_ENABLE();
 
     gpio.Pin = GPIO_PIN_2;
-    gpio.Alternate = GPIO_AF6_LPUART1;
     gpio.Pull = GPIO_NOPULL;
     HAL_GPIO_Init(GPIOA, &gpio);
 
     gpio.Pin = GPIO_PIN_3;
-    gpio.Alternate = GPIO_AF6_LPUART1;
     gpio.Pull = GPIO_PULLUP;
     HAL_GPIO_Init(GPIOA, &gpio);
 }
@@ -158,6 +167,7 @@ static void deinit_gpio(void)
         .Pull = GPIO_NOPULL
     };
 
+    __HAL_RCC_GPIOA_CLK_ENABLE();
     __HAL_RCC_GPIOA_CLK_ENABLE();
 
     gpio.Pin = GPIO_PIN_2;
@@ -255,6 +265,31 @@ void HAL_UART_MspDeInit(UART_HandleTypeDef *port)
 }
 
 
+static void flush_tx_fifo(void)
+{
+    cbuf_view_t v;
+
+    if (lpuart_tx_fifo.length > 0) {
+        // We need to reacreate the sleep lock here even when tx_idle is false
+        // in case this function is invoked after reattaching the port.
+        system_stop_lock |= SYSTEM_MODULE_LPUART_TX;
+
+        if (tx_idle) {
+            tx_idle = 0;
+
+            cbuf_head(&lpuart_tx_fifo, &v);
+            if (v.len[0]) {
+                HAL_UART_Transmit_DMA(&port, (unsigned char *)v.ptr[0], v.len[0]);
+                tx_len = v.len[0];
+            } else {
+                HAL_UART_Transmit_DMA(&port, (unsigned char *)v.ptr[1], v.len[1]);
+                tx_len = v.len[1];
+            }
+        }
+    }
+}
+
+
 size_t lpuart_write(const char *buffer, size_t length)
 {
     uint32_t masked = disable_irq();
@@ -268,20 +303,10 @@ size_t lpuart_write(const char *buffer, size_t length)
     masked = disable_irq();
     cbuf_produce(&lpuart_tx_fifo, written);
 
-    if (tx_idle && lpuart_tx_fifo.length > 0) {
-        tx_idle = 0;
-        system_stop_lock |= SYSTEM_MODULE_LPUART_TX;
-
-        cbuf_head(&lpuart_tx_fifo, &v);
-        if (v.len[0]) {
-            HAL_UART_Transmit_DMA(&port, (unsigned char *)v.ptr[0], v.len[0]);
-            tx_len = v.len[0];
-        } else {
-            HAL_UART_Transmit_DMA(&port, (unsigned char *)v.ptr[1], v.len[1]);
-            tx_len = v.len[1];
-        }
-    }
-
+#if DETACHABLE_LPUART == 1
+    if (attached)
+#endif
+        flush_tx_fifo();
     reenable_irq(masked);
     return written;
 }
@@ -302,7 +327,7 @@ void lpuart_write_blocking(const char *buffer, size_t length)
                 // If the TX FIFO is at full capacity, we invoke system_idle to
                 // put the MCU to sleep until there is some space in the output
                 // FIFO which will be signalled by the ISR when the DMA transfer
-                // finishes. Since transmission happens via DMA, system_idle
+                // finishes. Since the transmission happens via DMA, system_idle
                 // used below must not enter the Stop mode. That is, however,
                 // guaranteed, since the function luart_write above creates a
                 // stop mode wake lock which will still be in place when the
@@ -320,21 +345,31 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *port)
 {
     cbuf_view_t v;
 
-    if (tx_len) cbuf_consume(&lpuart_tx_fifo, tx_len);
-
-    if (lpuart_tx_fifo.length) {
-        cbuf_head(&lpuart_tx_fifo, &v);
-        if (v.len[0]) {
-            HAL_UART_Transmit_DMA(port, (unsigned char *)v.ptr[0], v.len[0]);
-            tx_len = v.len[0];
-        } else {
-            HAL_UART_Transmit_DMA(port, (unsigned char *)v.ptr[1], v.len[1]);
-            tx_len = v.len[1];
-        }
-    } else {
-        system_stop_lock &= ~SYSTEM_MODULE_LPUART_TX;
+    if (tx_len) {
+        cbuf_consume(&lpuart_tx_fifo, tx_len);
         tx_len = 0;
+    }
+
+    if (!lpuart_tx_fifo.length) {
+        system_stop_lock &= ~SYSTEM_MODULE_LPUART_TX;
         tx_idle = 1;
+        return;
+    }
+
+#if DETACHABLE_LPUART == 1
+    if (!attached) {
+        system_stop_lock &= ~SYSTEM_MODULE_LPUART_TX;
+        return;
+    }
+#endif
+
+    cbuf_head(&lpuart_tx_fifo, &v);
+    if (v.len[0]) {
+        HAL_UART_Transmit_DMA(port, (unsigned char *)v.ptr[0], v.len[0]);
+        tx_len = v.len[0];
+    } else {
+        HAL_UART_Transmit_DMA(port, (unsigned char *)v.ptr[1], v.len[1]);
+        tx_len = v.len[1];
     }
 }
 
@@ -402,22 +437,73 @@ void DMA1_Channel4_5_6_7_IRQHandler(void)
 }
 
 
+static void pause_rx_dma(void)
+{
+    if ((HAL_IS_BIT_SET(port.Instance->CR3, USART_CR3_DMAR)) &&
+        (port.RxState == HAL_UART_STATE_BUSY_RX)) {
+        CLEAR_BIT(port.Instance->CR3, USART_CR3_DMAR);
+    }
+}
+
+
+static void pause_tx_dma(void)
+{
+    if ((HAL_IS_BIT_SET(port.Instance->CR3, USART_CR3_DMAT)) &&
+        (port.gState == HAL_UART_STATE_BUSY_TX)) {
+        CLEAR_BIT(port.Instance->CR3, USART_CR3_DMAT);
+    }
+}
+
+
+static void pause_dma(void)
+{
+    pause_rx_dma();
+    pause_tx_dma();
+}
+
+
 void lpuart_before_stop(void)
 {
+    pause_dma();
     HAL_UART_DMAPause(&port);
     LL_LPUART_EnableIT_WKUP(port.Instance);
+}
+
+
+static void resume_tx_dma(void)
+{
+    if (port.gState == HAL_UART_STATE_BUSY_TX) {
+        SET_BIT(port.Instance->CR3, USART_CR3_DMAT);
+    }
+}
+
+
+static void resume_rx_dma(void)
+{
+    if (port.RxState == HAL_UART_STATE_BUSY_RX) {
+        /* Clear the Overrun flag before resuming the Rx transfer */
+        __HAL_UART_CLEAR_FLAG(&port, UART_CLEAR_OREF);
+
+        /* Enable the UART DMA Rx request */
+        SET_BIT(port.Instance->CR3, USART_CR3_DMAR);
+    }
 }
 
 
 void lpuart_after_stop(void)
 {
     LL_LPUART_DisableIT_WKUP(port.Instance);
-    HAL_UART_DMAResume(&port);
 
-    // Resuming DMA re-enables the LPUART1 error interrupt, so we need to
-    // disable it here again. We ignore all errors on LPUART1 and let upper
-    // layers (ATCI) deal with it.
-    LL_LPUART_DisableIT_ERROR(port.Instance);
+    // We cannot use HAL_UART_DMAResume provided by the STM HAL here. That
+    // function resumes both RX and TX DMA transfers and additionally re-enables
+    // error interrupts. We need to resume the TX DMA here if and only if the
+    // port is attached. Resuming a TX DMA while the port is detached from GPIO
+    // would result in lost data.
+    resume_rx_dma();
+#if DETACHABLE_LPUART == 1
+    if (attached)
+#endif
+        resume_tx_dma();
 }
 
 
@@ -459,3 +545,30 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *port)
     (void)port;
     log_error("LPUART1 error: %ld", port->ErrorCode);
 }
+
+
+#if DETACHABLE_LPUART == 1
+
+void lpuart_detach(void)
+{
+    if (!attached) return;
+    pause_tx_dma();
+    deinit_gpio();
+    attached = false;
+}
+
+
+void lpuart_attach(void)
+{
+
+    if (attached) return;
+    init_gpio();
+    resume_tx_dma();
+
+    uint32_t masked = disable_irq();
+    flush_tx_fifo();
+    reenable_irq(masked);
+    attached = true;
+}
+
+#endif // DETACHABLE_LPUART

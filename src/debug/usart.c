@@ -6,25 +6,22 @@
 #include "system.h"
 #include "halt.h"
 
+#if DEBUG_LOG != 3
 
-#if !defined(DEBUG_PORT)
-#  error DEBUG_PORT is not defined
-#endif
-
-#if DEBUG_PORT == 1
+#if DEBUG_LOG == 1
 #  define PORT       USART1
 #  define IRQn       USART1_IRQn
 #  define CLK_ENABLE __USART1_CLK_ENABLE
 #  define PIN        GPIO_PIN_9
 #  define ALTERNATE  GPIO_AF4_USART1
-#elif DEBUG_PORT == 2
+#elif DEBUG_LOG == 2
 #  define PORT       USART2
 #  define IRQn       USART2_IRQn
 #  define CLK_ENABLE __USART2_CLK_ENABLE
 #  define PIN        GPIO_PIN_2
 #  define ALTERNATE  GPIO_AF4_USART2
 #else
-#  error Unsupported DEBUG_PORT value
+#  error Unsupported DEBUG_LOG value
 #endif
 
 
@@ -113,12 +110,12 @@ size_t usart_write(const char *buffer, size_t length)
 }
 
 
-#if DEBUG_PORT == 1
+#if DEBUG_LOG == 1
 void USART1_IRQHandler(void)
-#elif DEBUG_PORT == 2
+#elif DEBUG_LOG == 2
 void USART2_IRQHandler(void)
 #else
-#error Unsupport DEBUG_PORT
+#error Unsupport DEBUG_LOG
 #endif
 {
     uint8_t c;
@@ -136,3 +133,5 @@ void USART2_IRQHandler(void)
         system_stop_lock &= ~SYSTEM_MODULE_USART;
     }
 }
+
+#endif

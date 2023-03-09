@@ -19,8 +19,13 @@
                 "ENABLED_REGIONS=\"AS923 AU915 CN470 CN779 EU433 EU868 IN865 KR920 RU864 US915\"",
                 "DEFAULT_ACTIVE_REGION=\"EU868\"",
                 "DEFAULT_UART_BAUDRATE=19200",
-                "DEBUG_PORT=1",
-                "TCXO_PIN=1"
+                "FACTORY_RESET_PIN=1",
+                "RESTORE_CHMASK_AFTER_JOIN=0",
+                "TCXO_PIN=1",
+                "DETACHABLE_LPUART=1",
+                "DEBUG_LOG=1",
+                "ENABLE_SWD=1",
+                "DEBUG_MCU=1"
             ],
             "includePath": [
                 "${workspaceFolder}/**",
@@ -47,7 +52,13 @@
                  "ENABLED_REGIONS=\"AS923 AU915 CN470 CN779 EU433 EU868 IN865 KR920 RU864 US915\"",
                  "DEFAULT_ACTIVE_REGION=\"EU868\"",
                  "DEFAULT_UART_BAUDRATE=19200",
-                 "TCXO_PIN=1"
+                 "FACTORY_RESET_PIN=1",
+                 "RESTORE_CHMASK_AFTER_JOIN=0",
+                 "TCXO_PIN=1",
+                 "DETACHABLE_LPUART=1",
+                 "DEBUG_LOG=0",
+                 "ENABLE_SWD=0",
+                 "DEBUG_MCU=0"
             ],
              "includePath": [
                  "${workspaceFolder}/**",

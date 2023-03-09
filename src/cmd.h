@@ -47,6 +47,10 @@ void cmd_event(unsigned int type, unsigned subtype);
 
 void cmd_ans(unsigned int margin, unsigned int gwcnt);
 
+#if DETACHABLE_LPUART == 1
+void cmd_init_attach_pin(void);
+#endif
+
 #define cmd_process atci_process
 #define cmd_print atci_print
 #define cmd_printf atci_printf

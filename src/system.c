@@ -8,6 +8,7 @@
 #include "gpio.h"
 #include "nvm.h"
 #include "lrw.h"
+#include "cmd.h"
 
 
 // Unique Devices IDs register set ( STM32L0xxx )
@@ -158,21 +159,23 @@ static void init_gpio(void)
 }
 
 
-#if defined(DEBUG)
+#if DEBUG_MCU == 1
+
 static void init_dbgmcu(void)
 {
-    // Note: This function is mutually-exclusive with init_facnew_gpio (they
-    // share the same GPIO pin).
+    // Note: This function is mutually exclusive with the factory reset pin
+    // feature (conflict on PB15) and with the detachable LPUART1 feature
+    // (conflict on PB12).
 
     // Enable the GPIO B clock
     __GPIOB_CLK_ENABLE();
 
     // Configure debugging GPIO pins
     GPIO_InitTypeDef gpio = {
-        .Mode = GPIO_MODE_OUTPUT_PP,
-        .Pull = GPIO_PULLUP,
+        .Mode  = GPIO_MODE_OUTPUT_PP,
+        .Pull  = GPIO_PULLUP,
         .Speed = GPIO_SPEED_HIGH,
-        .Pin = GPIO_PIN_12 | GPIO_PIN_13 | GPIO_PIN_14 | GPIO_PIN_15
+        .Pin   = GPIO_PIN_12 | GPIO_PIN_13 | GPIO_PIN_14 | GPIO_PIN_15
     };
     HAL_GPIO_Init(GPIOB, &gpio);
 
@@ -187,16 +190,14 @@ static void init_dbgmcu(void)
     HAL_DBGMCU_EnableDBGStopMode();
     HAL_DBGMCU_EnableDBGStandbyMode();
 }
-#endif
+
+#endif // DEBUG_MCU
 
 
-#if defined(RELEASE)
+#if DEBUG_SWD == 0
+
 static void disable_swd(void)
 {
-    // init_gpio called before this function does not touch GPIO A 13 & 14 (SWD)
-    // to keep the SWD port operational. In release mode, we re-configure the
-    // two pins in analog mode to minimize power consumption.
-
     GPIO_InitTypeDef gpio = {
         .Mode = GPIO_MODE_ANALOG,
         .Pull = GPIO_NOPULL,
@@ -214,8 +215,10 @@ static void disable_swd(void)
     __DBGMCU_CLK_DISABLE();
 }
 
+#endif // DEBUG_SWD
 
-#if defined(ENABLE_FACTORY_RESET_PIN)
+#if FACTORY_RESET_PIN == 1
+
 static Gpio_t facnew_pin = {
     .port     = GPIOB,
     .pinIndex = GPIO_PIN_15
@@ -249,10 +252,9 @@ static void facnew_isr(void *ctx)
 
 static void init_facnew_gpio(void)
 {
-    // Note: This function is mutually-exclusive with init_dbgmcu (they share
-    // the same GPIO pin).
+    // Note: This function is mutually exclusive with init_dbgmcu (PB15 conflict).
 
-    __GPIOA_CLK_ENABLE();
+    __GPIOB_CLK_ENABLE();
     GPIO_InitTypeDef gpio = {
         .Mode  = GPIO_MODE_IT_RISING_FALLING,
         .Pull  = GPIO_PULLUP,
@@ -261,8 +263,8 @@ static void init_facnew_gpio(void)
     gpio_init(facnew_pin.port, facnew_pin.pinIndex, &gpio);
     gpio_set_irq(facnew_pin.port, facnew_pin.pinIndex, 0, facnew_isr);
 }
-#endif // ENABLE_FACTORY_RESET_PIN
-#endif // RELEASE
+
+#endif // FACTORY_RESET_PIN
 
 
 static void init_clock(void)
@@ -325,13 +327,19 @@ void system_init(void)
     HAL_Init();
     init_flash();
     init_gpio();
-#if defined(RELEASE)
+#if DEBUG_SWD == 0
+    // init_gpio does not touch PA13 & PA14 (SWD) to keep the SWD port
+    // operational. If the SWD feature is disabled (e.g., in release mode),
+    // reconfigure the pins in analog mode to minimize power consumption.
     disable_swd();
-#if defined(ENABLE_FACTORY_RESET_PIN)
+#endif
+#if FACTORY_RESET_PIN == 1
     init_facnew_gpio();
 #endif
+#if DETACHABLE_LPUART == 1
+    cmd_init_attach_pin();
 #endif
-#if defined(DEBUG)
+#if DEBUG_MCU == 1
     init_dbgmcu();
 #endif
     init_clock();

@@ -15,19 +15,6 @@ ENABLED_REGIONS ?= AS923 AU915 EU868 KR920 IN865 US915 RU864
 # application.
 DEFAULT_ACTIVE_REGION ?= EU868
 
-# Uncomment the following line to configure pin 14 (GPIOB15/SPI2_MOSI) as a
-# factory reset pin. During normal operation, the pin should be pulled up or
-# left floating. When continuously pulled down for more than five seconds and
-# then pulled up, the modem resets itself to factory defaults.
-#
-# This functionality is only available in release builds. In debug builds, the
-# same pin is used by the SWD debugging interface.
-#
-# Since the modem can also be reset through the AT command interface, this
-# functionality is disabled by default to save a little bit of power.
-#
-# ENABLE_FACTORY_RESET_PIN = 1
-
 # The default channel plan for the AS923 region. One of:
 #  - CHANNEL_PLAN_GROUP_AS923_1
 #  - CHANNEL_PLAN_GROUP_AS923_2
@@ -59,17 +46,24 @@ VERSION_COMPAT ?= 1.1.06
 # build date of Murata Modem in version configured through VERSION_COMPAT.
 BUILD_DATE_COMPAT ?= Aug 24 2020 16:11:57
 
+# Set the following variable to 1 configure pin 14 (GPIOB15/SPI2_MOSI) as a
+# factory reset pin. During normal operation, the pin should be pulled up or
+# left floating. When continuously pulled down for more than five seconds and
+# then pulled up, the modem resets itself to factory defaults.
+#
+# Since the modem can also be reset through the AT command interface, this
+# functionality is disabled by default to save a little bit of power.
+#
+# Used GPIOs: PB15
+FACTORY_RESET_PIN ?= 0
+
 # The LoRaWAN network server may reconfigure the node's channel mask in the Join
 # Accept message. If you want to prevent that from happening, e.g., if you work
-# with an incorrectly configured LoRaWAN network server, uncomment the following
-# variable. Use with caution. This feature is designed as a work-around for
+# with an incorrectly-configured LoRaWAN network server, set the following
+# variable to 1. Use with caution. This feature is designed as a work-around for
 # incorrectly configured LoRa networks. If you are unsure, leave the variable
-# commented out.
-# RESTORE_CHMASK_AFTER_JOIN = 1
-
-# Select the USART port number which will receive debug messages when the
-# firmware is built in debugging mode. You can select 1 or 2 here.
-DEBUG_PORT ?= 1
+# set to 0.
+RESTORE_CHMASK_AFTER_JOIN ?= 0
 
 # Select the GPIO pin connected to VDD_TCXO (pin 48). The modem will use this
 # pin to control power to the TCXO IC. The TCXO IC generates clock for the
@@ -83,7 +77,61 @@ DEBUG_PORT ?= 1
 #       also the default value. Hardwario LoRa devices use this pin.
 #
 #   2 - PB6 (pin 39). Arduino MKRWAN1310 boards use this pin.
+#
+# Used GPIOs: PA12 (1), PB6 (2)
 TCXO_PIN ?= 1
+
+# Arduino MKRWAN boards share some lines between the TypeABZ module's LPUART
+# interface (the AT command interface) and SPI. On MKRWAN1310 boards, the SPI
+# interface is also used to communicate with the on-board SPI flash. As a
+# consequence, the host cannot access the flash while the TypeABZ AT command
+# interface is active. This is a design flaw of the Arduino MKRWAN1310 board.
+#
+# The Arduino documentation recommends that the host MCU keeps the TypeABZ modem
+# in a reset state while it accesses the on-board flash. Resetting the TypeABZ
+# modem could result in the loss of some internal LoRaWAN state maintained by
+# the modem and is not recommended unless absolutely necessary.
+#
+# When the following option is set to 1, the host can request to detach LPUART
+# GPIO pins with the AT command AT$DETACH. The GPIO PB12 must be set to 1 at
+# that time. While detached, the host can use SPI to communicate with the
+# on-board flash. To reattach LPUART GPIO pins, the host pulls PB12 GPIO down.
+# The modem emits "+EVENT=0,9" to indicate that the LPUART port has been
+# attached and the AT command interface is available again.
+#
+# Used GPIOs: PA2, PA3 (LPUART1), PB12 (attach LPUART1 signal)
+DETACHABLE_LPUART ?= 0
+
+# Select the target for the debugging logger. The target can be one of:
+#   0 - No target, disable the debugging logger
+#   1 - Send debugging messages to USART1
+#   2 - Send debugging messages to USART2
+#   3 - Send debugging messages to Segger RTT
+#
+# By default, the variable is set to 0 in release mode and to 1 in debug mode.
+#
+# Used GPIOs: PA9 (USART1), PA2 (USART2)
+#DEBUG_LOG =
+
+# Enable (1) or disable (0) the SWD debugging interface. This is most useful
+# when the firmware is being built in debugging mode. When set to 0, the SWD
+# interface will be disabled at startup. The interface should be disabled when
+# the firmware is being built in release mode.
+#
+# By default, the variable is set to 0 in release mode and to 1 in debug mode.
+#
+# Used GPIOs: PA13, PA14
+#DEBUG_SWD =
+
+# Enable (1) or disable (0) the MCU debugging interface. Consider enabling the
+# interface when compiling the firmware in debugging mode. You may need to
+# disable other features that use the same ports when you enable the MCU
+# debugging interface.
+#
+# By default, the variable is set to 0 in release mode and to 1 in debug mode.
+#
+# Used GPIOs: PB12, PB13, PB14, PB15
+#DEBUG_MCU =
 
 ################################################################################
 # You shouldn't need to edit the text below under normal circumstances.        #
@@ -97,7 +145,7 @@ OUT_DIR ?= out
 
 # The current compilation type (either debug or release). Passed recursively
 # across make invocations.
-TYPE ?= debug
+TYPE ?= release
 
 ELF ?= $(OUT_DIR)/$(TYPE)/$(BASENAME).elf
 MAP ?= $(OUT_DIR)/$(TYPE)/$(BASENAME).map
@@ -110,7 +158,10 @@ HEX ?= $(OUT_DIR)/$(TYPE)/$(BASENAME).hex
 
 # Add all the application files to the list of directories to scan.
 SRC_DIRS = $(SRC_DIR)
-SRC_DIRS_DEBUG = $(SRC_DIR)/debug
+
+ifneq ($(DEBUG_LOG),0)
+SRC_DIRS += $(SRC_DIR)/debug
+endif
 
 # Include only the following selected sources from the STM HAL and everything
 # from stm/src
@@ -134,17 +185,23 @@ stm_hal = \
 	stm32l0xx_hal_uart_ex.c \
 	stm32l0xx_ll_dma.c
 
-stm_hal_debug = \
+ifneq ($(DEBUG_LOG),0)
+stm_hal += \
 	stm32l0xx_ll_usart.c \
 	stm32l0xx_ll_rcc.c
+endif
 
 SRC_FILES += $(patsubst %.c,$(LIB_DIR)/stm/STM32L0xx_HAL_Driver/Src/%.c,$(stm_hal))
-SRC_FILES_DEBUG = $(patsubst %.c,$(LIB_DIR)/stm/STM32L0xx_HAL_Driver/Src/%.c,$(stm_hal_debug))
 
 SRC_DIRS += $(LIB_DIR)/stm/src
 
-# Include all source code from rtt and LoRaWAN lib subdirectories
-SRC_DIRS_DEBUG += $(LIB_DIR)/rtt
+# If we log to Segger RTT, include the source code from the rtt lib
+# subdirectory.
+ifeq ($(DEBUG_LOG),3)
+SRC_DIRS += $(LIB_DIR)/rtt
+endif
+
+# Include all source code from LoRaWAN lib subdirectories
 SRC_DIRS += $(LIB_DIR)/LoRaWAN/Utilities
 
 # Include the core LoRa MAC stack with only the base regional files
@@ -310,8 +367,6 @@ CFLAGS += -DUSE_FULL_LL_DRIVER
 
 CFLAGS += -DDEFAULT_UART_BAUDRATE=$(DEFAULT_UART_BAUDRATE)
 
-CFLAGS += -DTCXO_PIN=$(TCXO_PIN)
-
 # Extra flags to be only applied when we compile the souce files from the lib
 # subdirectory. Since that sub-directory contains third-party code, disable some
 # of the warnings.
@@ -322,7 +377,6 @@ CFLAGS_LIBS += -Wno-int-conversion
 CFLAGS_DEBUG += -g3
 CFLAGS_DEBUG += -Og
 CFLAGS_DEBUG += -DDEBUG
-CFLAGS_DEBUG += -DDEBUG_PORT=$(DEBUG_PORT)
 
 CFLAGS_RELEASE += -Os
 CFLAGS_RELEASE += -DRELEASE
@@ -336,18 +390,18 @@ CFLAGS += -DDEFAULT_ACTIVE_REGION='"$(DEFAULT_ACTIVE_REGION)"'
 CFLAGS += -DREGION_AS923_DEFAULT_CHANNEL_PLAN=$(AS923_DEFAULT_CHANNEL_PLAN)
 CFLAGS += -DREGION_CN470_DEFAULT_CHANNEL_PLAN=$(CN470_DEFAULT_CHANNEL_PLAN)
 
-
-ifdef ENABLE_FACTORY_RESET_PIN
-CFLAGS += -DENABLE_FACTORY_RESET_PIN
-endif
-
 ifneq (,$(LORAMAC_ABP_VERSION))
 CFLAGS += -DLORAMAC_ABP_VERSION=$(LORAMAC_ABP_VERSION)
 endif
 
-ifdef RESTORE_CHMASK_AFTER_JOIN
-CFLAGS += -DRESTORE_CHMASK_AFTER_JOIN
-endif
+CFLAGS += -DFACTORY_RESET_PIN=$(FACTORY_RESET_PIN)
+CFLAGS += -DRESTORE_CHMASK_AFTER_JOIN=$(RESTORE_CHMASK_AFTER_JOIN)
+CFLAGS += -DTCXO_PIN=$(TCXO_PIN)
+CFLAGS += -DDETACHABLE_LPUART=$(DETACHABLE_LPUART)
+
+CFLAGS += -DDEBUG_LOG=$(DEBUG_LOG)
+CFLAGS += -DDEBUG_SWD=$(DEBUG_SWD)
+CFLAGS += -DDEBUG_MCU=$(DEBUG_MCU)
 
 ################################################################################
 # Compiler flags for .s files                                                  #
@@ -386,7 +440,6 @@ LDFLAGS += --specs=nosys.specs
 ################################################################################
 
 SRC_FILES += $(foreach dir,$(SRC_DIRS),$(wildcard $(dir)/*.c))
-SRC_FILES_DEBUG += $(foreach dir,$(SRC_DIRS_DEBUG),$(wildcard $(dir)/*.c))
 
 OBJ_C = $(SRC_FILES:%.c=$(OBJ_DIR)/$(TYPE)/%.o)
 OBJ_S = $(ASM_SOURCES:%.s=$(OBJ_DIR)/$(TYPE)/%.o)
@@ -397,19 +450,24 @@ DEP = $(OBJ:%.o=%.d)
 # Build targets                                                                #
 ################################################################################
 
-.PHONY: debug
-debug: export TYPE=debug
-debug: export CFLAGS=$(CFLAGS_DEBUG)
-debug: export ASFLAGS=$(ASFLAGS_DEBUG)
-debug: export SRC_FILES=$(SRC_FILES_DEBUG)
-debug:
-	$(Q)$(MAKE) install
-
 .PHONY: release
 release: export TYPE=release
+release: export DEBUG_LOG ?= 0
+release: export DEBUG_SWD ?= 0
+release: export DEBUG_MCU ?= 0
 release: export CFLAGS=$(CFLAGS_RELEASE)
 release: export ASFLAGS=$(ASFLAGS_RELEASE)
 release:
+	$(Q)$(MAKE) install
+
+.PHONY: debug
+debug: export TYPE=debug
+debug: export DEBUG_LOG ?= 1
+debug: export DEBUG_SWD ?= 1
+debug: export DEBUG_MCU ?= 1
+debug: export CFLAGS=$(CFLAGS_DEBUG)
+debug: export ASFLAGS=$(ASFLAGS_DEBUG)
+debug:
 	$(Q)$(MAKE) install
 
 .PHONY: install

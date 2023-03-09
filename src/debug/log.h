@@ -7,14 +7,6 @@
 #define LOG_BUFFER_SIZE 256
 #endif
 
-#ifndef LOG_TO_USART
-#define LOG_TO_USART 1
-#endif
-
-#ifndef LOG_TO_RTT
-#define LOG_TO_RTT 0
-#endif
-
 #define LOG_DUMP_WIDTH 8
 
 //! @brief Log level
@@ -60,7 +52,7 @@ typedef enum
 //! @param[in] level Minimum required message level for propagation
 //! @param[in] timestamp Timestamp logging setting
 
-#if defined(DEBUG)
+#if DEBUG_LOG != 0
 
 void _log_init(log_level_t level, log_timestamp_t timestamp);
 

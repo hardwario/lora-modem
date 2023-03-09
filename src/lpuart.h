@@ -2,13 +2,42 @@
 #define __LPUART_H__
 
 #include <stddef.h>
+#include <stdbool.h>
 #include "cbuf.h"
+#include "gpio.h"
 
 
 extern volatile cbuf_t lpuart_tx_fifo;
 extern volatile cbuf_t lpuart_rx_fifo;
 
+#if DETACHABLE_LPUART == 1
 
+/*! @brief Detach from the ATCI LPUART port
+ *
+ * Detach (disconnect) from the LPUART port used by the AT command interface.
+ * Detaching pauses active DMA transfer (if any) and reconfigures the GPIO ports
+ * used by the LPUART port in analog mode.
+ *
+ * This function is intended for use on boards that share the LPUART lines with
+ * some other peripheral. This is the case, e.g., on MKRWAN boards. Forcing the
+ * modem to detach allows the host to temporarily use the lines to communicate
+ * with the other peripheral.
+ */
+void lpuart_detach(void);
+
+/*! @brief Attach the ATCI LPUART port
+ *
+ * Attach to the LPUART port used by the AT command interface. Calling this
+ * function reconfigures the GPIO ports used by LPUART1 and if there is an
+ * active DMA transfer, it is resumed.
+ *
+ * This function is intended to restore ATCI functionality after the modem has
+ * detached from LPUART1 (used by the ATCI). The function should be invoked
+ * after an interrupt on a preconfigured GPIO pin or timeout.
+ */
+void lpuart_attach(void);
+
+#endif
 
 /*! @brief Initialize LPUART1
  *
@@ -95,6 +124,5 @@ void lpuart_before_stop(void);
  * modes that retain DMA register values, e.g., the Stop mode.
  */
 void lpuart_after_stop(void);
-
 
 #endif /* __LPUART_H__ */

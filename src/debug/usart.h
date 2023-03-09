@@ -1,5 +1,6 @@
 #ifndef __USART_H__
 #define __USART_H__
+#if DEBUG_LOG != 3
 
 #include <stddef.h>
 
@@ -14,4 +15,5 @@ void usart_init(void);
 
 size_t usart_write(const char *buffer, size_t length);
 
+#endif
 #endif /* __USART_H__ */

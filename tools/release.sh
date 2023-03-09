@@ -113,10 +113,11 @@ $tar --exclude .editorconfig   \
 echo "done."
 
 # Build both release and debug versions of the firmware binary. This is the
-# default build variant that uses PA12 (as recommended in the datasheet) to
-# control TCXO_VDD. Debug builds have a debugging logger on USART1.
-make TCXO_PIN=1 release
-make TCXO_PIN=1 DEBUG_PORT=1 debug
+# default build variant for the Hardwario LoRa modem that uses PA12 (as
+# recommended in the datasheet) to control TCXO_VDD, has the factory reset
+# pin disabled, and does not support LPUART1 detaching.
+make FACTORY_RESET_PIN=0 TCXO_PIN=1 DETACHABLE_LPUART=0 release
+make FACTORY_RESET_PIN=0 TCXO_PIN=1 DETACHABLE_LPUART=0 debug
 
 # And copy the resulting binary files into the firmware release directory.
 cp -f out/release/firmware.bin "$firmware_dir/$name.bin"
@@ -126,10 +127,12 @@ cp -f out/debug/firmware.hex   "$firmware_dir/$name.debug.hex"
 cp -f out/debug/firmware.map   "$firmware_dir/$name.debug.map"
 
 # Now build the variants for Arduino MKRWAN boards. These build variants use PB6
-# to control TCXO power. Debug builds start the debugging logger on USART2.
+# to control TCXO power. We also enable support for detaching the ATCI UART port
+# so that the host MCU can access the on-board SPI flash. Debug builds start the
+# debugging logger on USART2.
 make clean
-make TCXO_PIN=2 release
-make TCXO_PIN=2 DEBUG_PORT=2 debug
+make FACTORY_RESET_PIN=0 TCXO_PIN=2 DETACHABLE_LPUART=1 release
+make FACTORY_RESET_PIN=0 TCXO_PIN=2 DETACHABLE_LPUART=1 DEBUG_LOG=2 DEBUG_MCU=0 debug
 
 # And copy the resulting binary files to the firmware release directory.
 cp -f out/release/firmware.bin "$firmware_dir/$name.mkrwan.bin"

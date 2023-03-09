@@ -39,11 +39,9 @@ void _log_init(log_level_t level, log_timestamp_t timestamp)
     _log.initialized = true;
     _log.state = LOG_STATE_SIMPLE_MSG;
 
-#if LOG_TO_USART != 0
+#if DEBUG_LOG != 3
     usart_init();
-#endif
-
-#if LOG_TO_RTT != 0
+#else
     SEGGER_RTT_Init();
 #endif
 }
@@ -63,11 +61,9 @@ void _log_set_level(log_level_t level)
 
 static void _write(const char *buf, size_t len)
 {
-#if LOG_TO_USART != 0
+#if DEBUG_LOG != 3
     usart_write(buf, len);
-#endif
-
-#if LOG_TO_RTT != 0
+#else
     SEGGER_RTT_Write(0, buf, len);
 #endif
 }
@@ -75,7 +71,7 @@ static void _write(const char *buf, size_t len)
 
 static void _write_message(log_level_t level, char id, const char *format, va_list ap)
 {
-#if LOG_TO_USART == 0 && LOG_TO_RTT == 0
+#if DEBUG_LOG == 0
     return;
 #endif
 
@@ -131,7 +127,7 @@ void _log_dump(const void *buffer, size_t length, const char *format, ...)
     uint32_t line_size;
     uint32_t i;
 
-#if LOG_TO_USART == 0 && LOG_TO_RTT == 0
+#if DEBUG_LOG == 0
     return;
 #endif
 

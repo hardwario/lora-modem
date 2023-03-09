@@ -59,7 +59,7 @@ static struct {
 };
 
 
-#ifdef RESTORE_CHMASK_AFTER_JOIN
+#if RESTORE_CHMASK_AFTER_JOIN == 1
 static uint16_t saved_chmask[REGION_NVM_CHANNELS_MASK_SIZE];
 #endif
 
@@ -73,7 +73,7 @@ static int region2id(const char *name)
     return -2;
 }
 
-#if defined(DEBUG)
+#if DEBUG_LOG != 0
 static const char *region2str(int id)
 {
     for (unsigned int i = 0; i < sizeof(region_map) / sizeof(region_map[0]); i++)
@@ -396,7 +396,7 @@ static int set_abp_mac_version(void)
 #endif
 
 
-#ifdef RESTORE_CHMASK_AFTER_JOIN
+#if RESTORE_CHMASK_AFTER_JOIN == 1
 static void save_chmask(void)
 {
     MibRequestConfirm_t r = { .Type = MIB_CHANNELS_DEFAULT_MASK };
@@ -466,7 +466,7 @@ static void stop_join(unsigned int status)
     // sysconf.device_class here.
     sync_device_class();
 
-#ifdef RESTORE_CHMASK_AFTER_JOIN
+#if  RESTORE_CHMASK_AFTER_JOIN == 1
     MibRequestConfirm_t r = { .Type = MIB_NETWORK_ACTIVATION };
     LoRaMacMibGetRequestConfirm(&r);
 
@@ -929,7 +929,7 @@ int lrw_join(uint8_t datarate, uint8_t tries)
 
         join_datarate = datarate;
 
-#ifdef RESTORE_CHMASK_AFTER_JOIN
+#if RESTORE_CHMASK_AFTER_JOIN == 1
         save_chmask();
 #endif
         LoRaMacStatus_t rc = send_join();

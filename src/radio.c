@@ -10,7 +10,7 @@ int8_t radio_snr;
 // The original callback (the one from LoRaMac-node) is kept here.
 static void (*OrigRxDone)(uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr);
 
-#if defined (DEBUG)
+#if DEBUG_LOG != 0
 
 static const char *modem2str(RadioModems_t modem)
 {
@@ -81,7 +81,7 @@ static void SetTxConfig(RadioModems_t modem, int8_t power, uint32_t fdev,
     uint16_t preambleLen, bool fixLen, bool crcOn, bool freqHopOn,
     uint8_t hopPeriod, bool iqInverted, uint32_t timeout)
 {
-#if defined (DEBUG)
+#if DEBUG_LOG != 0
     log_compose();
     log_debug("SX1276SetTxConfig: %d dBm", power);
     log_debug(" %s", modem2str(modem));
@@ -116,7 +116,7 @@ static void SetRxConfig(RadioModems_t modem, uint32_t bandwidth, uint32_t datara
     uint16_t symbTimeout, bool fixLen, uint8_t payloadLen, bool crcOn,
     bool freqHopOn, uint8_t hopPeriod, bool iqInverted, bool rxContinuous)
 {
-#if defined (DEBUG)
+#if DEBUG_LOG != 0
     log_compose();
     log_debug("SX1276SetRxConfig: %s", modem2str(modem));
 
