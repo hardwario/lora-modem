@@ -119,6 +119,7 @@ class Errno(Enum):
     ERR_NO_CHANNEL    = -19
     ERR_TOO_MANY      = -20
     ERR_ACCESS_DENIED = -50
+    ERR_DETACH_DENIED = -51
 
 
 class ModemError(Exception):
@@ -164,7 +165,8 @@ error_messages = {
     Errno.ERR_DUTYCYCLE.value     : 'Cannot transmit due to duty cycling',
     Errno.ERR_NO_CHANNEL.value    : 'Channel unavailable due to LBT or error',
     Errno.ERR_TOO_MANY.value      : 'Too many link check requests',
-    Errno.ERR_ACCESS_DENIED.value : 'Access to LoRaWAN security keys denied'
+    Errno.ERR_ACCESS_DENIED.value : 'Access to LoRaWAN security keys denied',
+    Errno.ERR_DETACH_DENIED.value : 'ATCI detach request denied (PB12 low)'
 }
 
 
