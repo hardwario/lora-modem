@@ -112,34 +112,42 @@ $tar --exclude .editorconfig   \
     -zcf $firmware_dir/$name.tar.gz .
 echo "done."
 
-# Build both release and debug versions of the firmware binary. This is the
-# default build variant for the Hardwario LoRa modem that uses PA12 (as
-# recommended in the datasheet) to control TCXO_VDD, has the factory reset
-# pin disabled, and does not support LPUART1 detaching.
+# Copy the resulting binary files into the firmware release directory.
+install_firmware()
+{
+    cp -f out/release/firmware.bin "$firmware_dir/$name.$1.bin"
+    cp -f out/release/firmware.hex "$firmware_dir/$name.$1.hex"
+    cp -f out/debug/firmware.bin   "$firmware_dir/$name.$1.debug.bin"
+    cp -f out/debug/firmware.hex   "$firmware_dir/$name.$1.debug.hex"
+    cp -f out/debug/firmware.map   "$firmware_dir/$name.$1.debug.map"
+}
+
+# The build variant for the Hardwario Tower LoRa Modem. This variant uses PA12
+# to control TCXO_VDD, has the factory reset pin disabled, and does not support
+# LPUART1 detaching. The debug build type has the debugging logger enabled on
+# USART1.
 make FACTORY_RESET_PIN=0 TCXO_PIN=1 DETACHABLE_LPUART=0 release
-make FACTORY_RESET_PIN=0 TCXO_PIN=1 DETACHABLE_LPUART=0 debug
+make FACTORY_RESET_PIN=0 TCXO_PIN=1 DETACHABLE_LPUART=0 DEBUG_LOG=1 debug
+install_firmware tower
 
-# And copy the resulting binary files into the firmware release directory.
-cp -f out/release/firmware.bin "$firmware_dir/$name.bin"
-cp -f out/release/firmware.hex "$firmware_dir/$name.hex"
-cp -f out/debug/firmware.bin   "$firmware_dir/$name.debug.bin"
-cp -f out/debug/firmware.hex   "$firmware_dir/$name.debug.hex"
-cp -f out/debug/firmware.map   "$firmware_dir/$name.debug.map"
+# The build variant for the (older) Arduino MKRWAN1300 board. MKRWAN1300 does
+# not control TCXO (it is always enabled). The factory reset pin is disabled.
+# LPUART1 detaching is not needed because this board does not have anything else
+# connected on the SPI bus. The debug build type has the debugging logger
+# enabled on USART2.
+make clean
+make FACTORY_RESET_PIN=0 TCXO_PIN=0 DETACHABLE_LPUART=0 release
+make FACTORY_RESET_PIN=0 TCXO_PIN=0 DETACHABLE_LPUART=0 DEBUG_LOG=2 debug
+install_firmware mkrwan1300
 
-# Now build the variants for Arduino MKRWAN boards. These build variants use PB6
+# The build the variant for the Arduino MKRWAN1310 board. This variant uses PB6
 # to control TCXO power. We also enable support for detaching the ATCI UART port
-# so that the host MCU can access the on-board SPI flash. Debug builds start the
-# debugging logger on USART2.
+# so that the host MCU can access the on-board SPI flash. The debug build
+# enables the debugging logger on USART2.
 make clean
 make FACTORY_RESET_PIN=0 TCXO_PIN=2 DETACHABLE_LPUART=1 release
 make FACTORY_RESET_PIN=0 TCXO_PIN=2 DETACHABLE_LPUART=1 DEBUG_LOG=2 DEBUG_MCU=0 debug
-
-# And copy the resulting binary files to the firmware release directory.
-cp -f out/release/firmware.bin "$firmware_dir/$name.mkrwan.bin"
-cp -f out/release/firmware.hex "$firmware_dir/$name.mkrwan.hex"
-cp -f out/debug/firmware.bin   "$firmware_dir/$name.debug.mkrwan.bin"
-cp -f out/debug/firmware.hex   "$firmware_dir/$name.debug.mkrwan.hex"
-cp -f out/debug/firmware.map   "$firmware_dir/$name.debug.mkrwan.map"
+install_firmware mkrwan1310
 
 # Build the Python library.
 PYTHON="$PYTHON" make python
