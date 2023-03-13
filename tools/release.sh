@@ -126,8 +126,8 @@ install_firmware()
 # to control TCXO_VDD, has the factory reset pin disabled, and does not support
 # LPUART1 detaching. The debug build type has the debugging logger enabled on
 # USART1.
-make FACTORY_RESET_PIN=0 TCXO_PIN=1 DETACHABLE_LPUART=0 release
-make FACTORY_RESET_PIN=0 TCXO_PIN=1 DETACHABLE_LPUART=0 DEBUG_LOG=1 debug
+make -j4 FACTORY_RESET_PIN=0 TCXO_PIN=1 DETACHABLE_LPUART=0 release
+make -j4 FACTORY_RESET_PIN=0 TCXO_PIN=1 DETACHABLE_LPUART=0 DEBUG_LOG=1 debug
 install_firmware tower
 
 # The build variant for the (older) Arduino MKRWAN1300 board. MKRWAN1300 does
@@ -136,8 +136,8 @@ install_firmware tower
 # connected on the SPI bus. The debug build type has the debugging logger
 # enabled on USART2.
 make clean
-make FACTORY_RESET_PIN=0 TCXO_PIN=0 DETACHABLE_LPUART=0 release
-make FACTORY_RESET_PIN=0 TCXO_PIN=0 DETACHABLE_LPUART=0 DEBUG_LOG=2 debug
+make -j4 FACTORY_RESET_PIN=0 TCXO_PIN=0 DETACHABLE_LPUART=0 release
+make -j4 FACTORY_RESET_PIN=0 TCXO_PIN=0 DETACHABLE_LPUART=0 DEBUG_LOG=2 debug
 install_firmware mkrwan1300
 
 # The build the variant for the Arduino MKRWAN1310 board. This variant uses PB6
@@ -145,8 +145,8 @@ install_firmware mkrwan1300
 # so that the host MCU can access the on-board SPI flash. The debug build
 # enables the debugging logger on USART2.
 make clean
-make FACTORY_RESET_PIN=0 TCXO_PIN=2 DETACHABLE_LPUART=1 release
-make FACTORY_RESET_PIN=0 TCXO_PIN=2 DETACHABLE_LPUART=1 DEBUG_LOG=2 DEBUG_MCU=0 debug
+make -j4 FACTORY_RESET_PIN=0 TCXO_PIN=2 DETACHABLE_LPUART=1 release
+make -j4 FACTORY_RESET_PIN=0 TCXO_PIN=2 DETACHABLE_LPUART=1 DEBUG_LOG=2 DEBUG_MCU=0 debug
 install_firmware mkrwan1310
 
 # Build the Python library.
