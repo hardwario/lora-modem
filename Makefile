@@ -271,13 +271,15 @@ endif
 
 # A list of make targets for which version and dependency files should not be
 # generated and included. That's generally any target that does not build
-# firmware.
-NOBUILD := clean .clean-obj .clean-out .clean-python flash gdbserver jlink ozone openocd
+# firmware. This includes targets that recursively call make (e.g., debug and
+# release).
+NOBUILD := debug release size clean .clean-obj .clean-out .clean-python flash \
+	gdbserver jlink ozone openocd
 
-# We only need to generate dependency files if the make target is empty or if it
-# is not one of the targets in NOBUILD
+# We only need to generate dependency files if the make target is not one of the
+# targets in NOBUILD
 ifeq (,$(MAKECMDGOALS))
-building=1
+building=0
 else
 ifneq (,$(filter-out $(NOBUILD),$(MAKECMDGOALS)))
 building=1
@@ -339,6 +341,30 @@ lib_version := $(strip $(shell cat $(OBJ_DIR)/lib_version))
 ifeq (,$(version))
 $(error Could not detect LoRaMac-node version)
 endif
+
+config := \
+	DEFAULT_UART_BAUDRATE=\"$(DEFAULT_UART_BAUDRATE)\" \
+	ENABLED_REGIONS=\"$(ENABLED_REGIONS)\" \
+	DEFAULT_ACTIVE_REGION=\"$(DEFAULT_ACTIVE_REGION)\" \
+	AS923_DEFAULT_CHANNEL_PLAN=\"$(AS923_DEFAULT_CHANNEL_PLAN)\" \
+	CN470_DEFAULT_CHANNEL_PLAN=\"$(CN470_DEFAULT_CHANNEL_PLAN)\" \
+	LORAMAC_ABP_VERSION=\"$(LORAMAC_ABP_VERSION)\" \
+	VERSION_COMPAT=\"$(VERSION_COMPAT)\" \
+	BUILD_DATE_COMPAT=\"$(BUILD_DATE_COMPAT)\" \
+	FACTORY_RESET_PIN=\"$(FACTORY_RESET_PIN)\" \
+	RESTORE_CHMASK_AFTER_JOIN=\"$(RESTORE_CHMASK_AFTER_JOIN)\" \
+	TCXO_PIN=\"$(TCXO_PIN)\" \
+	DETACHABLE_LPUART=\"$(DETACHABLE_LPUART)\" \
+	DEBUG_LOG=\"$(DEBUG_LOG)\" \
+	DEBUG_SWD=\"$(DEBUG_SWD)\" \
+	DEBUG_MCU=\"$(DEBUG_MCU)\"
+
+tmp := $(shell \
+	dir="$(OBJ_DIR)/$(TYPE)"; \
+	f="$$dir/config"; \
+	mkdir -p "$$dir"; \
+	[ -r "$$f" ] && prev=$$(cat $$f); \
+	[ "$$prev" = "$(config)" ] || echo "$(config)" > "$$f" )
 
 endif
 
@@ -450,23 +476,24 @@ DEP = $(OBJ:%.o=%.d)
 # Build targets                                                                #
 ################################################################################
 
+.DEFAULT: release
 .PHONY: release
-release: export TYPE=release
+release: export TYPE = release
 release: export DEBUG_LOG ?= 0
 release: export DEBUG_SWD ?= 0
 release: export DEBUG_MCU ?= 0
-release: export CFLAGS=$(CFLAGS_RELEASE)
-release: export ASFLAGS=$(ASFLAGS_RELEASE)
+release: export CFLAGS = $(CFLAGS_RELEASE)
+release: export ASFLAGS = $(ASFLAGS_RELEASE)
 release:
 	$(Q)$(MAKE) install
 
 .PHONY: debug
-debug: export TYPE=debug
+debug: export TYPE = debug
 debug: export DEBUG_LOG ?= 1
 debug: export DEBUG_SWD ?= 1
 debug: export DEBUG_MCU ?= 1
-debug: export CFLAGS=$(CFLAGS_DEBUG)
-debug: export ASFLAGS=$(ASFLAGS_DEBUG)
+debug: export CFLAGS = $(CFLAGS_DEBUG)
+debug: export ASFLAGS = $(ASFLAGS_DEBUG)
 debug:
 	$(Q)$(MAKE) install
 
@@ -510,7 +537,7 @@ $(Q)mkdir -p "$(@D)"
 $(Q)$(CC) -MD -MP -MT "$@ $(@:.o=.d)" -c $(CFLAGS) $(1) -isystem $(LIB_DIR) $< -o $@
 endef
 
-$(OBJ_DIR)/$(TYPE)/src/%.o: src/%.c $(MAKEFILE_LIST)
+$(OBJ_DIR)/$(TYPE)/src/%.o: src/%.c $(MAKEFILE_LIST) $(OBJ_DIR)/$(TYPE)/config
 	$(call compile,\
 		-I $(SRC_DIR) \
 		-I $(SRC_DIR)/debug \
@@ -523,7 +550,7 @@ $(OBJ_DIR)/$(TYPE)/src/%.o: src/%.c $(MAKEFILE_LIST)
 		-isystem $(LIB_DIR)/stm/include \
 	)
 
-$(OBJ_DIR)/$(TYPE)/lib/LoRaWAN/%.o: lib/LoRaWAN/%.c $(MAKEFILE_LIST)
+$(OBJ_DIR)/$(TYPE)/lib/LoRaWAN/%.o: lib/LoRaWAN/%.c $(MAKEFILE_LIST) $(OBJ_DIR)/$(TYPE)/config
 	$(call compile,\
 		-I $(SRC_DIR) \
 		-I $(CFG_DIR) \
@@ -540,14 +567,14 @@ $(OBJ_DIR)/$(TYPE)/src/cmd.o: CFLAGS+=-DVERSION_COMPAT='"$(VERSION_COMPAT)"'
 $(OBJ_DIR)/$(TYPE)/src/cmd.o: CFLAGS+=-DLIB_VERSION='"$(lib_version)"'
 $(OBJ_DIR)/$(TYPE)/src/cmd.o: CFLAGS+=-DBUILD_DATE='"$(build_date)"'
 $(OBJ_DIR)/$(TYPE)/src/cmd.o: CFLAGS+=-DBUILD_DATE_COMPAT='"$(BUILD_DATE_COMPAT)"'
-$(OBJ_DIR)/$(TYPE)/src/cmd.o: $(MAKEFILE_LIST) $(OBJ_DIR)/version $(OBJ_DIR)/lib_version
+$(OBJ_DIR)/$(TYPE)/src/cmd.o: $(MAKEFILE_LIST) $(OBJ_DIR)/$(TYPE)/config $(OBJ_DIR)/version $(OBJ_DIR)/lib_version
 
 $(OBJ_DIR)/$(TYPE)/src/main.o: CFLAGS+=-DVERSION='"$(version)"'
 $(OBJ_DIR)/$(TYPE)/src/main.o: CFLAGS+=-DLIB_VERSION='"$(lib_version)"'
 $(OBJ_DIR)/$(TYPE)/src/main.o: CFLAGS+=-DBUILD_DATE='"$(build_date)"'
-$(OBJ_DIR)/$(TYPE)/src/main.o: $(MAKEFILE_LIST) $(OBJ_DIR)/version $(OBJ_DIR)/lib_version
+$(OBJ_DIR)/$(TYPE)/src/main.o: $(MAKEFILE_LIST) $(OBJ_DIR)/$(TYPE)/config $(OBJ_DIR)/version $(OBJ_DIR)/lib_version
 
-$(OBJ_DIR)/$(TYPE)/lib/stm/%.o: lib/stm/%.c $(MAKEFILE_LIST)
+$(OBJ_DIR)/$(TYPE)/lib/stm/%.o: lib/stm/%.c $(MAKEFILE_LIST) $(OBJ_DIR)/$(TYPE)/config
 	$(call compile,\
 		-Wno-unused-parameter \
 		-I $(LIB_DIR)/stm/STM32L0xx_HAL_Driver/Inc \
@@ -555,10 +582,10 @@ $(OBJ_DIR)/$(TYPE)/lib/stm/%.o: lib/stm/%.c $(MAKEFILE_LIST)
 		-isystem $(CFG_DIR) \
 	)
 
-$(OBJ_DIR)/$(TYPE)/lib/rtt/%.o: lib/rtt/%.c $(MAKEFILE_LIST)
+$(OBJ_DIR)/$(TYPE)/lib/rtt/%.o: lib/rtt/%.c $(MAKEFILE_LIST) $(OBJ_DIR)/$(TYPE)/config
 	$(call compile)
 
-$(OBJ_DIR)/$(TYPE)/lib/loramac-node/%.o: lib/loramac-node/%.c $(MAKEFILE_LIST)
+$(OBJ_DIR)/$(TYPE)/lib/loramac-node/%.o: lib/loramac-node/%.c $(MAKEFILE_LIST) $(OBJ_DIR)/$(TYPE)/config
 	$(call compile,\
 		-Wno-int-conversion \
 		-Wno-unused-parameter \
@@ -573,10 +600,10 @@ $(OBJ_DIR)/$(TYPE)/lib/loramac-node/%.o: lib/loramac-node/%.c $(MAKEFILE_LIST)
 		-isystem $(CFG_DIR) \
 	)
 
-$(OBJ_DIR)/$(TYPE)/cfg/%.o: cfg/%.c $(MAKEFILE_LIST)
+$(OBJ_DIR)/$(TYPE)/cfg/%.o: cfg/%.c $(MAKEFILE_LIST) $(OBJ_DIR)/$(TYPE)/config
 	$(call compile,-isystem $(LIB_DIR)/stm/STM32L0xx_HAL_Driver/Inc)
 
-$(OBJ_DIR)/$(TYPE)/%.o: %.s $(MAKEFILE_LIST)
+$(OBJ_DIR)/$(TYPE)/%.o: %.s $(MAKEFILE_LIST) $(OBJ_DIR)/$(TYPE)/config
 	$(Q)$(ECHO) "Compiling: $<"
 	$(Q)mkdir -p $(@D)
 	$(Q)$(CC) -c $(ASFLAGS) $< -o $@
