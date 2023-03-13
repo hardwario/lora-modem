@@ -272,8 +272,8 @@ endif
 # generated and included. That's generally any target that does not build
 # firmware. This includes targets that recursively call make (e.g., debug and
 # release).
-NOBUILD := debug release size clean .clean-build .clean-python flash \
-	gdbserver jlink ozone openocd
+NOBUILD := debug release clean .clean-build .clean-python flash gdbserver \
+	jlink ozone openocd
 
 # We only need to generate dependency files if the make target is not one of the
 # targets in NOBUILD
@@ -523,10 +523,6 @@ $(ELF): $(OBJ) $(MAKEFILE_LIST)
 	$(Q)$(ECHO) "Linking object files into $(ELF)..."
 	$(Q)mkdir -p "$(BUILD_DIR)/$(TYPE)"
 	$(Q)$(CC) $(LDFLAGS) $(OBJ) -o "$(ELF)"
-	$(Q)$(MAKE) size
-
-.PHONY: size
-size: $(ELF) $(MAKEFILE_LIST)
 	$(Q)$(ECHO) "Size of sections:"
 	$(Q)$(SIZE) "$(ELF)"
 
