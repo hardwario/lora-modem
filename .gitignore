@@ -1,5 +1,4 @@
-out/
-obj/
+build/
 tools/ozone/ozone.jdebug.user
 /*.bin
 /*.map
