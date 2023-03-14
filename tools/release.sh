@@ -115,11 +115,11 @@ echo "done."
 # Copy the resulting binary files into the firmware release directory.
 install_firmware()
 {
-    cp -f out/release/firmware.bin "$firmware_dir/$name.$1.bin"
-    cp -f out/release/firmware.hex "$firmware_dir/$name.$1.hex"
-    cp -f out/debug/firmware.bin   "$firmware_dir/$name.$1.debug.bin"
-    cp -f out/debug/firmware.hex   "$firmware_dir/$name.$1.debug.hex"
-    cp -f out/debug/firmware.map   "$firmware_dir/$name.$1.debug.map"
+    cp -f build/release/firmware.bin "$firmware_dir/$name.$1.bin"
+    cp -f build/release/firmware.hex "$firmware_dir/$name.$1.hex"
+    cp -f build/debug/firmware.bin   "$firmware_dir/$name.$1.debug.bin"
+    cp -f build/debug/firmware.hex   "$firmware_dir/$name.$1.debug.hex"
+    cp -f build/debug/firmware.map   "$firmware_dir/$name.$1.debug.map"
 }
 
 # The build variant for the Hardwario Tower LoRa Modem. This variant uses PA12
