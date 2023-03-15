@@ -25,7 +25,7 @@ If you wish to customize the build, edit the variables at the beginning of the M
 ```sh
 make release
 ```
-If you wish to build a development version with logging and debugging enabled, run `make debug` instead. Running `make` without any arguments builds the development version by default. *Please note that development builds have higher [idle power consumption](https://github.com/hardwario/lora-modem-abz/wiki/Power-Consumption) than release builds.*
+If you wish to build a development version with logging and debugging enabled, run `make debug` instead. Running `make` without any arguments builds the release version by default. *Please note that development builds have higher [idle power consumption](https://github.com/hardwario/lora-modem-abz/wiki/Power-Consumption) than release builds.*
 
 ## Installation
 Follow the steps outlined in this [wiki page](https://github.com/hardwario/lora-modem-abz/wiki/LoRa-Module-Firmware-Replacement) to replace the proprietary firmware in HARDWARIO's [LoRa Module](https://shop.hardwario.com/lora-module/) with the open firmware.
