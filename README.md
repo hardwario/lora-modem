@@ -8,6 +8,7 @@ We provide binary firmware image variants for several platforms embedding the Ty
   * Arduino [MKR WAN 1300](https://store-usa.arduino.cc/products/arduino-mkr-wan-1300-lora-connectivity)
   * Arduino [MKR WAN 1310](https://store.arduino.cc/products/arduino-mkr-wan-1310).
   * ST [B-L072Z-LRWAN1](https://www.st.com/en/evaluation-tools/b-l072z-lrwan1.html) Discovery Kit
+
 Although all platforms embed the same Type ABZ module, there are slight differences in the configuration of the module's I/O ports.
 
 ## Main Features
