@@ -466,7 +466,7 @@ void lpuart_before_stop(void)
 {
     pause_dma();
     HAL_UART_DMAPause(&port);
-    LL_LPUART_EnableIT_WKUP(port.Instance);
+    if (attached) LL_LPUART_EnableIT_WKUP(port.Instance);
 }
 
 
