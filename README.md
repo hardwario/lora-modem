@@ -20,7 +20,7 @@ Although all platforms embed the same Type ABZ module, there are slight differen
 
 [A note on LoRaWAN 1.1 compatibility](https://github.com/hardwario/lora-modem-abz/wiki/LoRaWAN-1.1-Compatibility)
 
-The project also provides a [Python library and command line tool](./python) for managing TypeABZ LoRa modems. See this [README](./python/README.md) for more information.
+The project also provides a [Python library and command line tool](./python) for managing Type ABZ LoRa modems. See this [README](./python/README.md) for more information.
 
 ## Building
 
