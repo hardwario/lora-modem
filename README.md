@@ -17,6 +17,7 @@ Although all above platforms embed the same Type ABZ module, there are slight di
 * Based on the most recent version (4.7.0) of [LoRaMac-node](https://github.com/Lora-net/LoRaMac-node)
 * Support for multiple regions configurable at runtime
 * All persistent LoRaWAN MAC data stored in NVM (EEPROM)
+* Very low power consumption (1.4 uA when idle)
 
 [A note on LoRaWAN 1.1 compatibility](https://github.com/hardwario/lora-modem-abz/wiki/LoRaWAN-1.1-Compatibility)
 
