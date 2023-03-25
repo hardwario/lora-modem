@@ -130,21 +130,27 @@ make -j4 FACTORY_RESET_PIN=0 TCXO_PIN=1 DETACHABLE_LPUART=0 release
 make -j4 FACTORY_RESET_PIN=0 TCXO_PIN=1 DETACHABLE_LPUART=0 DEBUG_LOG=1 debug
 install_firmware tower
 
-# The build variant for the (older) Arduino MKRWAN1300 board. MKRWAN1300 does
-# not control TCXO (it is always enabled). The factory reset pin is disabled.
-# LPUART1 detaching is not needed because this board does not have anything else
-# connected on the SPI bus. The debug build type has the debugging logger
-# enabled on USART2.
+# The chester variant is the same as the tower variant. No need to rebuild.
+install_firmware chester
+
+# This build variant is also the same as the tower build variant.
+install_firmware bl072zlrwan1
+
+# The build variant for the (older) Arduino MKR WAN 1300 board. MKR WAN 1300
+# does not control TCXO (it is always enabled). The factory reset pin is
+# disabled. LPUART1 detaching is not needed because this board does not have
+# anything else connected on the SPI bus. The debug build type has the debugging
+# logger configured to output to Segger RTT.
 make -j4 FACTORY_RESET_PIN=0 TCXO_PIN=0 DETACHABLE_LPUART=0 release
-make -j4 FACTORY_RESET_PIN=0 TCXO_PIN=0 DETACHABLE_LPUART=0 DEBUG_LOG=2 debug
+make -j4 FACTORY_RESET_PIN=0 TCXO_PIN=0 DETACHABLE_LPUART=0 DEBUG_LOG=3 debug
 install_firmware mkrwan1300
 
-# The build the variant for the Arduino MKRWAN1310 board. This variant uses PB6
-# to control TCXO power. We also enable support for detaching the ATCI UART port
-# so that the host MCU can access the on-board SPI flash. The debug build
-# enables the debugging logger on USART2.
+# The build the variant for the Arduino MKR WAN 1310 board. This variant uses
+# PB6 to control TCXO power. We also enable support for detaching the ATCI UART
+# port so that the host MCU can access the on-board SPI flash. The debug build
+# configures the debugging logger to output to Segger RTT.
 make -j4 FACTORY_RESET_PIN=0 TCXO_PIN=2 DETACHABLE_LPUART=1 release
-make -j4 FACTORY_RESET_PIN=0 TCXO_PIN=2 DETACHABLE_LPUART=1 DEBUG_LOG=2 DEBUG_MCU=0 debug
+make -j4 FACTORY_RESET_PIN=0 TCXO_PIN=2 DETACHABLE_LPUART=1 DEBUG_LOG=3 DEBUG_MCU=0 debug
 install_firmware mkrwan1310
 
 # Build the Python library.
