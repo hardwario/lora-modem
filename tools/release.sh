@@ -107,7 +107,7 @@ $tar --exclude .editorconfig   \
      --exclude .gitignore      \
      --exclude .gitmodules     \
      --exclude .vscode         \
-     --exclude obj             \
+     --exclude build           \
      --transform "s,^,$name/," \
     -zcf $firmware_dir/$name.tar.gz .
 echo "done."
