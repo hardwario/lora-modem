@@ -21,7 +21,9 @@ Binary firmware images for several platforms embedding the Type ABZ module are a
   * Arduino [MKR WAN 1310](https://store.arduino.cc/products/arduino-mkr-wan-1310)
   * ST [B-L072Z-LRWAN1](https://www.st.com/en/evaluation-tools/b-l072z-lrwan1.html) Discovery Kit
 
-The [STM32 Cube Programmer](https://www.st.com/en/development-tools/stm32cubeprog.html) or the Hardwario [firmware flashing tool](https://tower.hardwario.com/en/latest/tools/hardwario-firmware-flashing-tool/) can be used to flash the firmware into the Type ABZ module. Detailed steps to flash the firmware into Hardwario Tower LoRa Module are described in the [wiki](https://github.com/hardwario/lora-modem-abz/wiki/LoRa-Module-Firmware-Update).
+The [STM32 Cube Programmer](https://www.st.com/en/development-tools/stm32cubeprog.html) or the Hardwario [firmware flashing tool](https://tower.hardwario.com/en/latest/tools/hardwario-firmware-flashing-tool/) can be used to flash the firmware into the Type ABZ module.
+
+Steps to flash the firmware into Hardwario Tower LoRa Module are described in the [wiki](https://github.com/hardwario/lora-modem-abz/wiki/LoRa-Module-Firmware-Update). Firmware update tool for the Arduino MKR WAN 1310 can be found [here](https://github.com/disk91/mkr1310_openLoRaModem_fw_update). 
 
 ## Building
 
