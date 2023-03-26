@@ -40,6 +40,8 @@ If you wish to build a development version with logging and debugging enabled, r
 ## Documentation
 * [The Things Network (TTN) provisioning](https://github.com/hardwario/lora-modem-abz/wiki/TTN-Provisioning)
 * [AT command interface](https://github.com/hardwario/lora-modem-abz/wiki/AT-Command-Interface)
+* Other [similar projects](https://github.com/hardwario/lora-modem-abz/wiki/Related-Work)
+
 Additional documentation and notes can be found in the [wiki](https://github.com/hardwario/lora-modem-abz/wiki).
 
 ## Contributing
