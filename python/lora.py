@@ -1693,10 +1693,10 @@ class MurataModem(ATCI):
     def delay(self):
         '''Return receive window time offsets.
 
-        This property can be used to query the time offset of the receive window
-        1 (RX1), receive window 2 (RX2), JoinAccept window 1 (JoinAccept RX1),
-        and JoinAccept window 2 (JoinAccept RX2). The times are encoded into a
-        tuple as follows: (<RX1>,<RX2>,<JoinAccept RX1>,<JoinAccept RX2>). All
+        This property can be used to query the time offset of the JoinAccept
+        window 1 (JoinAccept RX1), JoinAccept window 2 (JoinAccept RX2), receive
+        window 1 (RX1), and receive window 2 (RX2). The times are encoded into a
+        tuple as follows: (<JoinAccept RX1>,<JoinAccept RX2>,<RX1>,<RX2>). All
         times represent the number of milliseconds since the end of the
         preceeding uplink transmission.
 
@@ -1711,10 +1711,10 @@ class MurataModem(ATCI):
     def delay(self, value: str | Delay | tuple):
         '''Configure receive window time offsets.
 
-        Set the time offset of the receive window 1 (RX1), receive window 2
-        (RX2), JoinAccept window 1 (JoinAccept RX1), and JoinAccept window 2
-        (JoinAccept RX2). The times must be encoded into a tuple as follows:
-        (<RX1>,<RX2>,<JoinAccept RX1>,<JoinAccept RX2>). All times represent the
+        Set the time offset of the JoinAccept window 1 (JoinAccept RX1),
+        JoinAccept window 2 (JoinAccept RX2), receive window 1 (RX1), receive
+        window 2 (RX2). The times must be encoded into a tuple as follows:
+        (<JoinAccept RX1>,<JoinAccept RX2>,<RX1>,<RX2>). All times represent the
         number of milliseconds since the end of the preceeding uplink
         transmission.
 
