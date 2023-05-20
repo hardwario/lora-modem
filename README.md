@@ -14,7 +14,7 @@ The project also provides a high-level [Python library and command line tool](./
 
 ## Installation
 
-Binary firmware images for several platforms embedding the Type ABZ module are available from the [release](https://github.com/hardwario/lora-modem-abz/releases) page. We generate a pre-configured firmware [variant](https://github.com/hardwario/lora-modem-abz/wiki/Supported-Platforms) for each of the following platforms:
+Binary firmware images for several platforms embedding the Type ABZ module are available from the [Releases](https://github.com/hardwario/lora-modem-abz/releases) page. We generate a pre-configured firmware [variant](https://github.com/hardwario/lora-modem-abz/wiki/Supported-Platforms) for each of the following platforms:
   * HARDWARIO [LoRa Module](https://shop.hardwario.com/lora-module/)
   * HARDWARIO [Chester](https://www.hardwario.com/chester/)
   * Arduino [MKR WAN 1300](https://store-usa.arduino.cc/products/arduino-mkr-wan-1300-lora-connectivity)
