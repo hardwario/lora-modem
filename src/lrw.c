@@ -229,7 +229,7 @@ static void restore_state(void)
     };
     int rc = LoRaMacMibSetRequestConfirm(&r);
     if (rc != LORAMAC_STATUS_OK)
-        log_error("LoRaMac: Error while restoring NVM state: %d", rc);
+        log_error("LoRaMac: Error while restoring NVM contexts: %d", rc);
 }
 
 
@@ -658,24 +658,29 @@ static void log_network_info(void)
  * firmware. It is meant to be called after the MIB has been initialized from
  * the defaults built in LoRaMac-node and before settings are restored from NVM.
  */
-static void set_defaults(void)
+static LoRaMacStatus_t set_defaults(void)
 {
+    LoRaMacStatus_t rc;
+
     // The original firmware has AppEUI set to 0101010101010101
     MibRequestConfirm_t r = {
         .Type  = MIB_JOIN_EUI,
         .Param = { .JoinEui = (uint8_t *)"\1\1\1\1\1\1\1\1" }
     };
-    LoRaMacMibSetRequestConfirm(&r);
+    rc = LoRaMacMibSetRequestConfirm(&r);
+    if (rc != LORAMAC_STATUS_OK) return rc;
 
     // The original firmware has ADR enabled by default
     r.Type = MIB_ADR;
     r.Param.AdrEnable = 1;
-    LoRaMacMibSetRequestConfirm(&r);
+    rc = LoRaMacMibSetRequestConfirm(&r);
+    if (rc != LORAMAC_STATUS_OK) return rc;
 
     /// The original firmware configures the TRX with 14 dBm in RFO mode
     r.Type  = MIB_CHANNELS_TX_POWER;
     r.Param.ChannelsTxPower = 1;
-    LoRaMacMibSetRequestConfirm(&r);
+    rc = LoRaMacMibSetRequestConfirm(&r);
+    if (rc != LORAMAC_STATUS_OK) return rc;
 
 #ifdef LORAMAC_ABP_VERSION
     // If we are in ABP mode and the application has defined a specific MAC
@@ -683,16 +688,27 @@ static void set_defaults(void)
     // version negotiation in ABP mode, so this needs to be done manually.
     r.Type = MIB_ABP_LORAWAN_VERSION;
     r.Param.AbpLrWanVersion.Value = LORAMAC_ABP_VERSION;
-    LoRaMacMibSetRequestConfirm(&r);
+    rc = LoRaMacMibSetRequestConfirm(&r);
+    if (rc != LORAMAC_STATUS_OK) return rc;
 #endif
 
-    // The original firmware configures the node in ABP mode by default
-    lrw_set_mode(0);
+    // The original firmware configures the node in ABP mode by default. We
+    // cannot use lrw_set_mode here because that function performs join
+    // internally. Performing join would put the MAC in a busy state. Here,
+    // where we are initializing from defaults, internal join is not necessary
+    // anyway.
+    r.Type = MIB_NETWORK_ACTIVATION;
+    r.Param.NetworkActivation = ACTIVATION_TYPE_ABP;
+    rc = LoRaMacMibSetRequestConfirm(&r);
+    if (rc != 0) return rc;
 
     // Disable LoRaWAN certification port by default
     r.Type = MIB_IS_CERT_FPORT_ON;
     r.Param.IsCertPortOn = false;
-    LoRaMacMibSetRequestConfirm(&r);
+    rc = LoRaMacMibSetRequestConfirm(&r);
+    if (rc != LORAMAC_STATUS_OK) return rc;
+
+    return rc;
 }
 
 
@@ -728,7 +744,11 @@ void lrw_init(void)
             return;
     }
 
-    set_defaults();
+    // Initializing the LoRa MAC to defaults should never fail. If it does, we
+    // have a serious problem.
+    if (set_defaults() != LORAMAC_STATUS_OK)
+        halt("LoRaMac: Error while initializing to defaults");
+
     restore_state();
 
     r.Type = MIB_SYSTEM_MAX_RX_ERROR;

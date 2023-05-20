@@ -16,7 +16,7 @@
 
 
 /* The following partition sizes have been derived from the in-memory size of
- * the corresponding data structures in our fork of LoRaMac-node v4.6.0. The
+ * the corresponding data structures in our fork of LoRaMac-node v4.7.0. The
  * sizes have been rounded up to leave some space for expansion in future
  * versions. Whenever LoRaMac-node is modified, these sizes need to be
  * reevaluated to make sure that each part is large enough to hold its data
