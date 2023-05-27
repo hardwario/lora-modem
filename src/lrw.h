@@ -167,6 +167,20 @@ LoRaMacStatus_t lrw_mlme_request(MlmeReq_t* req);
 // function for the benefit of AT+BACKOFF
 LoRaMacStatus_t lrw_mcps_request(McpsReq_t* req, int transmissions);
 
+
 void lrw_factory_reset(bool reset_devnonce, bool reset_deveui);
+
+
+/** @brief Get LoRaWAN network time via the DeviceTimeReq MAC command
+ *
+ * This function can be used to get the current LoRaWAN network time. It uses
+ * the DeviceTimeReq MAC command which is available in LoRaWAN 1.0.3 or higher.
+ *
+ * The function sends the uplink and returns immediately. The time will be sent
+ * to the application via an asynchronous notification.
+ *
+ * @return Zero on success, a @c LoRaMacStatus_t value on error
+ */
+LoRaMacStatus_t lrw_get_device_time(void);
 
 #endif // _LRW_H

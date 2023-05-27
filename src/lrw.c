@@ -424,7 +424,7 @@ static void linkcheck_callback(MlmeConfirm_t *param)
 {
     if (param->Status == LORAMAC_EVENT_INFO_STATUS_OK) {
         cmd_event(CMD_EVENT_NETWORK, CMD_NET_ANSWER);
-        cmd_ans(param->DemodMargin, param->NbGateways);
+        atci_printf("+ANS=%d,%d,%d" ATCI_EOL, SRV_MAC_LINK_CHECK_ANS, param->DemodMargin, param->NbGateways);
     } else {
         cmd_event(CMD_EVENT_NETWORK, CMD_NET_NOANSWER);
     }
@@ -540,6 +540,35 @@ static void cert_callback(MlmeConfirm_t *param)
 }
 
 
+static void device_time_callback(MlmeConfirm_t *param)
+{
+    SysTime_t t;
+    if (param->Status == LORAMAC_EVENT_INFO_STATUS_OK) {
+        cmd_event(CMD_EVENT_NETWORK, CMD_NET_ANSWER);
+        atci_flush();
+
+        // The LoRaMAC-node library internally updates its RTC clock upong
+        // receiving DeviceTimeAns from the network server. Thus, all we have to
+        // do in this callback is read the current value via SysTimeGet.
+        //
+        // The network server sends the time as GPS time, i.e., the number of
+        // seconds since the GPS Epoch (midnight of January 6, 1980).
+        // LoRaMac-node internally converts the GPS time to POSIX time, so the
+        // returned value represents the number of seconds since the UNIX Epoch.
+        // Note that POSIX time does account for leap seconds.
+        t = SysTimeGet();
+
+        // TODO: Calculate the time it takes to transmit the following message
+        // and adjust the t value accordingly so that the time received by the
+        // host represents the time of the end of the transmission.
+
+        atci_printf("+ANS=%d,%lu,%u" ATCI_EOL, SRV_MAC_DEVICE_TIME_ANS, t.Seconds, t.SubSeconds);
+    } else {
+        cmd_event(CMD_EVENT_NETWORK, CMD_NET_NOANSWER);
+    }
+}
+
+
 static void mlme_confirm(MlmeConfirm_t *param)
 {
     log_debug("mlme_confirm: MlmeRequest: %d Status: %d", param->MlmeRequest, param->Status);
@@ -556,6 +585,10 @@ static void mlme_confirm(MlmeConfirm_t *param)
 
         case MLME_TXCW:
             cert_callback(param);
+            break;
+
+        case MLME_DEVICE_TIME:
+            device_time_callback(param);
             break;
 
         default:
@@ -1304,3 +1337,34 @@ void lrw_factory_reset(bool reset_devnonce, bool reset_deveui)
     schedule_reset = true;
 }
 
+
+LoRaMacStatus_t lrw_get_device_time(void)
+{
+    LoRaMacStatus_t rc;
+    MlmeReq_t mlr = { .Type = MLME_DEVICE_TIME };
+    rc = lrw_mlme_request(&mlr);
+    if (rc != LORAMAC_STATUS_OK) {
+        log_debug("DeviceTime MLME request failed: %d", rc);
+        return rc;
+    }
+
+    MibRequestConfirm_t mbr = { .Type = MIB_CHANNELS_DATARATE };
+    LoRaMacMibGetRequestConfirm(&mbr);
+
+    // Send an empty frame to piggy-back the DeviceTimeReq MAC command on
+    McpsReq_t mcr;
+    memset(&mcr, 0, sizeof(mcr));
+    mcr.Type = MCPS_UNCONFIRMED;
+    // See the comments in lrw_send on why the following parameter is set to the
+    // value from MIB
+    mcr.Req.Unconfirmed.Datarate = mbr.Param.ChannelsDatarate;
+
+    // Disable retransmissions. DeviceTime requests are sent as unconfirmed
+    // uplinks with an empty payload. Retransmitting such requests would
+    // interfere with time synchronization.
+    rc = lrw_mcps_request(&mcr, 1);
+    if (rc != LORAMAC_STATUS_OK)
+        log_debug("Failed to transmit DeviceTimeReq uplink: %d", rc);
+
+    return rc;
+}
