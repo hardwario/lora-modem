@@ -1462,12 +1462,12 @@ class MurataModem(ATCI):
             events.once('answer', cb)
             with self.modem.lock:
                 self.modem.AT(f'+LNCHECK={1 if piggyback is True else 0}')
-                event = q.get(timeout=timeout)
-                if event[1] == 1:
-                    rc, margin, count = q.get(timeout=0.2)
-                    if rc != 2:
-                        raise Exception('Invalid answer code')
-                    return (margin, count)
+                while True:
+                    event = q.get(timeout=timeout)
+                    if event[1] == 1:
+                        cid, margin, count = q.get(timeout=0.2)
+                        if cid == 2:
+                            return (margin, count)
 
     link_check = lncheck
 
