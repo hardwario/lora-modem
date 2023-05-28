@@ -420,8 +420,7 @@ class TypeABZ:
     subscriptions: Set[EventSubscription]
     prev_at: datetime | None
 
-    def __init__(self, pathname: str, verbose: bool = False, guard: Optional[float] = None):
-        super().__init__()
+    def __init__(self, pathname: str, verbose: bool = False, guard: Optional[float] = None, rts: bool = None, dtr: bool = None):
         self.pathname = pathname
         self.verbose = verbose
         self.hide_value = False
@@ -429,6 +428,8 @@ class TypeABZ:
         self.subscriptions = set()
         self.guard = guard
         self.prev_at = None
+        self.rts = rts
+        self.dtr = dtr
 
     def __str__(self):
         return self.pathname
@@ -459,6 +460,12 @@ class TypeABZ:
 
         for speed in speeds:
             with serial.Serial(self.pathname, speed, timeout=0) as port:
+                if self.rts is not None:
+                    port.rts = self.rts
+
+                if self.dtr is not None:
+                    port.dtr = self.dtr
+
                 self.flush_atci(port=port)
 
                 port.write(b'AT\r\n')
@@ -516,6 +523,12 @@ class TypeABZ:
         # specify a different timeout in different read requests.
         self.speed = speed
         self.port = serial.Serial(self.pathname, speed, timeout=0)
+
+        if self.rts is not None:
+            self.port.rts = self.rts
+
+        if self.dtr is not None:
+            self.port.dtr = self.dtr
 
         self.flush_atci()
 
@@ -3441,6 +3454,8 @@ def random_key():
 @click.group(invoke_without_command=True)
 @click.option('--port', '-p', help='Pathname to the serial port', show_default=True)
 @click.option('--baudrate', '-b', type=int, default=None, help='Serial port baud rate [default: detect]')
+@click.option('--rts', '-R', type=bool, default=None, help='Configure the RTS serial port signal')
+@click.option('--dtr', '-D', type=bool, default=None, help='Configure the DTR serial port signal')
 @click.option('--twr-sdk', '-t', 'twr', default=False, is_flag=True, help='Communicate with modem through twr-sdk.')
 @click.option('--reset', '-r', default=False, is_flag=True, help='Reset the modem before issuing any AT commands.')
 @click.option('--verbose', '-v', default=False, is_flag=True, help='Show all AT communication.')
@@ -3448,7 +3463,7 @@ def random_key():
 @click.option('--machine', '-m', default=False, is_flag=True, help='Produce machine-readable output.')
 @click.option('--show-keys', '-k', 'with_keys', default=False, is_flag=True, help='Show security keys.')
 @click.pass_context
-def cli(ctx, port, baudrate, twr, reset, verbose, guard, machine, with_keys):
+def cli(ctx, port, baudrate, twr, reset, verbose, guard, machine, with_keys, rts, dtr):
     '''Command line interface to the Murata TypeABZ LoRaWAN modem.
 
     This tool provides a number of commands for managing Murata TypeABZ
@@ -3492,9 +3507,9 @@ def cli(ctx, port, baudrate, twr, reset, verbose, guard, machine, with_keys):
             sys.exit(1)
 
         if twr_sdk:
-            dev: TowerSDK | TypeABZ = TowerSDK(port, verbose=verbose, guard=guard)
+            dev: TowerSDK | TypeABZ = TowerSDK(port, verbose=verbose, guard=guard, rts=rts, dtr=dtr)
         else:
-            dev = TypeABZ(port, verbose=verbose, guard=guard)
+            dev = TypeABZ(port, verbose=verbose, guard=guard, rts=rts,  dtr=dtr)
 
         if baudrate is None:
             baudrate = dev.detect_baud_rate()
