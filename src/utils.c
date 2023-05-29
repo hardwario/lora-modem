@@ -55,3 +55,31 @@ bool update_block_crc(const void *ptr, size_t size)
 
     return false;
 }
+
+
+unsigned int uint2strlen(uint32_t number)
+{
+    if (number < 10) return 1;
+    if (number < 100) return 2;
+    if (number < 1000) return 3;
+    if (number < 10000) return 4;
+    if (number < 100000) return 5;
+    if (number < 1000000) return 6;
+    if (number < 10000000) return 7;
+    if (number < 100000000) return 8;
+    if (number < 1000000000) return 8;
+    return 10;
+}
+
+
+SysTime_t uart_tx_delay(unsigned baudrate, unsigned int bytes)
+{
+    SysTime_t delay;
+
+    // We assume one start bit, eight data bits, one stop bit, and no parity.
+    unsigned int bits = bytes * (1 + 8 + 1);
+
+    delay.Seconds = bits / baudrate;
+    delay.SubSeconds = (bits % baudrate) * 1000 / baudrate;
+    return delay;
+}

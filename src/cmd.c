@@ -2200,19 +2200,36 @@ static void get_device_time(atci_param_t *param)
 
 static void get_time(void)
 {
-    SysTime_t t;
+    unsigned int bytes =      \
+        4 +                   \
+        1 +                   \
+        sizeof(ATCI_EOL) - 1;
 
     atci_flush();
 
-    t = SysTimeGet();
-    t.Seconds -= UNIX_GPS_EPOCH_OFFSET;
-    OK("%lu,%u", t.Seconds, t.SubSeconds);
+    SysTime_t time = SysTimeGet();
+    time.Seconds -= UNIX_GPS_EPOCH_OFFSET;
+
+    // Estimate the delay it will take to transmit the response over the ATCI
+    // UART port. Add the delay to the time so that the value that the
+    // aplication receives represents the timestamp of the last byte in the
+    // transmitted message.
+    //
+    // Note that the value we add is an estimate. Adding delay to the timestamp
+    // can either increase or decrease the length of the transmitted message by
+    // a small number of bytes.
+
+    bytes += uint2strlen(time.Seconds) + uint2strlen(time.SubSeconds);
+    SysTime_t delay = uart_tx_delay(sysconf.uart_baudrate, bytes);
+    time = SysTimeAdd(time, delay);
+
+    OK("%lu,%u", time.Seconds, time.SubSeconds);
 }
 
 
 static void set_time(atci_param_t *param)
 {
-    SysTime_t sys_time;
+    SysTime_t time;
     uint32_t sec, msec;
 
     if (!atci_param_get_uint(param, &sec)) abort(ERR_PARAM);
@@ -2221,9 +2238,19 @@ static void set_time(atci_param_t *param)
     if (msec > 999) abort(ERR_PARAM);
     if (param->offset != param->length) abort(ERR_PARAM_NO);
 
-    sys_time.Seconds = sec + UNIX_GPS_EPOCH_OFFSET;
-    sys_time.SubSeconds = msec;
-    SysTimeSet(sys_time);
+    time.Seconds = sec + UNIX_GPS_EPOCH_OFFSET;
+    time.SubSeconds = msec;
+
+    // Compensate for the time it takes to transmit the message over the ATCI
+    // UART. In other words, add the time it takes to transmit the message to
+    // the time sent by the application. We assume the time sent by the
+    // application was sampled just before the application started transmitting
+    // the AT command.
+    unsigned int bytes = 8 /* AT$TIME= */ + strlen(param->txt) + 1 /* \r */;
+    SysTime_t delay = uart_tx_delay(sysconf.uart_baudrate, bytes);
+    time = SysTimeAdd(time, delay);
+
+    SysTimeSet(time);
 
     OK_();
 }

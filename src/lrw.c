@@ -547,6 +547,13 @@ static void device_time_callback(MlmeConfirm_t *param)
         cmd_event(CMD_EVENT_NETWORK, CMD_NET_ANSWER);
         atci_flush();
 
+        unsigned int bytes =                       \
+            5 + /* +ANS= */                        \
+            uint2strlen(SRV_MAC_DEVICE_TIME_ANS) + \
+            1 + /* , */                            \
+            1 + /* , */                            \
+            sizeof(ATCI_EOL) - 1;
+
         // The LoRaMAC-node library internally updates its RTC clock upon
         // receiving DeviceTimeAns from the network server. When updating the
         // RTC clock, LoRaMac-node converts GPS time to UTC time, however, it
@@ -563,9 +570,18 @@ static void device_time_callback(MlmeConfirm_t *param)
         // to deal with the proper conversion from GPS to UTC if needed.
         t.Seconds -= UNIX_GPS_EPOCH_OFFSET;
 
-        // TODO: Calculate the time it takes to transmit the following message
-        // and adjust the t value accordingly so that the time received by the
-        // host represents the time of the end of the transmission.
+        // Estimate the delay it will take to transmit the event over the ATCI
+        // UART port. Add the delay to the time so that the value that the
+        // aplication receives represents the timestamp of the last byte in the
+        // transmitted message.
+        //
+        // Note that the value we add is an estimate. Adding delay to the
+        // timestamp can either increase or decrease the length of the
+        // transmitted message by a small number of bytes.
+
+        bytes += uint2strlen(t.Seconds) + uint2strlen(t.SubSeconds);
+        SysTime_t delay = uart_tx_delay(sysconf.uart_baudrate, bytes);
+        t = SysTimeAdd(t, delay);
 
         atci_printf("+ANS=%d,%lu,%u" ATCI_EOL, SRV_MAC_DEVICE_TIME_ANS, t.Seconds, t.SubSeconds);
     } else {
