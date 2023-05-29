@@ -547,16 +547,21 @@ static void device_time_callback(MlmeConfirm_t *param)
         cmd_event(CMD_EVENT_NETWORK, CMD_NET_ANSWER);
         atci_flush();
 
-        // The LoRaMAC-node library internally updates its RTC clock upong
-        // receiving DeviceTimeAns from the network server. Thus, all we have to
-        // do in this callback is read the current value via SysTimeGet.
-        //
-        // The network server sends the time as GPS time, i.e., the number of
-        // seconds since the GPS Epoch (midnight of January 6, 1980).
-        // LoRaMac-node internally converts the GPS time to POSIX time, so the
-        // returned value represents the number of seconds since the UNIX Epoch.
-        // Note that POSIX time does account for leap seconds.
+        // The LoRaMAC-node library internally updates its RTC clock upon
+        // receiving DeviceTimeAns from the network server. When updating the
+        // RTC clock, LoRaMac-node converts GPS time to UTC time, however, it
+        // does not account for leap seconds inserted since January 6 1980 (GPS
+        // epoch). Thus, the RTC clock will be ahead of UTC time by 18 seconds
+        // (as of May 2023).
         t = SysTimeGet();
+
+        // The modem has no way of keep track of leap seconds. The LoRaWAN
+        // network, unfortunately, does not provide the GPS UTC offset (GPS
+        // receivers generally do). Since we have no way of calculating correct
+        // UTC time, we convert the value obtained from the RTC clock back to
+        // GPS time and return that to the application. We let the application
+        // to deal with the proper conversion from GPS to UTC if needed.
+        t.Seconds -= UNIX_GPS_EPOCH_OFFSET;
 
         // TODO: Calculate the time it takes to transmit the following message
         // and adjust the t value accordingly so that the time received by the
