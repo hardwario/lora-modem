@@ -2198,6 +2198,37 @@ static void get_device_time(atci_param_t *param)
 }
 
 
+static void get_time(void)
+{
+    SysTime_t t;
+
+    atci_flush();
+
+    t = SysTimeGet();
+    t.Seconds -= UNIX_GPS_EPOCH_OFFSET;
+    OK("%lu,%u", t.Seconds, t.SubSeconds);
+}
+
+
+static void set_time(atci_param_t *param)
+{
+    SysTime_t sys_time;
+    uint32_t sec, msec;
+
+    if (!atci_param_get_uint(param, &sec)) abort(ERR_PARAM);
+    if (!atci_param_is_comma(param)) abort(ERR_PARAM_NO);
+    if (!atci_param_get_uint(param, &msec)) abort(ERR_PARAM);
+    if (msec > 999) abort(ERR_PARAM);
+    if (param->offset != param->length) abort(ERR_PARAM_NO);
+
+    sys_time.Seconds = sec + UNIX_GPS_EPOCH_OFFSET;
+    sys_time.SubSeconds = msec;
+    SysTimeSet(sys_time);
+
+    OK_();
+}
+
+
 static const atci_command_t cmds[] = {
     {"+UART",        NULL,            set_uart,         get_uart,         NULL, "Configure UART interface"},
     {"+VER",         NULL,            NULL,             get_version_comp, NULL, "Firmware version and build time"},
@@ -2273,6 +2304,7 @@ static const atci_command_t cmds[] = {
 #if DETACHABLE_LPUART == 1
     {"$DETACH",      detach_lpuart,   NULL,             NULL,             NULL, "Disconnect LPUART (ATCI) GPIOs"},
 #endif
+    {"$TIME",        NULL,            set_time,         get_time,         NULL, "Get or set modem's RTC time (GPS time)"},
     {"$DEVTIME",     get_device_time, NULL,             NULL,             NULL, "Get network time via DeviceTimeReq MAC command"},
     ATCI_COMMAND_CLAC,
     ATCI_COMMAND_HELP};
