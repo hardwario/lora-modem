@@ -51,10 +51,14 @@ from pymitter import EventEmitter # type: ignore
 import os
 import click
 import secrets
+import dateutil.parser
 from textwrap import dedent
 from tabulate import tabulate
 from typing import Callable, Type
 from base64 import b64encode, b64decode
+
+GPS_TO_UNIX_EPOCH = 315964800
+LEAP_SECONDS_SINCE_1980 = 18
 
 
 machine_readable = False
@@ -367,6 +371,15 @@ def region_to_LoRaDataRate(value: LoRaRegion | str| int) -> Type[LoRaDataRate]:
         value = value.upper()
 
     return globals()[f'LoRaDataRate{value}']
+
+
+def gps_to_datetime(time: float):
+    utc = time + GPS_TO_UNIX_EPOCH - LEAP_SECONDS_SINCE_1980
+    return datetime.fromtimestamp(utc)
+
+
+def datetime_to_gps(time: datetime):
+    return time.timestamp() - GPS_TO_UNIX_EPOCH + LEAP_SECONDS_SINCE_1980
 
 
 @unique
@@ -3426,6 +3439,61 @@ class OpenLoRaModem(MurataModem):
 
     lock_keys = lockkeys
 
+    def devtime(self, piggyback = False, timeout: float = 10):
+        with self.modem.events as events:
+            q: "Queue[tuple]" = Queue()
+            cb = lambda *params: q.put_nowait(params)
+            events.once('event', cb)
+            events.once('answer', cb)
+            with self.modem.lock:
+                self.modem.AT('$DEVTIME')
+                while True:
+                    event = q.get(timeout=timeout)
+                    if event[1] == 1:
+                        cid, sec, msec = q.get(timeout=0.2)
+                        if cid == 13:
+                            return sec + msec / 1000
+
+    device_time = devtime
+
+    @property
+    def time(self):
+        '''Read modem's RTC clock.
+
+        This getter can be used to read the time in the modem's RTC clock. The
+        clock is stored in the RTC peripheral and remains operational (across
+        reboots and factory resets) as long as the modem is powered. The getter
+        always returns a GPS time, i.e., the number of seconds since the GPS
+        epoch (00:00:00 January 6 1980). The time (returned value) is
+        represented with a float.
+
+        Note: The modem automatically adjusts GPS time values transmitted over
+        the UART port based on how long it takes to transmit the data. The
+        application does not need to compensate for that.
+        '''
+        t = tuple(map(int, assert_response(self.modem.AT('$TIME?')).split(',')))
+        if len(t) != 2:
+            raise Exception("Invalid response to AT$TIME?")
+        return t[0] + t[1] / 1000
+
+    @time.setter
+    def time(self, value: datetime):
+        '''Update modem's RTC clock.
+
+        This setter can be used to update the time in the modem's RTC clock. The
+        clock is stored in the RTC peripheral and remains operational (across
+        reboots and factory resets) as long as the modem is powered. The setter
+        expects a Python datetime object which it will automaticallly convert to
+        GPS time.
+
+        Note: The modem automatically adjusts GPS time values transmitted over
+        the UART port based on how long it takes to transmit the data. The
+        application does not need to compensate for that.
+        '''
+
+        gps = datetime_to_gps(value)
+        self.modem.AT(f'$TIME={int(gps)},{int((gps % 1) * 1000)}')
+
 
 def uartconfig_to_str(uart):
     if uart.parity == 0:
@@ -3558,6 +3626,7 @@ def device(get_modem: Callable[[], OpenLoRaModem]):
     | Regional parameters | RP002-1.0.3                                                       |
     | Supported regions   | AS923 AU915 CN470 CN779 EU433 EU868 IN865 KR920 RU864 US915       |
     | Device EUI          | 323838377B308503                                                  |
+    | Device time         | 2023-05-29 21:50:34.740000-04:00                                  |
     +---------------------+-------------------------------------------------------------------+
 
     The device's root LoRaWAN security keys are omitted from the output by
@@ -3580,6 +3649,13 @@ def device(get_modem: Callable[[], OpenLoRaModem]):
         ['Regional parameters', ver["regional_parameters"]],
         ['Supported regions',   ver["supported_regions"]],
         ['Device EUI',          modem.DevEUI]]
+
+    try:
+        time = modem.time
+    except AttributeError:
+        pass
+    else:
+        data.append(['Device time', gps_to_datetime(time).astimezone()])
 
     if show_keys:
         data.append(['AppKey', modem.AppKey])
@@ -4944,6 +5020,92 @@ def update_channel(get_modem: Callable[[], OpenLoRaModem], channel, frequency, m
     if max_dr is None: max_dr = data[0].max_dr
 
     modem.rfparam = RFConfig(channel, frequency, min_dr, max_dr)
+
+
+@cli.command()
+@click.argument('time', type=str, nargs=-1)
+@click.option('--sync', '-s', default=False, is_flag=True, help="Synchronize local time over the LoRaWAN network")
+@click.option('--host', '-h', default=False, is_flag=True, help="Also show host time")
+@click.pass_obj
+def time(get_modem: Callable[[], OpenLoRaModem], sync, host, time):
+    '''Get, set, or synchronize the modem's RTC clock.
+
+    When you invoke this command without any additional arguments or options,
+    the command will simply display the current time in the modem's RTC clock:
+
+    \b
+    +-------------+----------------------------------+
+    | Device time | 2023-05-29 23:29:15.752000-04:00 |
+    +-------------+----------------------------------+
+
+    Add the option --host (or -s) to also display the host's time and the
+    difference between the modem's clock and the host's clock:
+
+    \b
+    +-------------+----------------------------------+
+    | Device time | 2023-05-29 23:31:27.191000-04:00 |
+    | Host time   | 2023-05-29 23:31:27.099966-04:00 |
+    | Difference  | 91.034 ms                        |
+    +-------------+----------------------------------+
+
+    Pass the command line option --sync (or -s) to synchronize the modem's RTC
+    clock over the LoRaWAN network. Since the modem will send a DeviceTimeReq
+    MAC request to the network server, the modem must be joined and idle:
+
+    \b
+    Synchronizing time in device /dev/tty.usbserial-A6023NZX...done.
+    +-------------+----------------------------------+
+    | Device time | 2023-05-29 23:33:58.032000-04:00 |
+    +-------------+----------------------------------+
+
+    You can also pass a time string on the command line to update the modem's RTC clock manually:
+
+        lora time 2003-09-25T10:49:41.5-03:00
+
+    All syntaxes supported by the dateutil Python package are supported.
+    '''
+    time = ' '.join(time)
+    modem = get_modem()
+
+    if time:
+        if sync:
+            click.echo('Error: The option --sync cannot be used together with an explicit time value', err=True)
+            sys.exit(1)
+
+        modem.time = dateutil.parser.parse(time)
+    else:
+        if sync:
+            if not machine_readable:
+                click.echo(f"Synchronizing time in device {modem}...", nl=False)
+
+            try:
+                device_gps_ts = modem.device_time()
+            except Empty:
+                device_gps_ts = None
+
+            if not machine_readable:
+                click.echo('done.' if device_gps_ts is not None else 'no response.')
+        else:
+            device_gps_ts = modem.time
+
+        if device_gps_ts is None:
+            sys.exit(1)
+
+        # https://git.ligo.org/cds/software/gpstime/-/blob/master/gpstime/leaps.py
+
+        device_utc = gps_to_datetime(device_gps_ts)
+
+        data = [
+            ['Device time', device_utc.astimezone()]]
+
+        if host:
+            host_utc = datetime.now()
+            host_utc_ts = host_utc.timestamp()
+
+            data.append(['Host time', host_utc.astimezone()])
+            data.append(['Difference', f'{(device_utc - host_utc).total_seconds() * 1000} ms'])
+
+        render(data)
 
 
 if __name__ == '__main__':
