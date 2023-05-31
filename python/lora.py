@@ -5024,10 +5024,11 @@ def update_channel(get_modem: Callable[[], OpenLoRaModem], channel, frequency, m
 
 @cli.command()
 @click.argument('time', type=str, nargs=-1)
-@click.option('--sync', '-s', default=False, is_flag=True, help="Synchronize local time over the LoRaWAN network")
+@click.option('--sync-lorawan', '-s', default=False, is_flag=True, help="Synchronize the modem's clock over the LoRaWAN network")
+@click.option('--sync-host', '-S', default=False, is_flag=True, help="Synchronize device's clock from the host")
 @click.option('--host', '-h', default=False, is_flag=True, help="Also show host time")
 @click.pass_obj
-def time(get_modem: Callable[[], OpenLoRaModem], sync, host, time):
+def time(get_modem: Callable[[], OpenLoRaModem], sync_lorawan, sync_host, host, time):
     '''Get, set, or synchronize the modem's RTC clock.
 
     When you invoke this command without any additional arguments or options,
@@ -5048,12 +5049,23 @@ def time(get_modem: Callable[[], OpenLoRaModem], sync, host, time):
     | Difference  | 91.034 ms                        |
     +-------------+----------------------------------+
 
-    Pass the command line option --sync (or -s) to synchronize the modem's RTC
-    clock over the LoRaWAN network. Since the modem will send a DeviceTimeReq
-    MAC request to the network server, the modem must be joined and idle:
+    Pass the command-line option --sync-lorawan (or -s) to synchronize the
+    modem's clock over the LoRaWAN network. Since the modem will send a
+    DeviceTimeReq MAC request to the network server, the modem must be joined
+    and idle.
 
     \b
-    Synchronizing time in device /dev/tty.usbserial-A6023NZX...done.
+    Synchronizing the clock in device /dev/tty.usbserial-A6023NZX over LoRaWAN...done.
+    +-------------+----------------------------------+
+    | Device time | 2023-05-29 23:33:58.032000-04:00 |
+    +-------------+----------------------------------+
+
+    Pass the command-line option --sync-host (or -S) to synchronize the modem's
+    clock to the host clock. This synchronization method samples the host's
+    clock and transfers the time to the modem:
+
+    \b
+    Synchronizing the clock in device /dev/tty.usbserial-A6023NZX to the host...done.
     +-------------+----------------------------------+
     | Device time | 2023-05-29 23:33:58.032000-04:00 |
     +-------------+----------------------------------+
@@ -5068,15 +5080,17 @@ def time(get_modem: Callable[[], OpenLoRaModem], sync, host, time):
     modem = get_modem()
 
     if time:
-        if sync:
-            click.echo('Error: The option --sync cannot be used together with an explicit time value', err=True)
+        if sync_lorawan or sync_host:
+            click.echo('Error: The options --sync-lorawan and --sync-host cannot be used together with an explicit time value', err=True)
             sys.exit(1)
 
         modem.time = dateutil.parser.parse(time)
     else:
-        if sync:
+        device_gps_ts = None
+
+        if sync_lorawan:
             if not machine_readable:
-                click.echo(f"Synchronizing time in device {modem}...", nl=False)
+                click.echo(f"Synchronizing the clock in device {modem} over LoRaWAN...", nl=False)
 
             try:
                 device_gps_ts = modem.device_time()
@@ -5085,11 +5099,17 @@ def time(get_modem: Callable[[], OpenLoRaModem], sync, host, time):
 
             if not machine_readable:
                 click.echo('done.' if device_gps_ts is not None else 'no response.')
-        else:
-            device_gps_ts = modem.time
+        elif sync_host:
+            if not machine_readable:
+                click.echo(f"Synchronizing the clock in device {modem} to the host...", nl=False)
+
+            modem.time = datetime.now()
+
+            if not machine_readable:
+                click.echo('done.')
 
         if device_gps_ts is None:
-            sys.exit(1)
+            device_gps_ts = modem.time
 
         # https://git.ligo.org/cds/software/gpstime/-/blob/master/gpstime/leaps.py
 
