@@ -3477,21 +3477,19 @@ class OpenLoRaModem(MurataModem):
         return t[0] + t[1] / 1000
 
     @time.setter
-    def time(self, value: datetime):
+    def time(self, gps: float):
         '''Update modem's RTC clock.
 
         This setter can be used to update the time in the modem's RTC clock. The
         clock is stored in the RTC peripheral and remains operational (across
         reboots and factory resets) as long as the modem is powered. The setter
-        expects a Python datetime object which it will automaticallly convert to
-        GPS time.
+        expects a GPS timestamp represented with a float.
 
         Note: The modem automatically adjusts GPS time values transmitted over
         the UART port based on how long it takes to transmit the data. The
         application does not need to compensate for that.
         '''
 
-        gps = datetime_to_gps(value)
         self.modem.AT(f'$TIME={int(gps)},{int((gps % 1) * 1000)}')
 
 
@@ -5084,7 +5082,7 @@ def time(get_modem: Callable[[], OpenLoRaModem], sync_lorawan, sync_host, host, 
             click.echo('Error: The options --sync-lorawan and --sync-host cannot be used together with an explicit time value', err=True)
             sys.exit(1)
 
-        modem.time = dateutil.parser.parse(time)
+        modem.time = datetime_to_gps(dateutil.parser.parse(time))
     else:
         device_gps_ts = None
 
@@ -5103,7 +5101,7 @@ def time(get_modem: Callable[[], OpenLoRaModem], sync_lorawan, sync_host, host, 
             if not machine_readable:
                 click.echo(f"Synchronizing the clock in device {modem} to the host...", nl=False)
 
-            modem.time = datetime.now()
+            modem.time = datetime_to_gps(datetime.now())
 
             if not machine_readable:
                 click.echo('done.')
