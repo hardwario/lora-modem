@@ -189,4 +189,17 @@ void lrw_factory_reset(bool reset_devnonce, bool reset_deveui);
  */
 LoRaMacStatus_t lrw_get_device_time(bool piggyback);
 
+
+typedef struct {
+    uint8_t port;
+    uint8_t buffer[256];
+    uint8_t length;
+} lrw_recv_t;
+
+uint8_t lrw_recv_len(void);
+lrw_recv_t *lrw_recv_get(void);
+void lrw_recv_clear(void);
+void lrw_recv_urc_set(bool enable);
+bool lrw_recv_urc_get(void);
+
 #endif // _LRW_H
