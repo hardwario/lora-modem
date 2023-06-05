@@ -190,16 +190,44 @@ void lrw_factory_reset(bool reset_devnonce, bool reset_deveui);
 LoRaMacStatus_t lrw_get_device_time(bool piggyback);
 
 
+/**
+ * @brief Structure for storing received data
+ */
 typedef struct {
+    // @brief Port number
     uint8_t port;
+    // @brief Received data
     uint8_t buffer[256];
+    // @brief Length of received data
     uint8_t length;
 } lrw_recv_t;
 
+
+/** @brief Return the number of received messages in FIFO
+ * @return Number of received messages
+*/
 uint8_t lrw_recv_len(void);
+
+/** @brief Return a pointer to the received message to last message FIFO
+ * @return Pointer to the received message
+*/
 lrw_recv_t *lrw_recv_get(void);
+
+/** @brief Clear the received message FIFO
+*/
 void lrw_recv_clear(void);
+
+/** @brief Enable or disable the publish of URC +RECV=
+ *
+ * This config is not persistent, it will be reset after reboot.
+ *
+ * @param[in] enable Enable or disable URC publish
+*/
 void lrw_recv_urc_set(bool enable);
+
+/** @brief Return the current config of URC +RECV=
+ * @return URC publish config
+*/
 bool lrw_recv_urc_get(void);
 
 #endif // _LRW_H
