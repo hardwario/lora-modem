@@ -433,7 +433,7 @@ class TypeABZ:
     subscriptions: Set[EventSubscription]
     prev_at: datetime | None
 
-    def __init__(self, pathname: str, verbose: bool = False, guard: Optional[float] = None, rts: bool = None, dtr: bool = None):
+    def __init__(self, pathname: str, verbose: bool = False, guard: Optional[float] = None, rts: bool | None = None, dtr: bool | None = None):
         self.pathname = pathname
         self.verbose = verbose
         self.hide_value = False
