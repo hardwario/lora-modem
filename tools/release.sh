@@ -3,7 +3,7 @@ set -Eeuo pipefail
 
 bail() { echo $1; exit 1; }
 
-basename=${BASENAME:-lora-modem-abz}
+basename=${BASENAME:-lora-modem}
 orig_dir="$(pwd)"
 
 [ $# -ne 1 ] && bail "Usage: $0 <version>"
