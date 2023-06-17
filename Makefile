@@ -504,12 +504,8 @@ install: $(BIN) $(HEX) $(MAKEFILE_LIST)
 	$(Q)cp -f "$(HEX)" "$(BASENAME).hex"
 
 .PHONY: python
-python: $(MAKEFILE_LIST) python/VERSION
+python: $(MAKEFILE_LIST)
 	cd python && $(PYTHON) -m build
-
-.PHONY: python/VERSION
-python/VERSION: $(MAKEFILE_LIST)
-	git describe | sed -e 's/.*\([0-9]\+\.[0-9]\+\.[0-9]\+\).*/\1/g' > $@
 
 $(BIN): $(ELF) $(MAKEFILE_LIST)
 	$(Q)$(ECHO) "Creating $(BIN) from $(ELF)..."
@@ -626,10 +622,9 @@ clean: $(MAKEFILE_LIST)
 .PHONY: .clean-python
 .clean-python: $(MAKEFILE_LIST)
 	$(Q)$(ECHO) "Deleting Python build artifacts..."
-	$(Q)rm -rf "python/VERSION"
 	$(Q)rm -rf "python/build"
 	$(Q)rm -rf "python/dist"
-	$(Q)rm -rf "python/lora_modem_abz.egg-info"
+	$(Q)rm -rf "python/lora_modem.egg-info"
 	$(Q)rm -rf "python/__pycache__"
 	$(Q)rm -rf "python/.mypy_cache"
 
