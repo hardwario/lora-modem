@@ -2,7 +2,7 @@
 #
 # Python library for the Murata TypeABZ LoRaWAN modem
 #
-# Copyright (c) 2022 Jan Janak <jan@janakj.org>
+# Copyright (c) 2022-2023 Jan Janak <jan@janakj.org>
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
