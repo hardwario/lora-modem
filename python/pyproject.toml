@@ -1,10 +1,16 @@
 [build-system]
-requires = ["setuptools>=61"]
+requires = ["setuptools>=61", "setuptools-git-versioning"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools-git-versioning]
+enabled = true
+template = "{tag}"
+dev_template = "{tag}.{ccount}+g{sha}"
+dirty_template = "{tag}.{ccount}+g{sha}.modified"
 
 [project]
 name = "lora-modem"
-version = "1.0.0"
+dynamic = ["version"]
 description = "Python library for the Murata TypeABZ LoRaWAN modem"
 authors = [
     { name = "Jan Janak", email = "jan@janakj.org" }
@@ -33,6 +39,8 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+    "build",
+    "twine",
     "mypy",
     "types-pyserial",
     "types-python-dateutil",
@@ -40,11 +48,9 @@ dev = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/hardwario/lora-modem"
+Homepage = "https://github.com/hardwario/lora-modem"
+Documentation = "https://github.com/hardwario/lora-modem/wiki"
 "Bug Tracker" = "https://github.com/hardwario/lora-modem/issues"
 
 [project.scripts]
 lora = "lora:cli"
-
-[tool.setuptools.package-data]
-lora = ["LICENSE", "README.md", "VERSION", "pyproject.toml"]
