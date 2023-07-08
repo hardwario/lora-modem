@@ -453,11 +453,13 @@ LDFLAGS += -mlittle-endian
 LDFLAGS += -T$(LINKER_SCRIPT)
 LDFLAGS += -Wl,-lc
 LDFLAGS += -Wl,-lm
+LDFLAGS += -Wl,--no-warn-rwx-segments
 LDFLAGS += -static
 LDFLAGS += -Wl,-Map=$(MAP)
 LDFLAGS += -Wl,--gc-sections
 LDFLAGS += -Wl,--print-memory-usage
 LDFLAGS += -Wl,-u,__errno
+LDFLAGS += --specs=nano.specs
 LDFLAGS += --specs=nosys.specs
 
 ################################################################################
