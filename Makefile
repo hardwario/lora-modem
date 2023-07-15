@@ -133,6 +133,16 @@ DETACHABLE_LPUART ?= 0
 # Used GPIOs: PB12, PB13, PB14, PB15
 #DEBUG_MCU =
 
+# Enable (1) or disable (0) certification-related AT commands. This option
+# controls the inclusion of the following AT commands:
+#
+#   AT$CERT - Enable or disable the LoRaWAN certification port
+#   AT$CW - Control continuous wave transmission
+#   AT$CM - Control FSK-modulated transmission
+#
+# Certification AT commands are disabled by default.
+CERTIFICATION_ATCI ?= 0
+
 ################################################################################
 # You shouldn't need to edit the text below under normal circumstances.        #
 ################################################################################
@@ -356,7 +366,8 @@ config := \
 	DETACHABLE_LPUART=\"$(DETACHABLE_LPUART)\" \
 	DEBUG_LOG=\"$(DEBUG_LOG)\" \
 	DEBUG_SWD=\"$(DEBUG_SWD)\" \
-	DEBUG_MCU=\"$(DEBUG_MCU)\"
+	DEBUG_MCU=\"$(DEBUG_MCU)\" \
+	CERTIFICATION_ATCI=\"$(CERTIFICATION_ATCI)\"
 
 tmp := $(shell \
 	dir="$(BUILD_DIR)/$(TYPE)"; \
@@ -427,6 +438,8 @@ CFLAGS += -DDETACHABLE_LPUART=$(DETACHABLE_LPUART)
 CFLAGS += -DDEBUG_LOG=$(DEBUG_LOG)
 CFLAGS += -DDEBUG_SWD=$(DEBUG_SWD)
 CFLAGS += -DDEBUG_MCU=$(DEBUG_MCU)
+
+CFLAGS += -DCERTIFICATION_ATCI=$(CERTIFICATION_ATCI)
 
 ################################################################################
 # Compiler flags for .s files                                                  #

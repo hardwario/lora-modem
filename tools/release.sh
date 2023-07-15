@@ -130,11 +130,13 @@ make -j4 FACTORY_RESET_PIN=0 TCXO_PIN=1 DETACHABLE_LPUART=0 release
 make -j4 FACTORY_RESET_PIN=0 TCXO_PIN=1 DETACHABLE_LPUART=0 DEBUG_LOG=1 debug
 install_firmware tower
 
-# The chester variant is the same as the tower variant. No need to rebuild.
-install_firmware chester
-
-# This build variant is also the same as the tower build variant.
+# This build variant is the same as the tower build variant.
 install_firmware bl072zlrwan1
+
+# The chester variant has certification AT commands enabled.
+make -j4 FACTORY_RESET_PIN=0 TCXO_PIN=1 DETACHABLE_LPUART=0 CERTIFICATION_ATCI=1 release
+make -j4 FACTORY_RESET_PIN=0 TCXO_PIN=1 DETACHABLE_LPUART=0 CERTIFICATION_ATCI=1 DEBUG_LOG=1 debug
+install_firmware chester
 
 # The build variant for the (older) Arduino MKR WAN 1300 board. MKR WAN 1300
 # does not control TCXO (it is always enabled). The factory reset pin is

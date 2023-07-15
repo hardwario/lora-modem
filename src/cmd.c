@@ -1238,6 +1238,7 @@ static void pctx(atci_param_t *param)
     request_confirmation = true;
 }
 
+#if CERTIFICATION_ATCI != 0
 
 static void cw(atci_param_t *param)
 {
@@ -1403,6 +1404,7 @@ static void cm(atci_param_t *param)
     OK_();
 }
 
+#endif
 
 static void get_frmcnt(void)
 {
@@ -2010,6 +2012,7 @@ static void set_loglevel(atci_param_t *param)
 }
 #endif
 
+#if CERTIFICATION_ATCI != 0
 
 static void get_cert(void)
 {
@@ -2033,6 +2036,7 @@ static void set_cert(atci_param_t *param)
     OK_();
 }
 
+#endif
 
 static void get_session(void)
 {
@@ -2322,10 +2326,12 @@ static const atci_command_t cmds[] = {
 #if DEBUG_LOG != 0
     {"$LOGLEVEL",    NULL,            set_loglevel,     get_loglevel,     NULL, "Configure logging on USART port"},
 #endif
-    {"$CERT",        NULL,            set_cert,         get_cert,         NULL, "Enable or disable LoRaWAN certification port"},
     {"$SESSION",     NULL,            NULL,             get_session,      NULL, "Get network session information"},
+#if CERTIFICATION_ATCI != 0
+    {"$CERT",        NULL,            set_cert,         get_cert,         NULL, "Enable or disable LoRaWAN certification port"},
     {"$CW",          cw,              NULL,             NULL,             NULL, "Start continuous carrier wave transmission"},
     {"$CM",          cm,              NULL,             NULL,             NULL, "Start continuous modulated FSK transmission"},
+#endif
     {"$NVM",         nvm_userdata,    NULL,             NULL,             NULL, "Manage data in NVM user registers"},
     {"$LOCKKEYS",    lock_keys,       NULL,             NULL,             NULL, "Prevent read access to security keys from ATCI"},
 #if DETACHABLE_LPUART == 1
