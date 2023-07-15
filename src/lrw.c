@@ -1148,6 +1148,15 @@ int lrw_set_dwell(bool uplink, bool downlink)
 }
 
 
+void lrw_set_devnonce(uint16_t nonce)
+{
+    LoRaMacNvmData_t *state = lrw_get_state();
+    state->Crypto.DevNonce = nonce;
+    state->Crypto.Crc32 = Crc32((uint8_t *)&state->Crypto, sizeof(state->Crypto) - 4);
+    state_changed(LORAMAC_NVM_NOTIFY_FLAG_CRYPTO);
+}
+
+
 int lrw_check_link(bool piggyback)
 {
     LoRaMacStatus_t rc;

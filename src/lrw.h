@@ -154,6 +154,12 @@ void lrw_set_maxeirp(unsigned int maxeirp);
 int lrw_set_dwell(bool uplink, bool downlink);
 
 
+/** @brief Update the device's LoRaWAN 1.1 DevNonce value
+ * @param[in] nonce LoRaWAN 1.1 DevNonce value
+ */
+void lrw_set_devnonce(uint16_t nonce);
+
+
 /** @brief Return the maximum number of channels for the currently active region
  * @return Number of channels
  */

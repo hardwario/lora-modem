@@ -2260,6 +2260,24 @@ static void set_time(atci_param_t *param)
 }
 
 
+static void get_devnonce(void)
+{
+    LoRaMacNvmData_t *state = lrw_get_state();
+    OK("%u", state->Crypto.DevNonce);
+}
+
+
+static void set_devnonce(atci_param_t *param)
+{
+    uint32_t nonce;
+
+    if (!atci_param_get_uint(param, &nonce)) abort(ERR_PARAM_NO);
+    if (nonce > UINT16_MAX) abort(ERR_PARAM);
+    lrw_set_devnonce(nonce);
+    OK_();
+}
+
+
 static const atci_command_t cmds[] = {
     {"+UART",        NULL,            set_uart,         get_uart,         NULL, "Configure UART interface"},
     {"+VER",         NULL,            NULL,             get_version_comp, NULL, "Firmware version and build time"},
@@ -2339,6 +2357,7 @@ static const atci_command_t cmds[] = {
 #endif
     {"$TIME",        NULL,            set_time,         get_time,         NULL, "Get or set modem's RTC time (GPS time)"},
     {"$DEVTIME",     get_device_time, NULL,             NULL,             NULL, "Get network time via DeviceTimeReq MAC command"},
+    {"$DEVNONCE",    NULL,            set_devnonce,     get_devnonce,     NULL, "Get or set LoRaWAN 1.1 DevNonce"},
     ATCI_COMMAND_CLAC,
     ATCI_COMMAND_HELP};
 
