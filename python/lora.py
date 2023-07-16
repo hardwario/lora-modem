@@ -3492,6 +3492,44 @@ class OpenLoRaModem(MurataModem):
 
         self.modem.AT(f'$TIME={int(gps)},{int((gps % 1) * 1000)}')
 
+    @property
+    def devnonce(self):
+        '''Return the modem's device nonce (DevNonce) value (LoRaWAN 1.1)
+
+        The device nonce (DevNonce) is a 16-bit counter incremented on every
+        Join sent by the device. For security reasons, DevNonce values must not
+        be reused by the device.
+        '''
+        return int(assert_response(self.modem.AT('$DEVNONCE?')))
+
+    @devnonce.setter
+    def devnonce(self, value: int):
+        '''Set the modem's device nonce (DevNonce) value (LoRaWAN 1.1)
+
+        The device nonce (DevNonce) is a 16-bit counter incremented on every
+        Join. Be careful when updating the DevNonce. For security reasons, the
+        device must never reuse the same DevNonce value with the same security
+        keys.
+        '''
+        self.modem.AT(f'$DEVNONCE={value}')
+
+    dev_nonce = devnonce
+
+    @property
+    def mcuid(self):
+        '''Return the unique identifier of the modem's microcontroller.
+
+        The value is a 64-bit read-only unique integer assigned to the STM32 MCU
+        by the manufacturer. The integer is encoded in a hexadecimal format.
+        
+        Upon factory reset, the modem uses the microcontroller identifier to
+        generate a unique DevEUI. However, the DevEUI value can be changed by
+        the application.
+        '''
+        return assert_response(self.modem.AT('$MCUID?'))
+
+    mcu_id = mcuid
+
 
 def uartconfig_to_str(uart):
     if uart.parity == 0:
@@ -3623,8 +3661,10 @@ def device(get_modem: Callable[[], OpenLoRaModem]):
     | LoRaWAN version     | 1.1.1 / 1.0.4 (1.0.4 for ABP)                                     |
     | Regional parameters | RP002-1.0.3                                                       |
     | Supported regions   | AS923 AU915 CN470 CN779 EU433 EU868 IN865 KR920 RU864 US915       |
+    | MCU identifier      | 323838377B308503                                                  |
     | Device EUI          | 323838377B308503                                                  |
     | Device time         | 2023-05-29 21:50:34.740000-04:00                                  |
+    | Device nonce        | 4                                                                 |
     +---------------------+-------------------------------------------------------------------+
 
     The device's root LoRaWAN security keys are omitted from the output by
@@ -3645,8 +3685,16 @@ def device(get_modem: Callable[[], OpenLoRaModem]):
         ['Data encoding',       modem.data_encoding],
         ['LoRaWAN version',     f'{ver["lorawan11_version"]} / {ver["lorawan10_version"]} ({ver["abp_lorawan_version"]} for ABP)'],
         ['Regional parameters', ver["regional_parameters"]],
-        ['Supported regions',   ver["supported_regions"]],
-        ['Device EUI',          modem.DevEUI]]
+        ['Supported regions',   ver["supported_regions"]]]
+
+    try:
+        mcuid = modem.mcuid
+    except AttributeError:
+        pass
+    else:
+        data.append(['MCU identifier', mcuid])
+
+    data.append(['Device EUI', modem.DevEUI])
 
     try:
         time = modem.time
@@ -3654,6 +3702,14 @@ def device(get_modem: Callable[[], OpenLoRaModem]):
         pass
     else:
         data.append(['Device time', gps_to_datetime(time).astimezone()])
+
+    try:
+        nonce = modem.devnonce
+    except AttributeError:
+        pass
+    else:
+        data.append(['Device nonce', f'{nonce}'])
+
 
     if show_keys:
         data.append(['AppKey', modem.AppKey])
