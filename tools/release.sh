@@ -1,54 +1,114 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -Eeuo pipefail
 
-bail() { echo $1; exit 1; }
-
-basename=${BASENAME:-lora-modem}
-orig_dir="$(pwd)"
-
-[ $# -ne 1 ] && bail "Usage: $0 <version>"
-version="$1"
-
-[ -z "${PYTHON:-}" ] && {
-    # The caller provided no path to the Python interpreter. Try detecting it.
-
-    # First see if we can use the interpeter reachable via the binary python on
-    # the path.
-    PYTHON="$(which python)" && {
-        [[ "$($PYTHON --version 2>/dev/null)" =~ ^Python\ 3.*$ ]] || PYTHON=""
-    }
-
-    # If not, see if we can use the interpreter reachable via the binary python3
-    # on the path.
-    [ -z "$PYTHON" ] && {
-        PYTHON="$(which python3)" && {
-            [[ "$($PYTHON --version 2>/dev/null)" =~ ^Python\ 3.*$ ]] || PYTHON=""
-        }
-    }
-} || {
-    # The caller supplied a Python interpreter via the environment variable
-    # PYTHON. Make sure it is Python 3.x.
-    [[ "$($PYTHON --version 2>/dev/null)" =~ ^Python\ 3.*$ ]] ||
-        bail "Python configured via the environment variable PYTHON must be 3.x"
+bail() {
+    echo "$1";
+    exit 1;
 }
 
-[ -x "$PYTHON" ] || bail "Working Python 3 interpreter not found"
+usage() {
+    cat <<EOF
+Usage: $0 [options...] <version>
 
-echo "Using Python interpreter $PYTHON"
+Options:
+  -h : Print this help message and exit
+  -b : Base name (lora-modem by default)
+  -c : Do not check git clone status
+  -s : Do not generate PGP signatures
+  -d : Discard all build artifacts (dry run)
+  -p : Do not build Python library
+  -g : Do not push to GitHub
+  -P : Do not push to PyPI
 
-PIP="$PYTHON -m pip"
-[ -z "$($PIP show build)" ] && bail "Error: Please install the Python package 'build' first"
-[ -z "$($PIP show twine)" ] && bail "Error: Please install the Python package 'twine' first"
+Arguments:
+  version : Version string (without the "v" git tag prefix)
 
-# Make sure we have a GitHub token.
-[ -z "${GITHUB_TOKEN:-}" ] && bail "Error: GITHUB_TOKEN environment variable is not set"
+Environment Variables:
+  PYTHON       : Path to the Python 3 interpreter (detected)
+  GITHUB_TOKEN : GitHub authentication token (required)
+  PYPI_TOKEN   : PyPI authentication token (required)
+EOF
+    exit 1;
+}
 
-# The PyPI token is usually found in ~/.pypirc.
-[ -z "${PYPI_TOKEN:-}" ] && bail "Error: PYPI_TOKEN environment variable is not set"
+while getopts "dhb:pcsgP" option; do
+    case $option in
+        h) usage ;;
+        b) basename="$OPTARG" ;;
+        d) dry_run=1 ;;
+        p) build_python=0 ;;
+        s) sign=0 ;;
+        c) check_git_status=0 ;;
+        g) push_to_github=0 ;;
+        P) push_to_pypi=0 ;;
+        *) bail "Error: Invalid option -$OPTARG" ;;
+    esac
+done
+shift $((OPTIND-1))
 
-# Make sure we can execute the GitHub command line tool.
-HUB=${HUB:-hub}
-command -v $HUB &>/dev/null || bail "Error: Could not execute GitHub cmdline tool 'hub'"
+[ $# -ne 1 ] && bail "Error: Missing version (see -h)"
+version="$1"
+
+orig_dir="$(pwd)"
+basename="${basename:-lora-modem}"
+dry_run="${dry_run:-0}"
+build_python="${build_python:-1}"
+sign="${sign:-1}"
+check_git_status="${check_git_status:-1}"
+push_to_github="${push_to_github:-1}"
+push_to_pypi="${push_to_pypi:-1}"
+
+if [ $build_python -eq 1 ] ; then
+    [ -z "${PYTHON:-}" ] && {
+        # The caller provided no path to the Python interpreter. Try detecting it.
+
+        # First see if we can use the interpeter reachable via the binary python on
+        # the path.
+        PYTHON="$(which python)" && {
+            [[ "$($PYTHON --version 2>/dev/null)" =~ ^Python\ 3.*$ ]] || PYTHON=""
+        }
+
+        # If not, see if we can use the interpreter reachable via the binary python3
+        # on the path.
+        [ -z "$PYTHON" ] && {
+            PYTHON="$(which python3)" && {
+                [[ "$($PYTHON --version 2>/dev/null)" =~ ^Python\ 3.*$ ]] || PYTHON=""
+            }
+        }
+    } || {
+        # The caller supplied a Python interpreter via the environment variable
+        # PYTHON. Make sure it is Python 3.x.
+        [[ "$($PYTHON --version 2>/dev/null)" =~ ^Python\ 3.*$ ]] ||
+            bail "Python configured via the environment variable PYTHON must be 3.x"
+    }
+
+    [ -x "$PYTHON" ] || bail "Working Python 3 interpreter not found"
+
+    echo "Using Python interpreter $PYTHON"
+
+    PIP="$PYTHON -m pip"
+    [ -z "$($PIP show build)" ] && bail "Error: Please install the Python package 'build' first"
+fi
+
+if [ $dry_run -eq 0 ]; then
+    if [ $push_to_github -eq 1 ] ; then
+        # Make sure we have a GitHub token.
+        [ -z "${GITHUB_TOKEN:-}" ] && bail "Error: GITHUB_TOKEN environment variable is not set"
+
+        # Make sure we can execute the GitHub command line tool.
+        HUB=${HUB:-hub}
+        command -v $HUB &>/dev/null || bail "Error: Could not execute GitHub cmdline tool 'hub'"
+    fi
+
+    if [ $build_python -eq 1 ] ; then
+        if [ $push_to_pypi -eq 1 ] ; then
+            # The PyPI token is usually found in ~/.pypirc.
+            [ -z "${PYPI_TOKEN:-}" ] && bail "Error: PYPI_TOKEN environment variable is not set"
+
+            [ -z "$($PIP show twine)" ] && bail "Error: Please install the Python package 'twine' first"
+        fi
+    fi
+fi
 
 # Make sure we have the checksum generator sha256sum.
 command -v sha256sum &>/dev/null || bail "Error: Could not execute sha256sum"
@@ -56,9 +116,11 @@ command -v sha256sum &>/dev/null || bail "Error: Could not execute sha256sum"
 # Make sure we are on the main branch.
 [ "$(git branch --show-current)" != "main" ] && bail "Error: Not on the main branch"
 
-# We only generate releases from a git repository clone that does not have any
-# uncommitted modifications or untracked files.
-[ -n "$(git status --porcelain)" ] && bail "Error: Your git repository clone is not clean"
+if [ $check_git_status -eq 1 ] ; then 
+    # We only generate releases from a git repository clone that does not have any
+    # uncommitted modifications or untracked files.
+    [ -n "$(git status --porcelain)" ] && bail "Error: Your git repository clone is not clean"
+fi
 
 previous_tag=$(git describe --abbrev=0)
 [ -z "$previous_tag" ] && bail "Error: Could not detect the previous release tag"
@@ -92,7 +154,10 @@ git submodule update --init
 # Create a signed and annotated tag in the local git repository clone. Fail if
 # the tag already exists.
 echo -n "Creating git tag $new_tag ... "
-git tag -s -a "$new_tag" -m "Version $version"
+if [ $sign -eq 1 ]; then
+    git_opts="-s"
+fi
+git tag ${git_opts:-} -a "$new_tag" -m "Version $version"
 echo "done."
 
 # Generate the files VERSION and LIB_VERSION so that they can be included in the
@@ -155,19 +220,25 @@ make -j4 FACTORY_RESET_PIN=0 TCXO_PIN=2 DETACHABLE_LPUART=1 release
 make -j4 FACTORY_RESET_PIN=0 TCXO_PIN=2 DETACHABLE_LPUART=1 DEBUG_LOG=3 DEBUG_MCU=0 debug
 install_firmware mkrwan1310
 
-# Build the Python library.
-PYTHON="$PYTHON" make python
-cp -a python/dist/* "$python_dir"
+if [ $build_python -eq 1 ] ; then
+    # Build the Python library.
+    PYTHON="$PYTHON" make python
+    cp -a python/dist/* "$python_dir"
+fi
 
 # Compute SHA-256 checksums of all firmware release files.
 cd "$firmware_dir"
 firmware_files=(*)
 checksums=$(sha256sum -b ${firmware_files[*]})
 
-# Generate a signed version of the checksums.
-echo -n "Signing the release manifest ... "
-signed_checksums=$(echo "$checksums" | gpg --clear-sign)
-echo "done."
+if [ $sign -eq 1 ] ; then
+    # Generate a signed version of the checksums.
+    echo -n "Signing the release manifest ... "
+    signed_checksums=$(echo "$checksums" | gpg --clear-sign)
+    echo "done."
+else
+    signed_checksums="$checksums"
+fi
 
 # Generate a manifest file with SHA-256 checksums of all release files.
 cat > $firmware_dir/manifest.md << EOF
@@ -180,6 +251,11 @@ $signed_checksums
 
 **Full changelog**: https://github.com/hardwario/$basename/compare/$previous_tag...$new_tag
 EOF
+
+if [ $dry_run -eq 1 ] ; then
+    echo "Dry run requested, discarding build artifacts."
+    exit 0
+fi
 
 ############################################################
 ##### Copy tag and binary files back go original clone #####
@@ -196,29 +272,38 @@ mkdir -p "$orig_dir/release/$version"
 cp -a "$firmware_dir"/* "$orig_dir/release/$version"
 cp -a "$python_dir" "$orig_dir/release/$version"
 
-###################################
-##### Push to GitHub and PyPI #####
-###################################
+if [ $push_to_github -eq 1 ] ; then
+    ##########################
+    ##### Push to GitHub #####
+    ##########################
 
-# Push the signed tag that represents the new release to GitHub.
-echo -n "Pushing tag $new_tag to GitHub ... "
-cd "$orig_dir"
-git push origin "$new_tag"
-echo "done."
+    # Push the signed tag that represents the new release to GitHub.
+    echo -n "Pushing tag $new_tag to GitHub ... "
+    cd "$orig_dir"
+    git push origin "$new_tag"
+    echo "done."
 
-cd "release/$version"
+    cd "release/$version"
 
-# Create a new GitHub draft release for the new signed release tag with all the
-# generated files attached.
-echo -n "Creating a new GitHub draft release ... "
-attachments=""
-for f in ${firmware_files[@]}; do
-    attachments="-a $f $attachments"
-done
-$HUB release create -d $attachments -F manifest.md "$new_tag"
-echo "done."
+    # Create a new GitHub draft release for the new signed release tag with all the
+    # generated files attached.
+    echo -n "Creating a new GitHub draft release ... "
+    attachments=""
+    for f in ${firmware_files[@]}; do
+        attachments="-a $f $attachments"
+    done
+    $HUB release create -d $attachments -F manifest.md "$new_tag"
+    echo "done."
+fi
 
-# Upload a new version of the Python library to PyPI.
-echo -n "Uploading new package version to PyPI ... "
-"$PYTHON" -m twine upload -u __token__ -p "$PYPI_TOKEN" python/*
-echo "done."
+if [ $build_python -eq 1 ] ; then
+    if [ $push_to_pypi -eq 1 ] ; then
+        ########################
+        ##### Push to PyPI #####
+        ########################
+
+        echo -n "Uploading new package version to PyPI ... "
+        "$PYTHON" -m twine upload -u __token__ -p "$PYPI_TOKEN" python/*
+        echo "done."
+    fi
+fi
