@@ -187,6 +187,6 @@ void lrw_factory_reset(bool reset_devnonce, bool reset_deveui);
  *
  * @return Zero on success, a @c LoRaMacStatus_t value on error
  */
-LoRaMacStatus_t lrw_get_device_time(void);
+LoRaMacStatus_t lrw_get_device_time(bool piggyback);
 
 #endif // _LRW_H

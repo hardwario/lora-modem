@@ -1368,7 +1368,7 @@ void lrw_factory_reset(bool reset_devnonce, bool reset_deveui)
 }
 
 
-LoRaMacStatus_t lrw_get_device_time(void)
+LoRaMacStatus_t lrw_get_device_time(bool piggyback)
 {
     LoRaMacStatus_t rc;
     MlmeReq_t mlr = { .Type = MLME_DEVICE_TIME };
@@ -1378,23 +1378,26 @@ LoRaMacStatus_t lrw_get_device_time(void)
         return rc;
     }
 
-    MibRequestConfirm_t mbr = { .Type = MIB_CHANNELS_DATARATE };
-    LoRaMacMibGetRequestConfirm(&mbr);
+    if (!piggyback) {
+        MibRequestConfirm_t mbr = { .Type = MIB_CHANNELS_DATARATE };
+        LoRaMacMibGetRequestConfirm(&mbr);
 
-    // Send an empty frame to piggy-back the DeviceTimeReq MAC command on
-    McpsReq_t mcr;
-    memset(&mcr, 0, sizeof(mcr));
-    mcr.Type = MCPS_UNCONFIRMED;
-    // See the comments in lrw_send on why the following parameter is set to the
-    // value from MIB
-    mcr.Req.Unconfirmed.Datarate = mbr.Param.ChannelsDatarate;
+        // Send an empty frame immediately to piggy-back the DeviceTimeReq MAC
+        // command on.
+        McpsReq_t mcr;
+        memset(&mcr, 0, sizeof(mcr));
+        mcr.Type = MCPS_UNCONFIRMED;
+        // See the comments in lrw_send on why the following parameter is set to the
+        // value from MIB
+        mcr.Req.Unconfirmed.Datarate = mbr.Param.ChannelsDatarate;
 
-    // Disable retransmissions. DeviceTime requests are sent as unconfirmed
-    // uplinks with an empty payload. Retransmitting such requests would
-    // interfere with time synchronization.
-    rc = lrw_mcps_request(&mcr, 1);
-    if (rc != LORAMAC_STATUS_OK)
-        log_debug("Failed to transmit DeviceTimeReq uplink: %d", rc);
+        // Disable retransmissions. DeviceTime requests are sent as unconfirmed
+        // uplinks with an empty payload. Retransmitting such requests would
+        // interfere with time synchronization.
+        rc = lrw_mcps_request(&mcr, 1);
+        if (rc != LORAMAC_STATUS_OK)
+            log_debug("Failed to transmit DeviceTimeReq uplink: %d", rc);
+    }
 
     return rc;
 }

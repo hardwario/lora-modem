@@ -2196,8 +2196,14 @@ void cmd_init_attach_pin(void)
 
 static void get_device_time(atci_param_t *param)
 {
-    (void)param;
-    abort_on_error(lrw_get_device_time());
+    int piggyback = 0;
+
+    if (param != NULL) {
+        piggyback = parse_enabled(param);
+        if (piggyback == -1) abort(ERR_PARAM);
+    }
+
+    abort_on_error(lrw_get_device_time(piggyback == 1));
     OK_();
 }
 
