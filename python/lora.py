@@ -3440,19 +3440,52 @@ class OpenLoRaModem(MurataModem):
     lock_keys = lockkeys
 
     def devtime(self, piggyback = False, timeout: float = 10):
-        with self.modem.events as events:
-            q: "Queue[tuple]" = Queue()
-            cb = lambda *params: q.put_nowait(params)
-            events.once('event', cb)
-            events.once('answer', cb)
-            with self.modem.lock:
-                self.modem.AT('$DEVTIME')
-                while True:
-                    event = q.get(timeout=timeout)
-                    if event[1] == 1:
-                        cid, sec, msec = q.get(timeout=0.2)
-                        if cid == 13:
-                            return sec + msec / 1000
+        '''Request time synchronization from the LoRaWAN network server.
+
+        This command issues a DeviceTimeReq MAC request to the LoRaWAN network
+        server and returns current GPS time in seconds upon receiving an answer.
+        The modem's internal RTC clock is also update. This synchronization
+        method can achieve an accuracy of +- 100 milliseconds.
+
+        This time synchronization method is only supported on LoRaWAN 1.0.3 or
+        higher.
+
+        The parameter piggyback controls whether the time-synchronization
+        request is sent immediately or piggy-backed on top of the next regular
+        uplink message sent by the application. If set to False, the command
+        returns the obtained GPS time. If set to True, the command returns None
+        immediately and does not wait for the response from the server.
+
+        A note on GPS time: All time-related commands expect and return GPS
+        time. That is the time scale used in LoRaWAN. GPS time differs from UTC
+        time in its handling of leap seconds. GPS time monotonically increments
+        for every SI second that elapsed since the GPS epoch, including all leap
+        seconds inserted between the GPS epoch and current time.
+
+        To convert GPS time to a UNIX timestamp or UTC time, you need to make
+        the time relative to the UNIX epoch and subtract negative leap seconds
+        inserted since the GPS epoch. As of May 2023, 18 negative leap seconds
+        have been inserted. Thus, the following formula converts GPS time to a
+        UNIX timestamp: unix_timestamp = gps_time + 315964800 - 18. The UNIX
+        timestamp can then be converted to UTC with standard facilities.
+        '''
+        if piggyback:
+            with self.modem.events as events:
+                q: "Queue[tuple]" = Queue()
+                cb = lambda *params: q.put_nowait(params)
+                events.once('event', cb)
+                events.once('answer', cb)
+                with self.modem.lock:
+                    self.modem.AT('$DEVTIME 1')
+                    while True:
+                        event = q.get(timeout=timeout)
+                        if event[1] == 1:
+                            cid, sec, msec = q.get(timeout=0.2)
+                            if cid == 13:
+                                return sec + msec / 1000
+        else:
+            self.modem.AT(f'$DEVTIME')
+
 
     device_time = devtime
 
