@@ -24,6 +24,9 @@
 
 #define MAX_BAT 254
 
+#ifndef LRW_RECV_FIFO_LENGTH
+#define LRW_RECV_FIFO_LENGTH 8
+#endif
 
 unsigned int lrw_event_subtype;
 static McpsConfirm_t tx_params;
@@ -58,6 +61,13 @@ static struct {
     { "RU864", LORAMAC_REGION_RU864 }
 };
 
+static struct {
+    lrw_recv_t fifo[LRW_RECV_FIFO_LENGTH];
+    uint8_t head;
+    uint8_t tail;
+    uint8_t count;
+    bool urc;
+} datarecv = { 0 };
 
 #if RESTORE_CHMASK_AFTER_JOIN == 1
 static uint16_t saved_chmask[REGION_NVM_CHANNELS_MASK_SIZE];
@@ -316,17 +326,79 @@ static void on_ack(bool ack_received)
     }
 }
 
+uint8_t lrw_recv_len(void)
+{
+    return datarecv.count;
+}
+
+lrw_recv_t *lrw_recv_get(void)
+{
+    log_debug("lrw_recv_get: %d", datarecv.count);
+
+    if (datarecv.count == 0)
+    {
+        return NULL;
+    }
+
+    lrw_recv_t *recv = &datarecv.fifo[datarecv.tail++];
+
+    if (datarecv.tail == LRW_RECV_FIFO_LENGTH) {
+        datarecv.tail = 0;
+    }
+
+    datarecv.count--;
+
+    return recv;
+}
+
+void lrw_recv_clear(void)
+{
+    datarecv.count = 0;
+}
+
+void lrw_recv_urc_set(bool enable)
+{
+    datarecv.urc = enable;
+}
+
+bool lrw_recv_urc_get(void)
+{
+    return datarecv.urc;
+}
 
 static void recv(uint8_t port, uint8_t *buffer, uint8_t length)
 {
-    atci_printf("+RECV=%d,%d\r\n\r\n", port, length);
+    log_debug("recv: port=%d, length=%d datarecv.count=%d", port, length, datarecv.count);
+    if (datarecv.count < LRW_RECV_FIFO_LENGTH)
+    {
+        lrw_recv_t *recv = &datarecv.fifo[datarecv.head++];
+        if (datarecv.head == LRW_RECV_FIFO_LENGTH)
+        {
+            datarecv.head = 0;
+        }
 
-    if (sysconf.data_format) {
-        atci_print_buffer_as_hex(buffer, length);
-    } else {
-        atci_write((char *) buffer, length);
+        memcpy(recv->buffer, buffer, length);
+        recv->port = port;
+        recv->length = length;
+
+        datarecv.count++;
     }
-    atci_write("\r\n", 2);
+    else
+    {
+        log_warning("recv: fifo full");
+    }
+
+    if (datarecv.urc)
+    {
+        atci_printf("+RECV=%d,%d\r\n\r\n", port, length);
+
+        if (sysconf.data_format) {
+            atci_print_buffer_as_hex(buffer, length);
+        } else {
+            atci_write((char *) buffer, length);
+        }
+        atci_write("\r\n", 2);
+    }
 }
 
 
@@ -849,6 +921,9 @@ void lrw_init(void)
     }
 
     log_network_info();
+
+    memset(&datarecv, 0, sizeof(datarecv));
+    datarecv.urc = true;
 }
 
 

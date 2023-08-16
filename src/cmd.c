@@ -1944,7 +1944,6 @@ static void get_rfpower(void)
     OK("0,%d,0,%d", r1.Param.ChannelsTxPower, r2.Param.ChannelsDefaultTxPower);
 }
 
-
 static void set_rfpower(atci_param_t *param)
 {
     uint32_t paboost1, paboost2, val1, val2;
@@ -1985,6 +1984,55 @@ static void set_rfpower(atci_param_t *param)
     r.Param.ChannelsTxPower = val1;
     abort_on_error(LoRaMacMibSetRequestConfirm(&r));
 
+    OK_();
+}
+
+
+static void get_recvlen(void)
+{
+    cmd_printf("$RECVLEN=%d\r\n", lrw_recv_len());
+    OK_();
+}
+
+static void get_recvget(void)
+{
+    lrw_recv_t *recv = lrw_recv_get();
+
+    log_debug("recvget: %p", (void *)recv);
+
+    if (recv == NULL)
+    {
+        cmd_print("$RECVGET=0,0,0\r\n");
+    } else {
+        cmd_printf("$RECVGET=%d,%d,%d,", lrw_recv_len(), recv->port, recv->length);
+        atci_print_buffer_as_hex(recv->buffer, recv->length);
+        cmd_print("\r\n");
+    }
+    OK_();
+}
+
+static void get_recvclear(void)
+{
+    lrw_recv_clear();
+    OK_();
+}
+
+static void get_recvurc(void)
+{
+    cmd_printf("$RECVURC=%d\r\n", lrw_recv_urc_get());
+    OK_();
+}
+
+static void set_recvurc(atci_param_t *param)
+{
+    uint32_t val;
+
+    if (!atci_param_get_uint(param, &val)) abort(ERR_PARAM);
+    if (val > 1) abort(ERR_PARAM);
+
+    if (param->offset != param->length) abort(ERR_PARAM_NO);
+
+    lrw_recv_urc_set(val);
     OK_();
 }
 
@@ -2357,6 +2405,10 @@ static const atci_command_t cmds[] = {
     {"$RX2",         NULL,            set_rx2,          get_rx2,          NULL, "Configure RX2 window frequency and data rate"},
     {"$DR",          NULL,            set_dr,           get_dr,           NULL, "Configure data rate (DR)"},
     {"$RFPOWER",     NULL,            set_rfpower,      get_rfpower,      NULL, "Configure RF power"},
+    {"$RECVLEN",     NULL,            NULL,             get_recvlen,      NULL, "Get number of recive messages in fifo"},
+    {"$RECVGET",     NULL,            NULL,             get_recvget,      NULL, "Get recive messages from fifo"},
+    {"$RECVCLEAR",   NULL,            NULL,             get_recvclear,    NULL, "Clear recive message fifo"},
+    {"$RECVURC",     NULL,            set_recvurc,      get_recvurc,      NULL, "Enable/Disable URC +RECV"},
 #if DEBUG_LOG != 0
     {"$LOGLEVEL",    NULL,            set_loglevel,     get_loglevel,     NULL, "Configure logging on USART port"},
 #endif
