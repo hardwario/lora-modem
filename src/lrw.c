@@ -64,10 +64,10 @@ static struct {
 static struct {
     lrw_recv_t fifo[LRW_RECV_FIFO_LENGTH];
     uint8_t head;
-    uint8_t tail;
     uint8_t count;
-    bool urc;
-} datarecv = { 0 };
+} datarecv;
+
+static bool recv_urc = true;
 
 #if RESTORE_CHMASK_AFTER_JOIN == 1
 static uint16_t saved_chmask[REGION_NVM_CHANNELS_MASK_SIZE];
@@ -326,6 +326,8 @@ static void on_ack(bool ack_received)
     }
 }
 
+
+
 uint8_t lrw_recv_len(void)
 {
     return datarecv.count;
@@ -340,12 +342,9 @@ lrw_recv_t *lrw_recv_get(void)
         return NULL;
     }
 
-    lrw_recv_t *recv = &datarecv.fifo[datarecv.tail++];
+    lrw_recv_t *recv = &datarecv.fifo[datarecv.head];
 
-    if (datarecv.tail == LRW_RECV_FIFO_LENGTH) {
-        datarecv.tail = 0;
-    }
-
+    datarecv.head = (datarecv.head + 1) % LRW_RECV_FIFO_LENGTH;
     datarecv.count--;
 
     return recv;
@@ -358,37 +357,32 @@ void lrw_recv_clear(void)
 
 void lrw_recv_urc_set(bool enable)
 {
-    datarecv.urc = enable;
+    recv_urc = enable;
 }
 
 bool lrw_recv_urc_get(void)
 {
-    return datarecv.urc;
+    return recv_urc;
 }
 
 static void recv(uint8_t port, uint8_t *buffer, uint8_t length)
 {
     log_debug("recv: port=%d, length=%d datarecv.count=%d", port, length, datarecv.count);
-    if (datarecv.count < LRW_RECV_FIFO_LENGTH)
-    {
-        lrw_recv_t *recv = &datarecv.fifo[datarecv.head++];
-        if (datarecv.head == LRW_RECV_FIFO_LENGTH)
-        {
-            datarecv.head = 0;
-        }
 
-        memcpy(recv->buffer, buffer, length);
-        recv->port = port;
-        recv->length = length;
-
+    lrw_recv_t *recv = &datarecv.fifo[(datarecv.head + datarecv.count) % LRW_RECV_FIFO_LENGTH];
+    if (datarecv.count >= LRW_RECV_FIFO_LENGTH){
+        log_warning("recv: FIFO full");
+        
+        datarecv.head = (datarecv.head + 1) % LRW_RECV_FIFO_LENGTH;
+    } else {
         datarecv.count++;
     }
-    else
-    {
-        log_warning("recv: fifo full");
-    }
+ 
+    memcpy(recv->buffer, buffer, length);
+    recv->port = port;
+    recv->length = length;
 
-    if (datarecv.urc)
+    if (recv_urc)
     {
         atci_printf("+RECV=%d,%d\r\n\r\n", port, length);
 
@@ -923,7 +917,7 @@ void lrw_init(void)
     log_network_info();
 
     memset(&datarecv, 0, sizeof(datarecv));
-    datarecv.urc = true;
+    recv_urc = true;
 }
 
 

@@ -1988,12 +1988,6 @@ static void set_rfpower(atci_param_t *param)
 }
 
 
-static void get_recvlen(void)
-{
-    cmd_printf("$RECVLEN=%d\r\n", lrw_recv_len());
-    OK_();
-}
-
 static void get_recvget(void)
 {
     lrw_recv_t *recv = lrw_recv_get();
@@ -2005,10 +1999,14 @@ static void get_recvget(void)
         cmd_print("$RECVGET=0,0,0\r\n");
     } else {
         cmd_printf("$RECVGET=%d,%d,%d,", lrw_recv_len(), recv->port, recv->length);
-        atci_print_buffer_as_hex(recv->buffer, recv->length);
+        if (sysconf.data_format) {
+            atci_print_buffer_as_hex(recv->buffer, recv->length);
+        } else {
+            atci_write((char *) recv->buffer, recv->length);
+        }
         cmd_print("\r\n");
     }
-    OK_();
+    OK("%d,%d,%d", lrw_recv_len(), recv->port, recv->length);
 }
 
 static void get_recvclear(void)
@@ -2019,8 +2017,10 @@ static void get_recvclear(void)
 
 static void get_recvurc(void)
 {
-    cmd_printf("$RECVURC=%d\r\n", lrw_recv_urc_get());
-    OK_();
+    bool recv_urc_enabled = lrw_recv_urc_get();
+    
+    cmd_printf("$RECVURC=%d\r\n", recv_urc_enabled);
+    OK("%d", recv_urc_enabled);
 }
 
 static void set_recvurc(atci_param_t *param)
@@ -2405,10 +2405,9 @@ static const atci_command_t cmds[] = {
     {"$RX2",         NULL,            set_rx2,          get_rx2,          NULL, "Configure RX2 window frequency and data rate"},
     {"$DR",          NULL,            set_dr,           get_dr,           NULL, "Configure data rate (DR)"},
     {"$RFPOWER",     NULL,            set_rfpower,      get_rfpower,      NULL, "Configure RF power"},
-    {"$RECVLEN",     NULL,            NULL,             get_recvlen,      NULL, "Get number of recive messages in fifo"},
-    {"$RECVGET",     NULL,            NULL,             get_recvget,      NULL, "Get recive messages from fifo"},
-    {"$RECVCLEAR",   NULL,            NULL,             get_recvclear,    NULL, "Clear recive message fifo"},
-    {"$RECVURC",     NULL,            set_recvurc,      get_recvurc,      NULL, "Enable/Disable URC +RECV"},
+    {"$RECVGET",     NULL,            NULL,             get_recvget,      NULL, "Get received messages from FIFO"},
+    {"$RECVCLEAR",   NULL,            NULL,             get_recvclear,    NULL, "Clear received message FIFO"},
+    {"$RECVURC",     NULL,            set_recvurc,      get_recvurc,      NULL, "Enable/Disable +RECV events"},
 #if DEBUG_LOG != 0
     {"$LOGLEVEL",    NULL,            set_loglevel,     get_loglevel,     NULL, "Configure logging on USART port"},
 #endif

@@ -208,8 +208,8 @@ typedef struct {
 */
 uint8_t lrw_recv_len(void);
 
-/** @brief Return a pointer to the received message to last message FIFO
- * @return Pointer to the received message
+/** @brief Return a pointer to the received message to first message FIFO
+ * @return Pointer to the first received message
 */
 lrw_recv_t *lrw_recv_get(void);
 
@@ -217,9 +217,9 @@ lrw_recv_t *lrw_recv_get(void);
 */
 void lrw_recv_clear(void);
 
-/** @brief Enable or disable the publish of URC +RECV=
+/** @brief Enable or disable asynchronous +RECV events
  *
- * This config is not persistent, it will be reset after reboot.
+ * This parameter is not persistent, it will be reset after reboot.
  *
  * @param[in] enable Enable or disable URC publish
 */
