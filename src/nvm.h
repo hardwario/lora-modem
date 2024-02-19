@@ -50,6 +50,15 @@ typedef struct sysconf
      */
     uint8_t lock_keys : 1;
 
+    /* When this flag is set to 1 (default), the AT command interface will send
+     * event notifications asynchronously. When set to 0, asynchronous event
+     * notifications will be buffered and will be only delivered to the host
+     * between an AT command and its response (e.g., +OK or +ERR). This allows
+     * the host to implement a polling mode where the UART can be powered down
+     * between AT commands.
+     */
+    uint8_t async_uart : 1;
+
     /* The maximum number of retransmissions of unconfirmed uplink messages.
      * Receiving a downlink message from the network stops retransmissions.
      */

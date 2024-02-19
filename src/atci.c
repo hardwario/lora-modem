@@ -8,7 +8,7 @@
 #include "halt.h"
 #include "system.h"
 #include "irq.h"
-
+#include "nvm.h"
 
 enum parser_state
 {
@@ -267,9 +267,11 @@ static void process_command(void)
     if (state.rx_buffer[0] != 'A' && state.rx_buffer[0] != 'a') return;
     if (state.rx_buffer[1] != 'T' && state.rx_buffer[1] != 't') return;
 
+    if (!sysconf.async_uart) lpuart_resume_tx();
+
     if (state.rx_length == 2) {
         lpuart_write_blocking(ATCI_OK, ATCI_OK_LEN);
-        return;
+        goto done;
     }
 
     state.rx_buffer[state.rx_length] = 0;
@@ -301,12 +303,12 @@ static void process_command(void)
         if (cmd_len == name_len) {
             if (cmd->action != NULL) {
                 cmd->action(NULL);
-                return;
+                goto done;
             }
         } else if (name[cmd_len] == '=') {
             if (name[cmd_len + 1] == '?' && (cmd_len + 2 == name_len) && cmd->help) {
                 cmd->help();
-                return;
+                goto done;
             }
 
             if (cmd->set != NULL) {
@@ -316,12 +318,12 @@ static void process_command(void)
                     .offset = 0
                 };
                 cmd->set(&param);
-                return;
+                goto done;
             }
         } else if (name[cmd_len] == '?' && cmd_len + 1 == name_len) {
             if (cmd->read != NULL) {
                 cmd->read();
-                return;
+                goto done;
             }
         } else if (name[cmd_len] == ' ' && cmd_len + 1 < name_len) {
             if (cmd->action != NULL) {
@@ -331,12 +333,15 @@ static void process_command(void)
                     .offset = 0
                 };
                 cmd->action(&param);
-                return;
+                goto done;
             }
         }
     }
 
     lpuart_write_blocking(ATCI_UNKNOWN_CMD, ATCI_UKNOWN_CMD_LEN);
+
+done:
+    if (!sysconf.async_uart) lpuart_pause_tx();
 }
 
 

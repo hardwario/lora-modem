@@ -125,4 +125,29 @@ void lpuart_before_stop(void);
  */
 void lpuart_after_stop(void);
 
+
+/*! @brief Pause modem->host transmissions over LPUART1
+ *
+ * Calling this function pauses modem->host transmissions over LPUART1 until
+ * lpuart_resume_tx is called again. Previous and existing data will still
+ * finish transmitting, but any data written to the port after calling this
+ * function will only be written into an internal buffer. The data will begin
+ * transmitting after the next call to lpuart_resume_tx.
+ *
+ * This function allows implementing a polling-mode of communication, where the
+ * host polls the modem for asynchronous messages. This is useful, for example,
+ * if the host needs to save power by shutting down its UART peripheral between
+ * interactions with the modem over the ATCI.
+ */
+void lpuart_pause_tx();
+
+
+/*! @brief Resume modem->host transmissions over LPUART1
+ *
+ * Invoke this function to resume modem->host transmissions over LPUART1 after
+ * calling lpuart_pause_tx(). All data stored in the internal transmission
+ * buffer will be transmitted over the UART port.
+ */
+void lpuart_resume_tx();
+
 #endif /* __LPUART_H__ */

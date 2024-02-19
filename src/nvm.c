@@ -84,6 +84,7 @@ sysconf_t sysconf = {
     .data_format = 0,
     .sleep = 1,
     .lock_keys = 0,
+    .async_uart = 1,
     .device_class = CLASS_A,
     .unconfirmed_retransmissions = 1,
     .confirmed_retransmissions = 8
