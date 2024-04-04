@@ -710,7 +710,8 @@ static void log_network_info(void)
 
 /* This function applies default settings according to the original Type ABZ
  * firmware. It is meant to be called after the MIB has been initialized from
- * the defaults built in LoRaMac-node and before settings are restored from NVM.
+ * the defaults built into LoRaMac-node and before settings are restored from
+ * NVM.
  */
 static LoRaMacStatus_t set_defaults(void)
 {
@@ -1037,11 +1038,16 @@ int lrw_set_region(unsigned int region)
     // The secure element group also needs special handling to preserve DevEUI.
     uint8_t dev_eui[SE_EUI_SIZE];
     memcpy(dev_eui, SecureElementGetDevEui(), SE_EUI_SIZE);
+    // Wipe out any data stored in the secure element partition
     if (SecureElementInit(&state->SecureElement) != SECURE_ELEMENT_SUCCESS)
         log_error("Error while reinitializing secure element NVM partition");
-
+    // But preserve DevEUI
     memcpy(state->SecureElement.DevEui, dev_eui, SE_EUI_SIZE);
-    update_block_crc(&state->SecureElement, sizeof(state->SecureElement));
+
+    // The initialization code detects that the checksum is only configured over
+    // the CRC and will reset the secure element to defaults.
+    state->SecureElement.Crc32 = Crc32(state->SecureElement.DevEui,
+        sizeof(state->SecureElement.DevEui));
 
     // Reset all other configuration parameters. Note that we intentionally do
     // not recompute the CRC32 checksums here (except for MacGroup2) since we
@@ -1061,7 +1067,7 @@ int lrw_set_region(unsigned int region)
     // do want to restore the region parameter. Thus, calculate the CRC32 value
     // only over the region field and save it into the Crc32 parameter in the
     // structure. That way, the checksum will fail for the entire structure, but
-    // the function that retrieves the region from it will additional check if
+    // the function that retrieves the region from it will additionally check if
     // the checksum matches the region parameter and if yes, reload it.
     state->MacGroup2.Crc32 = Crc32(&state->MacGroup2.Region, sizeof(state->MacGroup2.Region));
 
