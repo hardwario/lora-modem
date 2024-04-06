@@ -6,8 +6,8 @@ int16_t radio_rssi;
 int8_t radio_snr;
 
 // Below, we replace the RxDone callback given to us by LoRaMac-node with our
-// own version so that we can save the RSSI and SNR if each received packet.
-// The original callback (the one from LoRaMac-node) is kept here.
+// own version to save the RSSI and SNR if each received packet. The original
+// callback (the one from LoRaMac-node) is kept here.
 static void (*OrigRxDone)(uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr);
 
 #if DEBUG_LOG != 0
@@ -63,7 +63,7 @@ static const char *coderate2str(uint8_t coderate)
 
 static bool SX1276CheckRfFrequency(__attribute__((unused)) uint32_t frequency)
 {
-    // Implement check. Currently all frequencies are supported
+    // Implement check. Currently, all frequencies are supported
     log_debug("SX1276CheckRfFrequency: %ld", frequency);
     return true;
 }
@@ -152,8 +152,8 @@ static void SetRxConfig(RadioModems_t modem, uint32_t bandwidth, uint32_t datara
 
 
 // This is our custom RxDone callback. We save the RSSI and SNR in global static
-// variables so that they could be accessed from the application and delegate to
-// the original callback.
+// variables so that they could be accessed from the application and delegated
+// to the original callback.
 static void RxDone(uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr)
 {
     radio_rssi = rssi;

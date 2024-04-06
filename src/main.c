@@ -68,17 +68,17 @@ int main(void)
 
         // If the application has scheduled a system reset, postpone it until
         // there are no more pending tasks. We don't really have the notion of
-        // tasks in the modem software, however, we can tell that nothing is
+        // tasks in the modem software; however, we can tell that nothing is
         // going on once both low-power modes (sleep and stop) are not prevented
         // by any of the subsystems. The low-power sleep mode is typically
-        // prevented if a subsystem requests that the application iteratures
+        // prevented if a subsystem requests that the application iterates
         // through its main loop as quickly as possible, e.g., to handle an ISR
         // from the main thread. The stop mode can be prevented by hardware
         // peripherals such as LPUART1, RTC, or SX1276 while they need to finish
         // some background work. We specifically ignore the RADIO subsystem in
         // the code below and instead rely on LoRaMacIsBusy to tell us whether
         // the MAC subsystem (which owns the radio) is busy. This will allow a
-        // reboot in class C where the radio is continuously listening. This
+        // reboot in class C, where the radio is continuously listening. This
         // heuristic to determine when to perform the reset is a bit hackish,
         // but it's the best we can do in the absence of better activity
         // tracking mechanism.

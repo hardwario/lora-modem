@@ -20,7 +20,7 @@ extern volatile cbuf_t lpuart_rx_fifo;
  *
  * This function is intended for use on boards that share the LPUART lines with
  * some other peripheral. This is the case, e.g., on MKRWAN boards. Forcing the
- * modem to detach allows the host to temporarily use the lines to communicate
+ * modem to detach allows the host to use the lines to communicate temporarily
  * with the other peripheral.
  */
 void lpuart_detach(void);
@@ -28,7 +28,7 @@ void lpuart_detach(void);
 /*! @brief Attach the ATCI LPUART port
  *
  * Attach to the LPUART port used by the AT command interface. Calling this
- * function reconfigures the GPIO ports used by LPUART1 and if there is an
+ * function reconfigures the GPIO ports used by LPUART1, and if there is an
  * active DMA transfer, it is resumed.
  *
  * This function is intended to restore ATCI functionality after the modem has
@@ -43,7 +43,7 @@ void lpuart_attach(void);
  *
  * Initialize the LPUART1 port for buffered DMA-based I/O. Both transmission and
  * reception will use DMA. Two fixed-size FIFOs backed by circular buffers are
- * used to enque outgoing and incoming data.
+ * used to enqueue outgoing and incoming data.
  *
  * @param[in] baudrate The baudrate to be configured
  */
@@ -57,7 +57,7 @@ void lpuart_init(unsigned int baudrate);
  * soon as possible. If there is not enough space to store @p length bytes in
  * the internal queue, the function enqueues as many bytes as possible.
  *
- * This is non-blocking function.
+ * This is a non-blocking function.
  *
  * @param[in] buffer A pointer to a memory buffer with data to be sent
  * @param[in] length The number of bytes from @p buffer to be sent
@@ -72,7 +72,7 @@ size_t lpuart_write(const char *buffer, size_t length);
  * LPUART1. This is a blocking version of lpuart_write. This function blocks
  * until all data have been written into the internal memory queue.
  *
- * Note: If you with to wait until all data have been transmitted over the port,
+ * Note: If you want to wait until all data have been transmitted over the port,
  * invoke lpuart_flush after this function.
  *
  * @param[in] buffer A pointer to a memory buffer with data to be sent
@@ -86,7 +86,7 @@ void lpuart_write_blocking(const char *buffer, size_t length);
  * This function reads up to @p length bytes from the LPUART1 port and copies
  * the data into the destination buffer @p buffer . If there is not enough data
  * in the internal queue, the function will read fewer than @p length bytes.
- * Number of bytes actually read is returned.
+ * Number of bytes read is returned.
  *
  * This is a non-blocking function.
  *
@@ -97,10 +97,10 @@ void lpuart_write_blocking(const char *buffer, size_t length);
 size_t lpuart_read(char *buffer, size_t length);
 
 
-/*! @brief Wait for all data from internal queue to be sent
+/*! @brief Wait for all data from the internal queue to be sent
  *
  * This function blocks until all data from the internal queue have been
- * transmited.
+ * transmitted.
  */
 void lpuart_flush(void);
 
@@ -110,7 +110,7 @@ void lpuart_flush(void);
  * This function is meant to be invoked by the system before it enters the Stop
  * low-power mode. In this mode, DMA is paused, but its registers are retained.
  * To be able to receive data in Stop mode, we pause DMA and enable the WKUP
- * interrupt which will wake the MCU once a start bit has been detected on the
+ * interrupt, which will wake the MCU once a start bit has been detected on the
  * line.
  */
 void lpuart_before_stop(void);
@@ -118,10 +118,10 @@ void lpuart_before_stop(void);
 
 /*! @brief Disable WKUP interrupt and resume DMA on LPUART1
  *
- * This function is meant to be invoked shortly after the system has left the
- * low-power Stop mode. It disables the WKUP interrupt on LPUART1 and resumes
- * DMA-based receive operation. This function can only be used with low-power
- * modes that retain DMA register values, e.g., the Stop mode.
+ * This function is meant to be invoked after the system has left the low-power
+ * Stop mode. It disables the WKUP interrupt on LPUART1 and resumes DMA-based
+ * receive operation. This function can only be used with low-power modes that
+ * retain DMA register values, e.g., the Stop mode.
  */
 void lpuart_after_stop(void);
 
@@ -134,10 +134,10 @@ void lpuart_after_stop(void);
  * function will only be written into an internal buffer. The data will begin
  * transmitting after the next call to lpuart_resume_tx.
  *
- * This function allows implementing a polling-mode of communication, where the
- * host polls the modem for asynchronous messages. This is useful, for example,
- * if the host needs to save power by shutting down its UART peripheral between
- * interactions with the modem over the ATCI.
+ * This function allows the implementation of a polling mode of communication,
+ * where the host polls the modem for asynchronous messages. This is useful,
+ * e.g., if the host needs to save power by shutting down its UART peripheral
+ * between interactions with the modem over the ATCI.
  */
 void lpuart_pause_tx();
 

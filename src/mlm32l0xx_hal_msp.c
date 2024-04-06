@@ -24,7 +24,7 @@ HAL_StatusTypeDef HAL_InitTick(uint32_t TickPriority)
 
 /**
   * @brief This function provides delay (in ms)
-  * @param Delay: specifies the delay time length, in milliseconds.
+  * @param Delay: specifies the delay time length in milliseconds.
   * @retval None
   */
 void HAL_Delay(__IO uint32_t Delay)
@@ -46,10 +46,10 @@ void HAL_MspInit(void)
     /* Enables the Ultra Low Power mode */
     HAL_PWREx_EnableUltraLowPower();
 
-  /* In debug mode, e.g. when DBGMCU is activated, ARM core has always clocks
-   * and will not wait that the flash is ready to be read. It can miss in this
-   * case the first instruction. To overcome this issue, the flash remains
-   * clocked during sleep mode.
+  /* In the debug mode, e.g., when DBGMCU is activated, the ARM core has always
+   * clocks and will not wait until the flash is ready to be read. In this case,
+   * it can miss the first instruction. To overcome this issue, the flash
+   * remains clocked during sleep mode.
    */
 #ifdef DEBUG
     do
@@ -71,14 +71,14 @@ void HAL_MspInit(void)
 }
 
 /**
-  * @brief RTC MSP Initialization
-  *        This function configures the hardware resources used in this example:
-  *           - Peripheral's clock enable
+  * @brief RTC MSP Initialization This function configures the hardware
+  *        resources used in this example: - Peripheral's clock enable
   * @param hrtc: RTC handle pointer
   * @note  Care must be taken when HAL_RCCEx_PeriphCLKConfig() is used to select
-  *        the RTC clock source; in this case the Backup domain will be reset in
-  *        order to modify the RTC Clock source, as consequence RTC registers (including
-  *        the backup registers) and RCC_CSR register are set to their reset values.
+  *        the RTC clock source; in this case, the Backup domain will be reset
+  *        in order to modify the RTC Clock source, as a consequence, RTC
+  *        registers (including the backup registers) and RCC_CSR registers are
+  *        set to their reset values.
   * @retval None
   */
 void HAL_RTC_MspInit(RTC_HandleTypeDef *hrtc)
@@ -104,7 +104,7 @@ void HAL_RTC_MspInit(RTC_HandleTypeDef *hrtc)
 
 /**
   * @brief RTC MSP De-Initialization
-  *        This function freeze the hardware resources used in this example:
+  *        This function freezes the hardware resources used in this example:
   *          - Disable the Peripheral's clock
   * @param hrtc: RTC handle pointer
   * @retval None

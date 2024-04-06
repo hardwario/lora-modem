@@ -240,7 +240,7 @@ static void facnew_isr(void *ctx)
         // held down.
         start = now;
     } else if (!old && new) {
-        // Rising edge. Measure how long the pin was held down. It it was held
+        // Rising edge. Measure how long the pin was held down. If it was held
         // down for more than five seconds, invoke factory reset.
         if (now - start > 5000)
             lrw_factory_reset(false, false);
@@ -304,8 +304,8 @@ static void init_clock(void)
     // enabled instead of the default MCI oscillator
     SET_BIT(RCC->CFGR, RCC_CFGR_STOPWUCK);
 
-    // Select PLL as system clock source and configure the HCLK, PCLK1 and PCLK2
-    // clocks dividers
+    // Select PLL as the system clock source and configure the HCLK, PCLK1 and
+    // PCLK2 clocks dividers
     clk.ClockType = (RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2);
     clk.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
     clk.AHBCLKDivider = RCC_SYSCLK_DIV1;

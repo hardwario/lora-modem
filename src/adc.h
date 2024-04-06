@@ -15,7 +15,7 @@ void adc_after_stop(void);
 
 void adc_deinit(void);
 
-//! @brief Read the analogue voltage value
+//! @brief Read the analog voltage value
 //! @param[in] Channel to read
 //! @retval value Analogue value
 
@@ -26,7 +26,7 @@ uint16_t adc_get_value(uint32_t channel);
 
 uint16_t adc_get_temperature_level(void);
 
-//! @brief Get the current temperature in celsius
+//! @brief Get the current temperature in Celsius
 //! @retval value temperature
 
 float adc_get_temperature_celsius(void);

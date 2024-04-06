@@ -28,16 +28,16 @@ __attribute__((noreturn)) void halt(const char *msg)
     system_sleep_lock = 0;
     system_stop_lock = 0;
 
-    // Mask all EXTI interrupts and events to make sure we're not woken up. The
-    // only means of recovering from halt should be via the external reset pin.
+    // Mask all EXTI interrupts and events to ensure we're not woken up. The
+    // only way of recovering from a halt should be via the external reset pin.
     // This is to ensure that the LoRa modem doesn't drain the device's battery
     // while being halted due to an irrecoverable error.
     EXTI->IMR = LL_EXTI_LINE_NONE;
     EXTI->EMR = LL_EXTI_LINE_NONE;
 
-    // Hopefully, we will be able to enter the low-power Stop mode now. Note
-    // that if there are any pending interrupts, the MCU will not enter Sleep or
-    // Stop modes and the loop below will keep spinning. We have tried
-    // preventing that by masking all EXTI interrupts and events above.
+    // Hopefully, we can enter the low-power Stop mode now. Note that if there
+    // are any pending interrupts, the MCU will not enter Sleep or Stop modes
+    // and the loop below will keep spinning. We have tried preventing that by
+    // masking all EXTI interrupts and events above.
     for(;;) system_idle();
 }

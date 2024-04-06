@@ -98,8 +98,8 @@ size_t usart_write(const char *buffer, size_t length)
     masked = disable_irq();
     cbuf_produce(&tx_fifo, stored);
 
-    // Enable the transmission buffer empty interrupt which will pickup the data
-    // written to the FIFO by the above code and start transmitting it.
+    // Enable the transmission buffer empty interrupt, which will pick up the
+    // data written by the FIFO using the above code and starts transmitting it.
     if (!LL_USART_IsEnabledIT_TXE(PORT)) {
         system_stop_lock |= SYSTEM_MODULE_USART;
         LL_USART_EnableIT_TXE(PORT);

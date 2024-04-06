@@ -405,7 +405,7 @@ static void process_character(char character)
         return;
     }
 
-    // Ignore LF characters, AT commands are terminated with CR
+    // Ignore LF characters; AT commands are terminated with CR
     if (character == '\n') return;
 
     if (character == '\x1b') {

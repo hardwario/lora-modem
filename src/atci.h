@@ -106,7 +106,7 @@ size_t atci_write(const char *buffer, size_t length);
 size_t atci_param_get_buffer_from_hex(atci_param_t *param, void *buffer, size_t length, size_t param_length);
 
 
-//! @brief Parse string to uint and move parsing cursor forward
+//! @brief Parse string to uint and move the parsing cursor forward
 //! @param[in] param Param instance
 //! @param[in] value pointer to number
 //! @return true On success
@@ -114,7 +114,7 @@ size_t atci_param_get_buffer_from_hex(atci_param_t *param, void *buffer, size_t 
 bool atci_param_get_uint(atci_param_t *param, uint32_t *value);
 
 
-//! @brief Parse string to int and move parsing cursor forward
+//! @brief Parse string to int and move the parsing cursor forward
 //! @param[in] param Param instance
 //! @param[in] value pointer to number
 //! @return true On success
@@ -122,7 +122,7 @@ bool atci_param_get_uint(atci_param_t *param, uint32_t *value);
 bool atci_param_get_int(atci_param_t *param, int32_t *value);
 
 
-//! @brief Check if the character at cursor is comma and move parsing cursor forward
+//! @brief Check if the character at the cursor is a comma and move the parsing cursor forward
 //! @param[in] param Param instance
 //! @return true Is comma
 //! @return false No comma

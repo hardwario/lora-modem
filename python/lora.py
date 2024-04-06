@@ -469,7 +469,7 @@ class TypeABZ:
 
     def detect_baud_rate(self, speeds=[9600, 19200, 38400, 4800], response=b'+OK\r', timeout=0.3) -> Optional[int]:
         if self.port is not None:
-            raise Exception('Baudrate detection must be performed before the device is open')
+            raise Exception('Baud rate detection must be performed before the device is open')
 
         for speed in speeds:
             with serial.Serial(self.pathname, speed, timeout=0) as port:
@@ -856,7 +856,7 @@ class MurataModem(ATCI):
         This method performs reboot, checks that the AT command interface is
         present and can be used.
         '''
-        # Flush the serial port buffers interface to maximize the likelyhood
+        # Flush the serial port buffers interface to maximize the likelihood
         # that the following reboot command succeeds in case it is being used to
         # unstuck.
         self.modem.flush_atci()
@@ -1013,7 +1013,7 @@ class MurataModem(ATCI):
     def CLASS(self):
         '''Return currently configured LoRaWAN device class.
 
-        The device class determines the bahavior of the LoRa receiver. In class
+        The device class determines the behavior of the LoRa receiver. In class
         A the receiver is only active during two short receive windows after
         each uplink transmission. In class B the receiver is periodically
         activated to receive downlinks from the network. In class C the receiver
@@ -1031,7 +1031,7 @@ class MurataModem(ATCI):
     def CLASS(self, value: str | LoRaClass | int):
         '''Configure LoRaWAN device class.
 
-        The device class determines the bahavior of the LoRa receiver. In class
+        The device class determines the behavior of the LoRa receiver. In class
         A the receiver is only active during two short receive windows after
         each uplink transmission. In class B the receiver is periodically
         activated to receive downlinks from the network. In class C the receiver
@@ -1448,7 +1448,7 @@ class MurataModem(ATCI):
 
         The method block until a LinkCheckAns message is received from the
         network server. The method returns a tuple of two integers. The first
-        integer represents the link margin. the second integer represents the
+        integer represents the link margin. The second integer represents the
         number of gateways that heard the LinCheckReq uplink. If no answer is
         received within the timeout, the method raises an exception.
 
@@ -1537,7 +1537,7 @@ class MurataModem(ATCI):
         region the maximum allowed RF output power also depends on the number of
         active channels (channel mask) and the selected data rate. Thus, the
         actual RF output power may actually be lower than the values listed in
-        the following table. With SF8/500kHz the RF output power is limisted to
+        the following table. With SF8/500kHz the RF output power is limited to
         25 dBm. With less than 50 channels active, the output power is further
         capped to 21 dBm.
 
@@ -1569,7 +1569,7 @@ class MurataModem(ATCI):
         region the maximum allowed RF output power also depends on the number of
         active channels (channel mask) and the selected data rate. Thus, the
         actual RF output power may actually be lower than the values listed in
-        the following table. With SF8/500kHz the RF output power is limisted to
+        the following table. With SF8/500kHz the RF output power is limited to
         25 dBm. With less than 50 channels active, the output power is further
         capped to 21 dBm.
 
@@ -3391,7 +3391,8 @@ class OpenLoRaModem(MurataModem):
         radio will transmit a continuous carrier wave only without modulation.
         The method blocks until the end of the transmission.
 
-        The modem also performs automatic reboot at the end of the transmission.
+        The modem also performs an automatic reboot at the end of the
+        transmission.
 
         This method is primarily intended for device certification.
         '''
@@ -3411,7 +3412,8 @@ class OpenLoRaModem(MurataModem):
         power in dBm. The parameter timeout configures the transmission time in
         seconds. The method blocks until the end of the transmission.
 
-        The modem also performs automatic reboot at the end of the transmission.
+        The modem also performs an automatic reboot at the end of the
+        transmission.
 
         This command is primarily intended for device certification.
         '''
@@ -3530,8 +3532,8 @@ class OpenLoRaModem(MurataModem):
         '''Return the modem's device nonce (DevNonce) value (LoRaWAN 1.1)
 
         The device nonce (DevNonce) is a 16-bit counter incremented on every
-        Join sent by the device. For security reasons, DevNonce values must not
-        be reused by the device.
+        Join sent by the device. For security reasons, the device must not reuse
+        DevNonce values.
         '''
         return int(assert_response(self.modem.AT('$DEVNONCE?')))
 
@@ -3573,10 +3575,10 @@ class OpenLoRaModem(MurataModem):
         operational at all times.
 
         If this property returns 0, the modem operates in a synchronous mode. In
-        this mode, the modem buffers all asynchronous notifications to the host
-        and only sends them upon receiving an AT command from the host. This
-        mode allows the mode to shut down its UART port between AT commands
-        without loosing asynchronous notifications.
+        the synchronous mode, the modem buffers all asynchronous notifications
+        to the host and only sends them upon receiving an AT command. This mode
+        allows the mode to shut down its UART port between AT commands without
+        loosing asynchronous notifications.
         '''
         return int(assert_response(self.modem.AT('$ASYNC?')))
     
@@ -3720,8 +3722,8 @@ def cli(ctx, port, baudrate, twr, reset, verbose, guard, machine, with_keys, rts
 
     The tool produces human-readable output by default. You can switch to
     machine-readable output with the command line option -m. The command
-    line option -v activates a debugging mode which additionally shows all
-    AT commands sent to the modem and all responses received from the modem.
+    line option -v activates a debugging mode, which additionally shows all
+    AT commands sent to the modem, and all responses received from the modem.
 
     Use the command line option -k to also include LoRaWAN security keys in
     the output of the commands device and network. They keys are ommited
@@ -3777,7 +3779,7 @@ def cli(ctx, port, baudrate, twr, reset, verbose, guard, machine, with_keys, rts
 def device(get_modem: Callable[[], OpenLoRaModem]):
     '''Show basic modem information.
 
-    This command obtains the basic information from the LoRa modem such as
+    This command obtains the basic information from the LoRa modem, such as
     device model, firmware version, or supported LoRaWAN protocol versions.
     It displays the collected information in a table that looks as follows:
 
@@ -3854,7 +3856,7 @@ def network(get_modem: Callable[[], OpenLoRaModem]):
     '''Show current network activation parameters.
 
     This command displays information about the modem's current network
-    activation. The modem can be in one of three activation state:
+    activation. The modem can be in one of three activation states:
 
     \b
     1. Not activated on any LoRaWAN network (None)
@@ -4047,7 +4049,7 @@ def link(get_modem: Callable[[], OpenLoRaModem]):
     | Last downlink SNR  | -5 dB    |
     +--------------------+----------+
 
-    The margin value represent the strength of the device's signal relative
+    The margin value represents the strength of the device's signal relative
     to the demodulation floor at the gateway. A value of 0 indicates that
     the gateway can barely receive uplinks from the device. A value of 12
     indicates that the uplink was received 12 dB above the demodulation
@@ -4323,18 +4325,18 @@ def join(get_modem: Callable[[], OpenLoRaModem], region, data_rate, network, joi
 
     Switch the modem to over-the-air (OTAA) activation mode if necessary and
     perform an OTAA Join. This command will keep running until either a Join
-    response has been received from the Join server, or until the operation
-    times out which may take up to two minutes.
+    response has been received from the Join server or until the operation
+    times out, which may take up to two minutes.
 
     If the modem has been reset to factory defaults, you may need to switch the
     modem to the correct region first. You can use the command line option -r
     (--region) to accomplish that. The option takes the case-insensitive region
-    name as value, e.g., us915 for the US band. The default region upon factory
-    reset is eu868.
+    name as the value, e.g., us915 for the US band. The default region upon
+    factory reset is eu868.
 
-    The modem transmits OTAA Join requests with data rate 0 (slowest allowed
-    data rate in the region) by default. You can specify a different data rate
-    with the command line option -R (--data-rate). The option takes a
+    The modem transmits OTAA Join requests with the data rate 0 (the slowest
+    allowed data rate in the region) by default. You can specify a different
+    data rate with the command line option -R (--data-rate). The option takes a
     case-insensitive string with the name of the desired data rate, e.g.,
     sf11_125, or an integer in the range <0, 15>.
 
@@ -4346,7 +4348,7 @@ def join(get_modem: Callable[[], OpenLoRaModem], region, data_rate, network, joi
     private mode, use -P. LoRaWAN networks such as The Things Network operate in
     the public mode.
 
-    In regions that utilize all 64 channels such as us915 you may want to
+    In regions that utilize all 64 channels, such as us915 you may want to
     consider restricting the set of channels on which the Join request will be
     transmitted via the -c (--channel-mask) command line option. For example,
     most The Things Network gateways in the us915 region listen on at most eight
@@ -4360,7 +4362,7 @@ def join(get_modem: Callable[[], OpenLoRaModem], region, data_rate, network, joi
     of Join transmissions with the command line option -m (--max-transmissions).
     The command takes an integer value in the rage <1, 16>.
 
-    Several other OTAA Join related parameters such as the JoinEUI, RX1/2 window
+    Several other OTAA Join related parameters, such as the JoinEUI, RX1/2 window
     delays, and join duty cycling are configurable via separate command line
     options.
     '''
@@ -4433,8 +4435,8 @@ def reset(get_modem: Callable[[], OpenLoRaModem], yes, reset_devnonce, reset_dev
     This command restores the values of all modem settings to their original
     values with one exception: the DevNonce value will be preserved (see below).
 
-    To prevent accidental resets, the command asks the user for explicit
-    confirmation. You can skip the confirmation with the command line option -y
+    The command asks the user for explicit confirmation to prevent accidental
+    resets. You can skip the confirmation with the command line option -y
     (--yes).
 
     The factory reset operation preserves the LoRaWAN DevNonce value by default.
@@ -4594,8 +4596,8 @@ def set_param(get_modem: Callable[[], OpenLoRaModem], arguments):
     '''Update modem setting(s).
 
     This command can be used to update the value of one or more modem settings.
-    If wish to update only one setting, you can specify the name of the setting
-    and the new value on the command line as follows:
+    If you wish to update only one setting, you can specify the name of the
+    setting and the new value on the command line as follows:
 
         lora set adr True
 
@@ -4705,7 +4707,7 @@ def keys(get_modem: Callable[[], OpenLoRaModem], protocol):
     traffic between the modem and the LoRaWAN application server. NwkKey secures
     the traffic between the modem and LoRaWAN network servers. Upon factory
     reset, both keys are set to the default value shown above. The default value
-    is insecure and new random keys must be generated for each modem before it
+    is insecure, and new random keys must be generated for each modem before it
     is used for the first time (see the command keygen).
 
     AppSKey is the application session key. This key protects the traffic
@@ -4716,7 +4718,7 @@ def keys(get_modem: Callable[[], OpenLoRaModem], protocol):
     The keys FNwkSIntKey and SNwkSIntKey ensure the integrity of network traffic
     between the modem and network servers. In LoRaWAN 1.1, each message is
     signed with both keys so that two independent LoRaWAN networks, each having
-    access to only one key, could independently verify the integrity of the
+    access to only one key, can independently verify the integrity of the
     message. This scheme is designed to enable LoRaWAN network roaming.
 
     The key NwkSEncKey encrypts the network traffic between the modem and its
@@ -4780,7 +4782,7 @@ def keygen(get_modem: Callable[[], OpenLoRaModem], protocol, silent, old):
 
     This command generates new random security keys and provisions the keys into
     the modem. This command generates all keys, including the various session
-    keys to make the modem readily usable in APB mode. In OTAA mode, the session
+    keys, to make the modem readily usable in APB mode. In OTAA mode, the session
     keys generated by this command will be overwritten as soon as the device
     performs a successful OTAA Join.
 
@@ -4812,7 +4814,7 @@ def keygen(get_modem: Callable[[], OpenLoRaModem], protocol, silent, old):
     hidden from the terminal. You can retrieve the keys from the modem later
     using the command "keys".
 
-    If you also wish to show the old security keys before they are ovewritten,
+    If you also wish to show the old security keys before they are overwritten,
     use the option -o (--old).
 
     Note: This command uses the Python package secrets to generate secure random
@@ -5131,7 +5133,7 @@ def add_channel(get_modem: Callable[[], OpenLoRaModem], channel, frequency, min_
 def remove_channels(get_modem: Callable[[], OpenLoRaModem], channels, ignore_missing):
     '''Remove one or more RF channels.
 
-    This command can be used to remove one or more RF channels, identified by
+    This command can be used to remove one or more RF channels identified by
     the channel numbers provided on the command line. If the channel cannot be
     found, the command reports an error. You can change this behavior with the
     command line option --ignore-missing (-i).

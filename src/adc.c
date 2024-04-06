@@ -52,7 +52,7 @@ static ADC_HandleTypeDef adc = {
 
 void adc_init(void)
 {
-    // We do no ADC initialization when the system boots up. Instead, the ADC
+    // We do not initialize ADC when the system boots up. Instead, the ADC
     // peripheral is initialized on first use, e.g., when the LoRa MAC attempts
     // to measure batter or temperature levels.
 }
@@ -96,7 +96,7 @@ uint16_t adc_get_value(uint32_t channel)
 
     if (adc.Instance == NULL) {
         // This branch will execute if ADC has not been initialized yet. This
-        // happens the first time ADC is used after boot, or the first time the
+        // happens the first time ADC is used after boot or the first time the
         // ADC is used after waking up from the Stop mode.
 
         // Wait for the Vrefint to stabilize if we're waking up from Stop mode

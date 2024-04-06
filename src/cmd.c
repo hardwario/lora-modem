@@ -256,8 +256,8 @@ static void facnew(atci_param_t *param)
     // not immediately known. Hence, the function returns void. To find out
     // whether the reset has been successfully performed, the caller can observe
     // the arrival of +EVENT=0,1 prior to the arrival of +EVENT=0,0. The
-    // function always performs a reboot at the end (even if factory reset
-    // fails), however, +EVENT=1,0 is only sent if factory reset succeeded.
+    // function always performs a reboot at the end (even if the factory reset
+    // fails); however, +EVENT=1,0 is only sent if the factory reset succeeded.
 
     // The OK below indicates to the caller that the factory reset operation has
     // been successfully started, i.e., all parameters are correct and the MAC
@@ -315,7 +315,7 @@ static void set_class(atci_param_t *param)
     uint32_t v;
     if (!atci_param_get_uint(param, &v)) abort(ERR_PARAM);
 
-    // In original firmware compatiblity mode, only class A (0) and class C (2)
+    // In original firmware compatibility mode, only class A (0) and class C (2)
     // can be configured with this command.
     if (v != 0 && v != 2) abort(ERR_PARAM);
 
@@ -427,9 +427,9 @@ static void get_nwkskey(void)
 
     atci_print("+OK=");
 
-    // We operate in a backwards-compatible 1.0 mode here and in that mode, the
-    // various network session keys are the same and the canonical version is in
-    // FNwkSIntKey.
+    // We operate in a backward-compatible 1.0 mode here, and in that mode, the
+    // various network session keys are the same, and the canonical version is
+    // in FNwkSIntKey.
 
     atci_print_buffer_as_hex(find_key(F_NWK_S_INT_KEY), SE_KEY_SIZE);
     EOL();
@@ -443,9 +443,9 @@ static void set_nwkskey(atci_param_t *param)
     if (atci_param_get_buffer_from_hex(param, key, SE_KEY_SIZE, 0) != SE_KEY_SIZE)
         abort(ERR_PARAM);
 
-    // We implement a mode compatible with the original Type ABZ firmware which
+    // We implement a mode compatible with the original Type ABZ firmware, which
     // only supports LoRaWAN 1.0. Thus, we need to operate in a LoRaWAN 1.0
-    // backwards-compatible mode here. In this mode, the NwkSKey becomes
+    // backward-compatible mode here. In this mode, the NwkSKey becomes
     // FNwkSIntKey (forwarding network session integrity key). The other two
     // network keys required by our 1.1 implementation are set to the same
     // value.
@@ -520,10 +520,10 @@ static void set_appkey_10(atci_param_t *param)
 
     // The original firmware supports LoRaWAN 1.0 and does not provide an AT
     // command to set the other root key (NwkKey). Hence, we must assume that we
-    // will be operating in the backwards-compatible single root key scheme
+    // will be operating in the backward-compatible single root key scheme
     // documented in LoRaWAN 1.1 Section 6.1.1.3. In that scheme, AppSKey is
-    // derived from NwkKey and not from AppKey. Thus, we need to set the value
-    // configured here to both AppKey and NwkKey.
+    // derived from NwkKey and not from AppKey. Thus, we need to set the
+    // configured value as both AppKey and NwkKey.
 
     MibRequestConfirm_t r = {
         .Type  = MIB_NWK_KEY,
@@ -559,13 +559,13 @@ static void join(atci_param_t *param)
 {
     uint32_t datarate = DR_0;
 
-    // If we are not in OTAA mode, abort with -14 just like the original Murata
+    // If we are not in OTAA mode, abort with -14, just like the original Murata
     // Modem firmware.
     if (lrw_get_mode() == 0) abort(ERR_NO_OTAA);
 
     // Configure the default number of OTAA Join transmissions to nine. In
     // regions that use all 64 channels (such as US915), this is the number of
-    // retransmissions that is needed for the Join retransmissions to cycle
+    // retransmissions that are needed for the Join retransmissions to cycle
     // through all eight-channel sub-bands, plus one extra transmission for the
     // 500 kHz sub-band.
     uint32_t tries = 9;
@@ -1086,11 +1086,11 @@ static void transmit(atci_data_status_t status, atci_param_t *param)
         // LoRaMAC cannot reliably send a message with an empty payload to a
         // non-zero port number. If the library has any MAC commands waiting to
         // be piggy-backed, it would internally change the port number of the
-        // message to zero in order to be able to stuff the MAC commands into
-        // the payload. Hence, a message with an empty payload is not guaranteed
-        // to be sent to the correct port number and may not be received by the
-        // application server. Thus, we don't support empty payloads and require
-        // that the application provides at least one byte if port is not 0.
+        // message to zero to be able to stuff the MAC commands into the
+        // payload. Hence, a message with an empty payload is not guaranteed to
+        // be sent to the correct port number and may not be received by the
+        // application server. Thus, we don't support empty payloads. The
+        // application must provide at least one byte if the port is not 0.
         abort(ERR_PARAM);
     }
 
@@ -1295,8 +1295,8 @@ static void cm_clk_irq_handler(void* context)
 
     // AT$CM generates a continuous stream of ones and zeros modulated with FSK.
     // This interrupt handler is invoked on the falling edge of the clock signal
-    // generated on DIO1. It alternates the state of DIO2 in order to generate
-    // the sequence of ones and zeroes.
+    // generated on DIO1. It alternates the state of DIO2 to generate the
+    // sequence of ones and zeroes.
     GpioWrite(&SX1276.DIO2, (i++ % 2) == 0);
 }
 
@@ -1304,7 +1304,7 @@ static void cm_clk_irq_handler(void* context)
 static void cm(atci_param_t *param)
 {
     // Example with 868.3 MHz center frequency, 250 kHz deviation, 4800 Bd data
-    // rate, transmission power -10 dBm, and 2 second timeout:
+    // rate, transmission power -10 dBm, and 2-second timeout:
     // AT$CM 868300000,250000,4800,-10,2
     uint32_t freq, timeout, fdev, datarate;
     int32_t power;
@@ -1325,20 +1325,21 @@ static void cm(atci_param_t *param)
     if (!atci_param_get_uint(param, &timeout)) abort(ERR_PARAM);
     if (timeout > UINT16_MAX) abort(ERR_PARAM);
 
-    // Make sure there are no additional parameters that we don't understand.
+    // Make sure there are no additional parameters we don't understand.
     if (param->offset != param->length) abort(ERR_PARAM_NO);
 
     log_debug("$CM: freq=%ld Hz fdev=%ld Hz datarate=%ld Bd power=%ld dBm timeout=%ld s",
         freq, fdev, datarate, power, timeout);
 
-    // Rewire SX1276 interrupt handlers. We disable everything but the interrupt
-    // handler on DIO1, which points to our continuous mode interrupt handler.
+    // Rewire SX1276 interrupt handlers. We turn off everything but the
+    // interrupt handler on DIO1 pointing to our continuous mode interrupt
+    // handler.
     DioIrqHandler *irq[] = { NULL, cm_clk_irq_handler, NULL, NULL, NULL, NULL };
     SX1276IoIrqInit(irq);
 
     // Invoke the continuous carrier wave MIB request. This is the same
     // operation that AT$CW performs. We technically don't need to invoke this
-    // command here since the SetTxConfig command invoked below resets most of
+    // command here since the command SetTxConfig (invoked below) resets most of
     // the settings performed by TXCW and stops the radio again. We primarily
     // invoke the MIB command here to move the MAC into LORAMAC_TX_RUNNING
     // state. This solution is a bit hackish, but LoRaMac-node does not seem to
@@ -1358,13 +1359,13 @@ static void cm(atci_param_t *param)
 
     // Configure the radio in FSK mode with the selected transmission power, FSK
     // deviation, and data rate. We provide 0x5 as a dummy preamble, but since
-    // we're operating in the continuous mode here, the preamble won't be used
+    // we are operating in the continuous mode here, the preamble won't be used
     // (it's only used in the packet mode). Internally, SetTXConfig switches the
-    // radio into the packet mode and puts on stand by.
+    // radio into packet mode and puts it on standby.
     Radio.SetTxConfig(MODEM_FSK, power, fdev, 0, datarate, 0, 5, false, false, 0, 0, 0, timeout);
 
     // Since SetTxConfig internally forces the radio into packet mode, we need
-    // to switch to the continous mode here.
+    // to switch to the continuous mode here.
     SX1276Write(REG_PACKETCONFIG2, SX1276Read(REG_PACKETCONFIG2) & RF_PACKETCONFIG2_DATAMODE_MASK);
 
     // Disable DIO0, enable modulator clock on DIO1
@@ -1389,15 +1390,15 @@ static void cm(atci_param_t *param)
     };
     gpio_init(SX1276.DIO2.port, SX1276.DIO2.pinIndex, &dio2);
 
-    // Radio.SetTxConfig we call above puts the modem into a standby mode again
-    // and resets the TX timeout timer. Thus, we need to invoke SX1276SetTx here
-    // to start transmitting and to reset the TX timeout timer.
+    // Radio.SetTxConfig called above puts the modem into standby mode again and
+    // resets the TX timeout timer. Thus, we need to invoke SX1276SetTx here to
+    // start transmitting and reset the TX timeout timer.
     SX1276SetTx(timeout);
 
     lrw_event_subtype = CMD_CERT_CM_ENDED;
 
     // Reboot the modem once the transmission has finished. Since the AT$CW and
-    // AT$CM commands are primarily for certification, we don't bother restoring
+    // AT$CM commands are primarily for certification; we don't bother restoring
     // DIO port configuration and interrupt handlers and instead force the modem
     // to reboot.
     schedule_reset = true;
@@ -1419,7 +1420,7 @@ static void get_frmcnt(void)
     else
         down = state->Crypto.FCntList.AFCntDown;
 
-    // For compatiblity with the original firmware, return 0 if the downlink
+    // For compatibility with the original firmware, return 0 if the downlink
     // counter still has the initial value (no downlink was received yet).
     OK("%lu,%lu", state->Crypto.FCntList.FCntUp,
         down == FCNT_DOWN_INITIAL_VALUE ? 0 : down);
@@ -1671,8 +1672,8 @@ static void dbg(atci_param_t *param)
 {
     (void)param;
     // RF_IDLE = 0,   //!< The radio is idle
-    // RF_RX_RUNNING, //!< The radio is in reception state
-    // RF_TX_RUNNING, //!< The radio is in transmission state
+    // RF_RX_RUNNING, //!< The radio is in the reception state
+    // RF_TX_RUNNING, //!< The radio is in the transmission state
     // RF_CAD,        //!< The radio is doing channel activity detection
     atci_printf("sleep_lock=%d stop_lock=%d radio_state=%d loramac_busy=%d\r\n",
         system_sleep_lock, system_stop_lock, Radio.GetStatus(), LoRaMacIsBusy());
@@ -2107,7 +2108,7 @@ static void get_session(void)
 
 // Manage data stored in NVM user registers
 //
-// To read the value in NVM register 0 use the syntaxt AT$NVM 0. To write the
+// To read the value in NVM register 0, use the syntax AT$NVM 0. To write the
 // value 223 to NVM register 0, use the syntax AT$NVM 0,223.
 static void nvm_userdata(atci_param_t *param)
 {
@@ -2165,12 +2166,12 @@ static void detach_lpuart(atci_param_t *param)
     // The SPI lines are connected to PB12, PB13, PB14, and PB15. We use PB12 as
     // the wake-up signal. The remaining pins are configured in analog mode with
     // no pull-up unless the factory reset pin or the debug MCU features are
-    // enabled. Hence the error reported above if either of those features is
+    // enabled. Hence, the error reported above if either of those features is
     // enabled with this feature. We would need to reconfigure those pins in
     // input mode and will not be able to put them back into the original
     // configuration when the modem is reattached.
 
-    // Send an OK and wait for the OK to be also transmitted to the remote peer.
+    // Send an OK and wait for the OK to be also transmitted to the host.
     OK_();
     atci_flush();
 
@@ -2178,8 +2179,8 @@ static void detach_lpuart(atci_param_t *param)
     // and reconfigures LPUART GPIOs in analog input mode.
     lpuart_detach();
 
-    // From this moment on, the modem cannot be woken up with ATCI activity. The
-    // host has to pull lpuart_attach_pin down to wake the modem up and make it
+    // From now on, the modem cannot be woken up with ATCI activity. The host
+    // has to pull lpuart_attach_pin down to wake the modem up and make it
     // reattach LPUART. Any incoming LoRaWAN downlinks will be buffered until
     // the ATCI port is attached again.
 }
@@ -2243,9 +2244,9 @@ static void get_time(void)
     time.Seconds -= UNIX_GPS_EPOCH_OFFSET;
 
     // Estimate the delay it will take to transmit the response over the ATCI
-    // UART port. Add the delay to the time so that the value that the
-    // aplication receives represents the timestamp of the last byte in the
-    // transmitted message.
+    // UART port. Add the delay to the time so that the value received by the
+    // application represents the timestamp of the last byte in the transmitted
+    // message.
     //
     // Note that the value we add is an estimate. Adding delay to the timestamp
     // can either increase or decrease the length of the transmitted message by

@@ -62,8 +62,8 @@ if [ $build_python -eq 1 ] ; then
     [ -z "${PYTHON:-}" ] && {
         # The caller provided no path to the Python interpreter. Try detecting it.
 
-        # First see if we can use the interpeter reachable via the binary python on
-        # the path.
+        # First, see if we can use the interpreter reachable via the binary
+        # python on the path.
         PYTHON="$(which python)" && {
             [[ "$($PYTHON --version 2>/dev/null)" =~ ^Python\ 3.*$ ]] || PYTHON=""
         }
@@ -146,7 +146,7 @@ mkdir -p "$firmware_dir" "$python_dir" "$clone_dir"
 
 git clone . "$clone_dir"
 
-# Switch to the clone in temporary directory and update its submodules.
+# Switch to the clone in the temporary directory and update its submodules.
 cd "$clone_dir"
 echo "Updating git submodules ..."
 git submodule update --init
@@ -160,7 +160,7 @@ fi
 git tag ${git_opts:-} -a "$new_tag" -m "Version $version"
 echo "done."
 
-# Generate the files VERSION and LIB_VERSION so that they can be included in the
+# Generate the files VERSION and LIB_VERSION so they can be included in the
 # source tarball (which does not contain git version information).
 make VERSION LIB_VERSION
 
@@ -206,7 +206,7 @@ install_firmware chester
 # The build variant for the (older) Arduino MKR WAN 1300 board. MKR WAN 1300
 # does not control TCXO (it is always enabled). The factory reset pin is
 # disabled. LPUART1 detaching is not needed because this board does not have
-# anything else connected on the SPI bus. The debug build type has the debugging
+# anything else connected to the SPI bus. The debug build type has the debugging
 # logger configured to output to Segger RTT.
 make -j4 FACTORY_RESET_PIN=0 TCXO_PIN=0 DETACHABLE_LPUART=0 release
 make -j4 FACTORY_RESET_PIN=0 TCXO_PIN=0 DETACHABLE_LPUART=0 DEBUG_LOG=3 debug
@@ -214,7 +214,7 @@ install_firmware mkrwan1300
 
 # The build the variant for the Arduino MKR WAN 1310 board. This variant uses
 # PB6 to control TCXO power. We also enable support for detaching the ATCI UART
-# port so that the host MCU can access the on-board SPI flash. The debug build
+# port so that the host MCU can access the onboard SPI flash. The debug build
 # configures the debugging logger to output to Segger RTT.
 make -j4 FACTORY_RESET_PIN=0 TCXO_PIN=2 DETACHABLE_LPUART=1 release
 make -j4 FACTORY_RESET_PIN=0 TCXO_PIN=2 DETACHABLE_LPUART=1 DEBUG_LOG=3 DEBUG_MCU=0 debug
@@ -261,7 +261,7 @@ fi
 ##### Copy tag and binary files back go original clone #####
 ############################################################
 
-# Push the newly created signed release tag back to the local git clone from
+# Push the newly created signed release tag back to the local git clone from,
 # which we created the clone in the temporary directory.
 cd "$clone_dir"
 git push origin "$new_tag"

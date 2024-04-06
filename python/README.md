@@ -1,13 +1,13 @@
 # Python library for the Murata TypeABZ LoRa modem
 
-This project provides a Python support library for working with the Murata TypeABZ LoRaWAN modem. The modem communicates with the host over an AT command interface. The Python library abstracts away the AT command interface and provides an easier to use high-level API. The library provides a Python module that can be embedded into a larger Python application and a command line tool called `lora` that can be used to manage the modem from the terminal. The Python module supports the original Murata Modem firmware shipped with some TypeABZ modules, as well as the open LoRaWAN firmware from the [lora-modem](https://github.com/hardwario/lora-modem) Github repository. The command line tool only works with the open firmware.
+This project provides a Python support library for working with the Murata TypeABZ LoRaWAN modem. The modem communicates with the host over an AT command interface. The Python library abstracts away the AT command interface and provides an easier-to-use high-level API. The library provides a Python module that can be embedded into a larger Python application and a command line tool called `lora` that can be used to manage the modem from the terminal. The Python module supports the original Murata Modem firmware shipped with some TypeABZ modules and the open LoRaWAN firmware from the [lora-modem](https://github.com/hardwario/lora-modem) GitHub repository. The command line tool only works with the open firmware.
 
 ## Installation
 You can install the library with pip from PyPI as follows:
 ```sh
 pip install --upgrade lora-modem
 ```
-Alternatively, you can also install the library from the Github repository as follows:
+Alternatively, you can also install the library from the GitHub repository as follows:
 ```
 git clone https://github.com/hardwario/lora-modem
 cd lora-modem/python
@@ -44,13 +44,13 @@ finally:
     # Close the serial port
     device.close()
 ```
-The class `TypeABZ` represents the physical modem device. The classes `OpenLoRaModem` and `MurataModem` then implement a particular version of the modem API. The class `OpenLoRaModem` has been designed for the open firmware from the [lora-modem](https://github.com/hardwario/lora-modem) Github. The class `MurataModem` has been designed for the original Murata Modem firmware pre-installed on some TypeABZ modules. Please refer to the documentation in `lora.py` for more information.
+The class `TypeABZ` represents the physical modem device. The classes `OpenLoRaModem` and `MurataModem` then implement a particular version of the modem API. The class `OpenLoRaModem` has been designed for the open firmware from the [lora-modem](https://github.com/hardwario/lora-modem) Github. The class `MurataModem` has been designed for the original Murata Modem firmware preinstalled on some TypeABZ modules. Please refer to the documentation in `lora.py` for more information.
 
 ## Command Line Tool
 
 *Note: The command line tool only works with the open modem firmware.*
 
-The library provides a command line tool installed under the name `lora`. The tool can be used to interact with TypeABZ LoRaWAN modems from shell scripts and the terminal. To invoke the tool, pass the pathname to the modem's serial port either via the environment variable PORT, or via the command line option `-p`. Without any arguments, the tool displays information about the selected modem:
+The library provides a command line tool installed under the name `lora`. The tool can interact with TypeABZ LoRaWAN modems from shell scripts and the terminal. To invoke the tool, pass the pathname to the modem's serial port via the environment variable PORT or the command line option `-p`. Without any arguments, the tool displays information about the selected modem:
 ```
 $ lora -p /dev/serial0
 Device information for modem /dev/serial0:

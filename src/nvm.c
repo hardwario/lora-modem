@@ -17,7 +17,7 @@
 
 /* The following partition sizes have been derived from the in-memory size of
  * the corresponding data structures in our fork of LoRaMac-node v4.7.0. The
- * sizes have been rounded up to leave some space for expansion in future
+ * sizes have been rounded up to leave some space for expansion in the future
  * versions. Whenever LoRaMac-node is modified, these sizes need to be
  * reevaluated to make sure that each part is large enough to hold its data
  * structure. Please note that the size of individual data structures depends,
@@ -46,8 +46,8 @@ static_assert(sizeof(LoRaMacClassBNvmData_t) <= CLASSB_PART_SIZE, "ClassB NVM da
 static_assert(sizeof(user_nvm_t) <= USER_NVM_PART_SIZE, "User NVM data too long");
 
 
-// And also make sure that NVM data fits into the EEPROM twice. This is
-// useful in case we wanted to implement atomic writes or data mirroring.
+// And also make sure that NVM data fits into the EEPROM twice. This is useful
+// in case we wanted to implement atomic writes or data mirroring.
 static_assert(
     SYSCONF_PART_SIZE +
     CRYPTO_PART_SIZE  +
@@ -65,7 +65,7 @@ static_assert(
 // We currently store all non-volatile state in the EEPROM, so there is only one
 // partitioned block that maps to the EEPROM on the STM32 platform. We export
 // the variable representing the NVM block here so that subsystems like LoRaMac
-// can create their own partitions in it.
+// can create their partitions in it.
 
 static part_block_t nvm = {
     .size = DATA_EEPROM_BANK2_END - DATA_EEPROM_BASE + 1,
@@ -96,10 +96,10 @@ uint16_t nvm_flags;
 
 /*
  * Initialize system configuration NVM (EEPROM) partition. If necessary, the
- * function formats the EEPROM if the part is not found, or reformats the EEPROM
- * if the part is found but has an invalid size. If the part is found and has a
+ * function formats the EEPROM if the part is not found. If the part is found
+ * but is of an invalid size; it is reformatted. If the part is found and has a
  * matching size, check the CRC32 checksum of the data before using it. If the
- * checkum does not match, defaults will be used instead.
+ * checksum does not match, use the defaults instead.
  */
 void nvm_init(void)
 {

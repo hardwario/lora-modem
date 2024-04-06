@@ -78,7 +78,7 @@ int part_open_block(part_block_t *block)
     if (t->size < FIXED_PART_TABLE_SIZE)
         return -5; // Invalid partition table
 
-    // Mmap the entire partition table including the array of partitions that
+    // Mmap the entire partition table, including the array of partitions that
     // follows the partition table
     t = block->mmap(block->start, t->size);
     if (t == NULL) return -6;

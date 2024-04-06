@@ -16,9 +16,9 @@ typedef struct sysconf
      */
     unsigned int uart_baudrate;
 
-    /* The maximum time (in millseconds) for payload (data) uploads over the
+    /* The maximum time (in milliseconds) for payload (data) uploads over the
      * ATCI. If the client does not upload all data within this time, the upload
-     * will be terminated and the ATCI will wait for further AT commands.
+     * will be terminated, and the ATCI will wait for further AT commands.
      */
     uint16_t uart_timeout;
 
@@ -51,7 +51,7 @@ typedef struct sysconf
     uint8_t lock_keys : 1;
 
     /* When this flag is set to 1 (default), the AT command interface will send
-     * event notifications asynchronously. When set to 0, asynchronous event
+     * event notifications asynchronously. When set to 0, the asynchronous event
      * notifications will be buffered and will be only delivered to the host
      * between an AT command and its response (e.g., +OK or +ERR). This allows
      * the host to implement a polling mode where the UART can be powered down

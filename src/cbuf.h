@@ -6,7 +6,7 @@
 
 /*! @brief A fixed-size circular buffer backed by a contiguous memory block
  *
- * This data structure can be used to implement a fixed-size first-in first-out
+ * This data structure can be used to implement a fixed-size first-in, first-out
  * (FIFO) or queue that can store up to @p max_length bytes.
  */
 typedef struct cbuf {
@@ -21,10 +21,10 @@ typedef struct cbuf {
 /*! @brief A view into the circular buffer
  *
  * This is an auxiliary data structure accepted or returned by a couple of
- * functions below that can be used to obtain a reference to data or empyt space
- * within a circular buffer. Since a circular wrapper can wraps around, the data
- * or empty space is reprsented by two pointers and two length fields. The
- * application needs to handle this properly.
+ * functions below that can be used to obtain a reference to data or empty space
+ * within a circular buffer. Since a circular wrapper can wrap around, the data
+ * or empty space is represented by two pointers and two length fields. The
+ * application needs to handle this correctly.
  */
 typedef struct cbuf_view {
     char *ptr[2];
@@ -43,12 +43,11 @@ void cbuf_init(volatile cbuf_t *cbuf, void *buffer, size_t size);
 
 /*! @brief Return a view representing free space at the end of @p cbuf
  *
- * This function can be used to obtain a view to the empty space (if any) at the
+ * This function can be used to obtain a view of the empty space (if any) at the
  * end of the circular buffer. The view can be used to append data. The function
  * returns the same pointer that is passed to it via @p tail .
  *
- * Thread-safe: no
- * Running time: constant
+ * Thread-safe: no Running time: constant
  *
  * @param[in] cbuf A pointer to the circular buffer
  * @param[in] tail A pointer to a view variable to be filled
@@ -79,12 +78,11 @@ size_t cbuf_copy_in(const cbuf_view_t *tail, const void *data, size_t len);
  * bytes. If there is not enough space in the internal buffer for @p len
  * additional bytes, the length will be extended by the number of bytes that
  * fit. The application is responsible for copying the data into the circular
- * buffer prior to calling this function using cbuf_copy_in to copy data into
- * the memory buffer returned by cbuf_tail. The function returns the real number
+ * buffer before calling this function using cbuf_copy_in to copy data into the
+ * memory buffer returned by cbuf_tail. The function returns the actual number
  * of bytes by which the circular buffer data was extended.
  *
- * Thread-safe: no
- * Running time: constant
+ * Thread-safe: no Running time: constant
  *
  * @param[in] cbuf A pointer to the circular buffer
  * @param[in] len The desired number of bytes to extend the queue with
@@ -148,13 +146,12 @@ size_t cbuf_copy_out(void *buffer, const cbuf_view_t *head, size_t max_len);
  * This function decreases the number of bytes stored in @p cbuf by consuming up
  * to @p len bytes from the beginning of the circular buffer. If there is not
  * enough data in the circular buffer, the length is decreased by a smaller
- * number. The application is responsible fro copying the data out from the
+ * number. The application is responsible for copying the data out of the
  * circular buffer using cbuf_head and cbuf_copy_out before calling this
  * function. The function returns the real number of bytes consumed from the
  * circular buffer.
  *
- * Thread-safe: no
- * Running time: constant
+ * Thread-safe: no Running time: constant
  *
  * @param[in] cbuf A pointer to the circular buffer
  * @param[in] len The desired number of bytes to consume

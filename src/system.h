@@ -10,12 +10,12 @@ extern volatile unsigned system_sleep_lock;
 
 void system_init(void);
 
-//! @brief Get pseudo random seed generated using the MCU Unique ID
+//! @brief Get a pseudo-random seed generated using the MCU Unique ID
 
 uint32_t system_get_random_seed(void);
 
-//! @brief This function return a unique ID
-//! @param[out] id Pointer to destination buffer, size 8 bytes
+//! @brief This function returns a unique ID
+//! @param[out] id Pointer to the destination buffer, size 8 bytes
 
 void system_get_unique_id(uint8_t *id);
 
@@ -37,16 +37,16 @@ typedef enum
 } system_module_t;
 
 
-//! @brief Go to low power, sleep mode or stop mode. The function must be
+//! @brief Go to low power, sleep mode, or stop mode. The function must be
 //! invoked with interrupts disabled.
 
 void system_idle(void);
 
-//! @brief This function call on enter to stop mode (weak)
+//! @brief This function is called on an enter to the stop mode (weak)
 
 void system_before_stop(void);
 
-//! @brief This function call on exit from stop mode (weak)
+//! @brief This function is called on an exit from the stop mode (weak)
 
 void system_after_stop(void);
 

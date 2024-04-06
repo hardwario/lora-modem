@@ -248,14 +248,14 @@ static void load_deveui(void)
     if (size < sizeof(SecureElementNvmData_t)) return;
 
     // Only restore the DevEUI if the crc32 checksum over the entire block
-    // matches, or if the checksum calculate over the DevEui parameter matches.
+    // matches, or if the checksum calculated over the DevEui parameter matches.
     // The latter is a special case used by the factory reset command to
     // indicate that the structure has a valid DevEUI value preserved from
     // before the reset, but the entire block should not be restored. This is
     // used to re-initialize all parameters but DevEUI to defaults.
 
     // Read the checksum into a local variable in the case p->Crc32 isn't
-    // properly aligned in memory. In the current implementation the returned
+    // properly aligned in memory. In the current implementation, the returned
     // pointer will be properly aligned, but better be safe than sorry in case
     // that changes in the future.
     memcpy(&crc, &p->Crc32, sizeof(crc));
@@ -278,14 +278,14 @@ static int restore_region(void)
     if (size < sizeof(LoRaMacNvmDataGroup2_t)) goto out;
 
     // Only restore the region parameter value if the crc32 checksum over the
-    // entire block matches, or if the checksum calculate over the region
+    // entire block matches, or if the checksum calculated over the region
     // parameter only matches. The latter is a special case used by
     // lrw_set_region to indicate that the structure has a valid region value,
     // but the entire block should not be restored. This is used to
     // re-initialize the parameters from defaults when switching regions.
 
     // Read the checksum into a local variable in the case p->Crc32 isn't
-    // properly aligned in memory. In the current implementation the returned
+    // properly aligned in memory. In the current implementation, the returned
     // pointer will be properly aligned, but better be safe than sorry in case
     // that changes in the future.
     memcpy(&crc, &p->Crc32, sizeof(crc));
@@ -359,13 +359,13 @@ static void mcps_indication(McpsIndication_t *param)
     }
 
     if (param->IsUplinkTxPending == true) {
-        // do nothing for now
+        // Do nothing for now
     }
 }
 
 
-// Copy the device class value from sys config to the MIB. The value in MIB can
-// be overwritten by LoRaMac at runtime, e.g., after a Join.
+// Copy the device class value from sys config to the MIB. The value in the MIB
+// can be overwritten by LoRaMac at runtime, e.g., after a Join.
 static int sync_device_class(void)
 {
     int rc;
@@ -385,9 +385,9 @@ static int sync_device_class(void)
 #ifdef LORAMAC_ABP_VERSION
 static int set_abp_mac_version(void)
 {
-    // If we are in ABP mode and the application has defined a specific MAC
-    // version to be used in this mode, set it now. There is no automatic
-    // version negotiation in ABP mode, so this needs to be done manually.
+    // If we are in the ABP mode and the application has defined a specific MAC
+    // version to be used; set it now. There is no automatic version negotiation
+    // in ABP mode, so this needs to be done manually.
     MibRequestConfirm_t r = {
         .Type = MIB_ABP_LORAWAN_VERSION,
         .Param = { .AbpLrWanVersion = { .Value = LORAMAC_ABP_VERSION }}};
@@ -490,8 +490,8 @@ static void retransmit_join(void)
 static void on_join_timer(void *ctx)
 {
     // This handler is invoked in the ISR context within an interrupt generated
-    // by the RTC. Do no work here, just set an even flag and prevent sleep so
-    // that the event gets a chance to be handled on the next run of the main
+    // by the RTC. Perform no work here; only set an even flag and prevent sleep
+    // so that the event gets a chance to be handled on the next run of the main
     // processing function in this module.
     (void)ctx;
     system_sleep_lock |= SYSTEM_MODULE_LORA;
@@ -562,17 +562,18 @@ static void device_time_callback(MlmeConfirm_t *param)
         // (as of May 2023).
         t = SysTimeGet();
 
-        // The modem has no way of keep track of leap seconds. The LoRaWAN
+        // The modem has no way of keeping track of leap seconds. The LoRaWAN
         // network, unfortunately, does not provide the GPS UTC offset (GPS
-        // receivers generally do). Since we have no way of calculating correct
-        // UTC time, we convert the value obtained from the RTC clock back to
-        // GPS time and return that to the application. We let the application
-        // to deal with the proper conversion from GPS to UTC if needed.
+        // receivers generally do). Since we have no way of calculating the
+        // correct UTC time, we convert the value obtained from the RTC clock
+        // back to GPS time and return that to the application. We let the
+        // application to deal with the proper conversion from GPS to UTC if
+        // needed.
         t.Seconds -= UNIX_GPS_EPOCH_OFFSET;
 
         // Estimate the delay it will take to transmit the event over the ATCI
-        // UART port. Add the delay to the time so that the value that the
-        // aplication receives represents the timestamp of the last byte in the
+        // UART port. Add the delay to the time so that the value received by
+        // the aplication represents the timestamp of the last byte in the
         // transmitted message.
         //
         // Note that the value we add is an estimate. Adding delay to the
@@ -738,9 +739,9 @@ static LoRaMacStatus_t set_defaults(void)
     if (rc != LORAMAC_STATUS_OK) return rc;
 
 #ifdef LORAMAC_ABP_VERSION
-    // If we are in ABP mode and the application has defined a specific MAC
-    // version to be used in this mode, set it now. There is no automatic
-    // version negotiation in ABP mode, so this needs to be done manually.
+    // If we are in the ABP mode and the application has defined a specific MAC
+    // version to be used; set it now. There is no automatic version negotiation
+    // in ABP mode, so this needs to be done manually.
     r.Type = MIB_ABP_LORAWAN_VERSION;
     r.Param.AbpLrWanVersion.Value = LORAMAC_ABP_VERSION;
     rc = LoRaMacMibSetRequestConfirm(&r);
@@ -862,20 +863,20 @@ int lrw_send(uint8_t port, void *buffer, uint8_t length, bool confirmed)
     memset(&mr, 0, sizeof(mr));
 
     // McpsReq_t provides an attribute called Datarate through which the caller
-    // can select the datarate to be used for the request. However, that value
+    // can select the data rate to be used for the request. However, that value
     // will only be considered by the MAC under certain conditions, e.g., when
-    // ADR is off or when the device is activated with ABP. In ther cases, the
-    // value provided here is ignored and the MAC uses the MIB datarate value,
+    // ADR is off or when the device is activated with ABP. In these cases, the
+    // value provided here is ignored, and the MAC uses the MIB datarate value,
     // subject to various regional restrictions.
     //
-    // We want to allow the caller to select the datarate simply by modifying
-    // the MIB value without having to worry about the state of the ADR. Thus,
-    // we set the Datarate parameter of the request here to the value from MIB.
-    // This will allow the caller to specify the Datarate to be used both with
-    // ADR on and off simply by modifying the corresponding MIB value.
+    // We want to allow the caller to select the data simply by modifying the
+    // MIB value without worrying about the state of the ADR. Thus, we set the
+    // Datarate parameter of the request here to the value from the MIB. This
+    // will allow the caller to specify the Datarate to be used both with ADR on
+    // and off simply by modifying the corresponding MIB value.
     //
     // If we didn't set it to the MIB value here, the Datarate parameter would
-    // be implicitly set to 0 (DR0) which would be always used when ADR is off,
+    // be implicitly set to 0 (DR0), which would be always used when ADR is off,
     // making it possible for the caller to override the value in that case.
 
     MibRequestConfirm_t r = { .Type = MIB_CHANNELS_DATARATE };
@@ -887,14 +888,15 @@ int lrw_send(uint8_t port, void *buffer, uint8_t length, bool confirmed)
             log_info("Payload too long. Sending empty frame to flush MAC commands");
 
             // This branch may be triggered when the caller attempts to send a
-            // packet with the slowest spreading factor and there are some MAC
+            // packet with the slowest spreading factor, and there are some MAC
             // commands that need to be transmitted via the FOpts header field.
-            // Since the minimum payload size with the slowest spreading factor is
-            // about 11 bytes (without MAC commands), it is easy for the optional
-            // MAC commands to exhaust most of the available space.
+            // Since the minimum payload size with the slowest spreading factor
+            // is about 11 bytes (without MAC commands), so it is easy for the
+            // optional MAC commands to exhaust most of the available space.
             //
-            // Sertting the port to 0, the payload buffer to NULL, and buffer size
-            // to 0 will send an uplink message with FOpts but no port or payload.
+            // Setting the port to 0, the payload buffer to NULL, and buffer
+            // size to 0 will send an uplink message with FOpts but no port or
+            // payload.
 
             mr.Type = MCPS_UNCONFIRMED;
             mr.Req.Unconfirmed.fPort = 0;
@@ -915,9 +917,9 @@ int lrw_send(uint8_t port, void *buffer, uint8_t length, bool confirmed)
 
     if (port != 0 && length == 0) {
         // Messages with empty payload and non-zero port cannot be reliably sent
-        // by LoRaMac. If LoRaMAC has any MAC commands pending (which can
-        // happeny any time), it would put the MAC commands into the payload and
-        // change the port number to 0 automatically.
+        // by LoRaMac. If LoRaMAC has any MAC commands pending (which can happen
+        // any time), it would put the MAC commands into the payload and change
+        // the port number to 0 automatically.
         log_warning("LoRaMac cannot reliably send empty payload to non-zero port");
         return LORAMAC_STATUS_LENGTH_ERROR;
     }
@@ -974,8 +976,8 @@ LoRaMacNvmData_t *lrw_get_state(void)
 int lrw_join(uint8_t datarate, uint8_t tries)
 {
     // If we are already transmitting a Join request, abort the request. Do this
-    // check in both ABP and OTAA modes. We don't let the application to switch
-    // to ABP while there is an active OTAA Join request.
+    // check in both ABP and OTAA modes. We don't let the application switch to
+    // ABP while there is an active OTAA Join request.
     if (joins_left != 0)
         return LORAMAC_STATUS_BUSY;
 
@@ -983,14 +985,14 @@ int lrw_join(uint8_t datarate, uint8_t tries)
     LoRaMacMibGetRequestConfirm(&r);
 
     if (r.Param.NetworkActivation == ACTIVATION_TYPE_ABP) {
-        // In ABP mode the number of retransmissions must always be set to 0
-        // since no actual Join request will be sent to the LNS.
+        // In the ABP mode, the number of retransmissions must always be set to
+        // 0 since no actual Join request will be sent to the LNS.
         if (tries != 0)
             return LORAMAC_STATUS_PARAMETER_INVALID;
 
         // LoRaMac uses the same approach for both types of activation. In ABP
         // one still needs to invoke MLME_JOIN, although no actual Join will be
-        // sent. The library will simply use the opportunity to perform internal
+        // sent. The library will use the opportunity to perform internal
         // initialization.
         MlmeReq_t mlme = { .Type = MLME_JOIN };
         mlme.Req.Join.NetworkActivation = ACTIVATION_TYPE_ABP;
@@ -1247,19 +1249,19 @@ static void update_duty_cycle_deadline(LoRaMacStatus_t rc, TimerTime_t time)
 
         case LORAMAC_STATUS_BUSY:
             // The busy return code can be returned by the MAC in a variety of
-            // cases, even when the MAC is in the middle of a dutycycle quiet
-            // period and is not transmitting. LoRaMac{Mlme,Mcps} do not always
-            // update DutyCycleWaitTime in that case, in some cases the variable
-            // is left initialized to 0. Only update lrw_dutycycle_deadline if
-            // we get a non-zero DutyCycleWaitTime. In other cases, we rely on
-            // the value we remember from previous invocations of the Mlme and
-            // Mcps request functions.
+            // cases, even when the MAC is in the middle of a duty cycle quiet
+            // period, and is not transmitting. LoRaMac{Mlme,Mcps} do not always
+            // update DutyCycleWaitTime in that case; in some cases, the
+            // variable is left initialized to 0. Only update
+            // lrw_dutycycle_deadline if we get a non-zero DutyCycleWaitTime. In
+            // other cases, we rely on the value we remember from previous
+            // invocations of the Mlme and Mcps request functions.
             if (time != 0)
                 lrw_dutycycle_deadline = rtc_tick2ms(rtc_get_timer_value()) + time;
             break;
 
         default:
-            // In all other cases write the new value through to
+            // In all other cases, write the new value through to
             // lrw_dutycycle_deadline.
             lrw_dutycycle_deadline = rtc_tick2ms(rtc_get_timer_value()) + time;
             break;
@@ -1316,12 +1318,13 @@ void lrw_factory_reset(bool reset_devnonce, bool reset_deveui)
 
         // Unless the application explicitly asks for the DevNonce to be also
         // reset, we preserve the original value to make sure that OTAA Join
-        // continues working from this device after factory reset.
+        // continues working from this device after the factory reset.
         if (!reset_devnonce) {
             log_debug("Preserving original DevNonce (%d)", dev_nonce);
 
             // To preserve DevNonce, we create a new NVM crypto data structure,
-            // initialize it, restore the DevNonce attribute and update the CRC.
+            // initialize it, restore the DevNonce attribute, and update the
+            // CRC.
             LoRaMacCryptoNvmData_t c;
             if (LoRaMacCryptoInit(&c) != LORAMAC_CRYPTO_SUCCESS)
                 log_error("Error while reinitializing crypto NVM partition");
@@ -1367,9 +1370,9 @@ void lrw_factory_reset(bool reset_devnonce, bool reset_deveui)
     }
 
     // Schedule reset regardless of whether the factory reset operation above
-    // succeeded. That way, the caller can know if factory reset was
-    // successfully performed by observing the arrival of +EVENT=0,1 prior to
-    // the arrival of +EVENT=0,0
+    // succeeded. That way, the caller can know if the factory reset was
+    // successfully performed by observing the arrival of +EVENT=0,1 before the
+    // arrival of +EVENT=0,0
     schedule_reset = true;
 }
 

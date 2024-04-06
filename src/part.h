@@ -29,8 +29,8 @@ typedef struct part {
 
 
 typedef struct part_table {
-    uint32_t signature;  // Well known signature of the partition table
-    size_t size;         // Size of the partition table including signature and the parts array that follows the partition table
+    uint32_t signature;  //Well-known signature of the partition table
+    size_t size;         // Size of the partition table, including signature and the parts array that follows the partition table
     uint8_t num_parts;   // Number of partitions in the parts array
 } part_table_t;
 

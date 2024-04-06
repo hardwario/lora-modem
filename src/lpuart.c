@@ -112,14 +112,14 @@ void lpuart_init(unsigned int baudrate)
     __HAL_UART_DISABLE(&port);
 
     // Do not disable DMA on parity, framing, or noise errors. This will
-    // configure the LPUART peripheral to simply not raise RXNE which will NOT
-    // assert DMA request and the errorneous data is skipped. The following byte
-    // will be transferred again.
+    // configure the LPUART peripheral not to raise RXNE, which will NOT assert
+    // DMA request and the erroneous data is skipped. The following byte will be
+    // transferred again.
     //
     LL_LPUART_DisableDMADeactOnRxErr(port.Instance);
 
     // Disable overrun detection. If we are not fast enough at receiving data,
-    // let the new byte ovewrite the previous one without setting the overrun
+    // let the new byte overwrite the previous one without setting the overrun
     // event. The application layer (ATCI) can deal with such errors.
     LL_LPUART_DisableOverrunDetect(port.Instance);
 
@@ -137,18 +137,19 @@ void lpuart_init(unsigned int baudrate)
 
     HAL_UARTEx_EnableStopMode(&port);
 
-    // Enable the idle line detection intexrrupt. We use the event to transmit
+    // Enable the idle line detection interrupt. We use the event to transmit
     // data from the DMA buffer to the input FIFO queue and to re-enable the
     // low-power Stop mode.
     LL_LPUART_EnableIT_IDLE(port.Instance);
 
-    // Disable the receive buffer not empty interrupt. We use DMA to receive
-    // data over LPUART1 so that the receive process works even when interrupts
-    // don't, e.g., during heavy memory bus activity (writes to EEPROM).
+    // Disable the receive-buffer-not-empty interrupt. We use DMA to receive
+    // data over LPUART1 so that the receiving process works even when
+    // interrupts don't, e.g., during heavy memory bus activity (writes to
+    // EEPROM).
     LL_LPUART_DisableIT_RXNE(port.Instance);
 
     // Disable framing, noise, and overrun interrupt generation. We don't want
-    // those errors to stop DMA transfers. We simply ignore such errors and let
+    // those errors to stop DMA transfers. We ignore such errors and let
     // the ATCI recover at the application layer.
     LL_LPUART_DisableIT_ERROR(port.Instance);
 
@@ -337,7 +338,7 @@ size_t lpuart_write(const char *buffer, size_t length)
     cbuf_produce(&lpuart_tx_fifo, written);
 
     // If we are not paused, mark the newly added data as to be transmitted
-    // right away
+    // immediately.
     if (!lpuart_tx_paused) {
         tx_bytes_left += written;
         start_dma_transmission();
@@ -362,11 +363,11 @@ void lpuart_write_blocking(const char *buffer, size_t length)
                 masked = disable_irq();
                 // If the TX FIFO is at full capacity, we invoke system_idle to
                 // put the MCU to sleep until there is some space in the output
-                // FIFO which will be signalled by the ISR when the DMA transfer
+                // FIFO, which will be signaled by the ISR when the DMA transfer
                 // finishes. Since the transmission happens via DMA, system_idle
                 // used below must not enter the Stop mode. That is, however,
                 // guaranteed, since the function luart_write above creates a
-                // stop mode wake lock which will still be in place when the
+                // stop mode wake lock, which will still be in place when the
                 // process gets here.
                 if (lpuart_tx_fifo.max_length == lpuart_tx_fifo.length)
                     system_idle();
@@ -395,7 +396,7 @@ void RNG_LPUART1_IRQHandler(void)
 {
     // If we were woken up by LPUART activity, prevent the MCU from entering the
     // Stop mode until we receive an idle frame. This generally indicates
-    // incoming data over LPUART1 and we want to give the DMA controller a
+    // incoming data over LPUART1, and we want to give the DMA controller a
     // chance to transfer that data into RAM. The modem will still enter the
     // sleep mode between received bytes.
     if (LL_LPUART_IsActiveFlag_WKUP(port.Instance)) {
@@ -404,7 +405,7 @@ void RNG_LPUART1_IRQHandler(void)
     }
 
     // Once an idle frame has been received, we assume that the client is done
-    // transmitting and we re-enable the Stop mode again. While in the Stop
+    // transmitting, and we re-enable the Stop mode again. While in the Stop
     // mode, the MCU will be woken up by WKUP interrupt once another frame is
     // received by LPUART.
     if (LL_LPUART_IsEnabledIT_IDLE(port.Instance) && LL_LPUART_IsActiveFlag_IDLE(port.Instance)) {
@@ -414,8 +415,8 @@ void RNG_LPUART1_IRQHandler(void)
     }
 
     // Delegate to the HAL. But before we do that, check and clear the error
-    // flags, otherwise the HAL would abort the DMA transfer. These errors are
-    // actually disabled in the init function, but better be safe than sorry.
+    // flags. Otherwise, the HAL will abort the DMA transfer. These errors are
+    // disabled in the init function, but it is better to be safe than sorry.
 
     if (LL_LPUART_IsActiveFlag_PE(port.Instance))
         LL_LPUART_ClearFlag_PE(port.Instance);

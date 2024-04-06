@@ -12,14 +12,14 @@ extern TimerTime_t lrw_dutycycle_deadline;
 
 /** @brief Initialize the LoRaMac stack
  *
- * If previously-saved state is found in NVM, the state will be restored and
- * LoRaMac will continue where it lef off. Otherwise, LoRaMac is initialized
+ * If a previously saved state is found in NVM, the state will be restored and
+ * LoRaMac will continue where it left off. Otherwise, LoRaMac is initialized
  * with default parameter values.
  */
 void lrw_init(void);
 
 
-/** @brief Obtain a pointer to internal LoRaMac state
+/** @brief Obtain a pointer to the internal LoRaMac state
  *
  * Use this function to obtain a pointer to the internal state of the LoRaMac
  * library. This could be used to get or set parameters that have not been
@@ -30,7 +30,7 @@ void lrw_init(void);
 LoRaMacNvmData_t *lrw_get_state(void);
 
 
-/** @brief LoRaMac main processing function. Should be invoked repeatedly as
+/** @brief LoRaMac main processing function. It should be invoked repeatedly as
  *  long as the system is not sleeping.
  */
 void lrw_process(void);
@@ -105,7 +105,7 @@ int lrw_set_region(unsigned int region);
 
 /** @brief Return currently selected LoRaWAN activation mode (ABP or OTAA)
  * @retval 0 Activation by provisioning (ABP) mode is selected
- * @retval 1 Over the air activation (OTAA) mode is selected
+ * @retval 1 Over-the-air activation (OTAA) mode is selected
  */
 unsigned int lrw_get_mode(void);
 
@@ -168,7 +168,7 @@ int lrw_get_max_channels(void);
 
 LoRaMacStatus_t lrw_mlme_request(MlmeReq_t* req);
 
-// Aa simple wrapper over LoRaMacMcpsRequest that properly configures uplink
+// A simple wrapper over LoRaMacMcpsRequest that properly configures uplink
 // retransmissions and keeps track of the duty cycle wait time returned by the
 // function for the benefit of AT+BACKOFF
 LoRaMacStatus_t lrw_mcps_request(McpsReq_t* req, int transmissions);
@@ -180,7 +180,7 @@ void lrw_factory_reset(bool reset_devnonce, bool reset_deveui);
 /** @brief Get LoRaWAN network time via the DeviceTimeReq MAC command
  *
  * This function can be used to get the current LoRaWAN network time. It uses
- * the DeviceTimeReq MAC command which is available in LoRaWAN 1.0.3 or higher.
+ * the DeviceTimeReq MAC command, which is available in LoRaWAN 1.0.3 or higher.
  *
  * The function sends the uplink and returns immediately. The time will be sent
  * to the application via an asynchronous notification.
