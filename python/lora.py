@@ -3563,6 +3563,103 @@ class OpenLoRaModem(MurataModem):
 
     mcu_id = mcuid
 
+    @property
+    def async_(self):
+        '''Return the modem's sync/async operational status.
+
+        If this property returns 1, the modem operates in an asynchronous mode,
+        i.e., it sends asynchronous notifications (+EVENT, +ACK, +RECV, etc.) as
+        they arrive. This mode assumes the host has its UART interface
+        operational at all times.
+
+        If this property returns 0, the modem operates in a synchronous mode. In
+        this mode, the modem buffers all asynchronous notifications to the host
+        and only sends them upon receiving an AT command from the host. This
+        mode allows the mode to shut down its UART port between AT commands
+        without loosing asynchronous notifications.
+        '''
+        return int(assert_response(self.modem.AT('$ASYNC?')))
+    
+    @async_.setter
+    def async_(self, value: int):
+        '''Configure the modem to work in synchronous/asynchronous mode.
+
+        The modem can send a variety of asynchronous messages to the host. These
+        include asynchronous +EVENT notifications, +RECV messages containining
+        incoming (downlink) messages, +ACK and +NOACK, and +ANS. The host must
+        be ready to receive such messages at any time, typically seconds or tens
+        of seconds after the most recent AT command. An +EVENT=0,0 message
+        emitted after a modem reset can arrive at any time and typically
+        requires some response from the host, e.g., to reconfigure the modem.
+
+        Handling asynchronous modem notifications requires that the host keeps
+        its UART peripheral active at all times. This can be problematic on
+        platforms where the UART peripheral consumes significant amounts of
+        power while running as the timings to receive downlinks can be quite
+        large depending on the spreading factor, leading to large windows of
+        high power consumption.
+
+        When set to 1 (the default), the modem works in asynchronous mode,
+        meaning it can send asynchronous messages to the host at any time.
+
+        When set to 0 with AT$ASYNC=0, the modem switches into a polling mode of
+        operation. In the polling mode, the modem buffers all asynchronous
+        messages for the host. The buffered asynchronous messages will only be
+        transmitted upon receiving an AT command from the host. Upon receiving
+        any AT command, the modem first sends all buffered asynchronous messages
+        before sending the final response (+OK or +ERR) to the AT command. After
+        sending the final response, the modem guarantees that no asynchronous
+        messages will be sent until the next AT command. Thus, the host only
+        needs to be ready to receive between the time it sends an AT command to
+        the modem, and the time it receives the final response to the command.
+
+        Example for asynchronous mode (AT$ASYNC=1):
+
+            AT$ASYNC=1
+            +OK
+
+            AT+JOIN
+            +OK
+
+            (...some amount of time...)
+
+            +EVENT=1,1
+
+        Example for synchronous mode (AT$ASYNC=0):
+            AT$ASYNC=0
+            +OK
+
+            AT+JOIN
+            +OK
+
+            (...arbitrary amount of time...)
+
+            AT +EVENT=1,1
+            +OK
+
+        On Asynchronous mode, any AT command will flush all the buffered
+        messages first. To poll for buffered messages, the user can send the AT
+        dummy command as shown above.
+
+        The AT$SYNC value is backed in NVM (EEPROM) and survives modem reboots.
+        This is necessary because a host operating in the polling mode could
+        easily miss the modem's reboot indications (+EVENT=0,0).
+
+            AT$ASYNC? +OK=1
+
+            AT$ASYNC=1 +OK
+
+        Warning: The asynchronous messages that arrive while the device is not
+        in asynchronous mode are buffered in a fixed-size buffer, therefore the
+        buffer should be flushed in order to not risk losing events/downlinks.
+        For Class-A devices, this can be done after an uplink has been sent. For
+        Class-B and Class-C devices, this should be done repeatedly between
+        communications in order to prevent the overflow.
+
+        Supported since: 1.4.0   
+        '''
+        self.modem.AT(f'$ASYNC={value}')
+
 
 def uartconfig_to_str(uart):
     if uart.parity == 0:
