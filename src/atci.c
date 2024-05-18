@@ -256,6 +256,8 @@ static void finish_next_data(atci_data_status_t status)
     }
 
     state.rx_length = 0;
+
+    if (!sysconf.async_uart) lpuart_pause_tx();
 }
 
 
@@ -341,7 +343,7 @@ static void process_command(void)
     lpuart_write_blocking(ATCI_UNKNOWN_CMD, ATCI_UKNOWN_CMD_LEN);
 
 done:
-    if (!sysconf.async_uart) lpuart_pause_tx();
+    if (!sysconf.async_uart && !state.read_next_data.length) lpuart_pause_tx();
 }
 
 
